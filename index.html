@@ -98,7 +98,7 @@
             setTimeout(() => { if(text.includes('✓')) status.style.opacity = 0; }, 3000);
         }
 
-        const DB_KEY = "simple_gantt_portfolio_v1"; 
+        const DB_KEY = "simple_gantt_portfolio_v5"; 
         
         const defaultData = [
             ['1', 'Phase 1: Foundation', '', '', '0', '', '', '', ''],
@@ -317,7 +317,8 @@
 
         updateProjectDropdown();
 
-        sheet = jspreadsheet(document.getElementById('spreadsheet'), {
+        // Safe Initialization Wrapper checking both jspreadsheet and jexcel namespaces
+        const sheetOptions = {
             data: appDB.projects[appDB.activeId].data,
             rowDrag: true,
             columns: [
@@ -342,7 +343,15 @@
                 triggerSync();
             },
             ondeleterow: triggerSync
-        });
+        };
+
+        if (typeof jspreadsheet !== 'undefined') {
+            sheet = jspreadsheet(document.getElementById('spreadsheet'), sheetOptions);
+        } else if (typeof jexcel !== 'undefined') {
+            sheet = jexcel(document.getElementById('spreadsheet'), sheetOptions);
+        } else {
+            console.error("Critical Error: Spreadsheet library failed to load.");
+        }
 
         function forceRecalc() { syncToGantt(true); }
         function triggerSync() { if (!isSyncing) syncToGantt(); }

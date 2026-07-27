@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Gantt</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsuites/4.9.6/jsuites.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jsuites/4.9.6/jsuites.min.css" type="text/css" />
+    <script src="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@4.13.3/dist/index.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@4.13.3/dist/jspreadsheet.min.css" type="text/css" />
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/frappe-gantt/0.6.1/frappe-gantt.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/frappe-gantt/0.6.1/frappe-gantt.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dropbox.js/10.34.0/Dropbox-sdk.min.js"></script>
+
+    <style>
+        body, html { margin: 0; padding: 0; height: 100vh; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; overflow: hidden; background: #fff;}
+        header { background: #0f172a; color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #334155;}
+        .toolbar { display: flex; gap: 8px; align-items: center; }
+        .toolbar button, .toolbar select, .toolbar .file-btn { background: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500;}
+        .toolbar button:hover, .toolbar .file-btn:hover { background: #2563eb; }
+        .toolbar select { background: #334155; border: 1px solid #475569; outline: none; padding: 6px; color: white; font-weight: bold;}
+        .toolbar .file-btn input { display: none; }
+        .toggle-label { font-size: 13px; display: flex; align-items: center; gap: 5px; cursor: pointer; background: #334155; padding: 5px 10px; border-radius: 4px; border: 1px solid #475569;}
+        
+        #saveStatus { font-size: 12px; color: #10b981; font-weight: bold; opacity: 0; transition: opacity 0.3s; margin-left: 15px;}
+        
+        .workspace { display: flex; flex: 1; height: calc(100vh - 50px); }
+        .grid-panel { width: 55%; overflow: auto; border-right: 2px solid #cbd5e1; background: #f8fafc; padding: 20px; box-sizing: border-box;}
+        .chart-panel { width: 45%; overflow: auto; background: white; padding: 20px; box-sizing: border-box;}
+        
+        .gantt .bar-wrapper.is-parent .bar { fill: #0f172a !important; }
+        .gantt .bar-wrapper.is-parent .bar-progress { fill: #1e293b !important; }
+        .gantt .bar-wrapper.is-milestone .bar { fill: #f59e0b !important; clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); }
+        .gantt .bar-wrapper.is-milestone .bar-progress { display: none !important; }
+        .gantt .bar-wrapper.is-complete .bar { fill: #d1fae5 !important; } 
+        .gantt .bar-wrapper.is-complete .bar-progress { fill: #10b981 !important; } 
+        .gantt .bar-wrapper.is-overdue .bar { fill: #fee2e2 !important; } 
+        .gantt .bar-wrapper.is-overdue .bar-progress { fill: #ef4444 !important; } 
+        
+        .jexcel tbody tr td.readonly-cell { background-color: #e2e8f0; color: #64748b; font-weight: bold; }
+        .btn-today { background: #f59e0b !important; color: #0f172a !important;}
+        .btn-today:hover { background: #d97706 !important; }
+        
+        .icon-btn { padding: 6px !important; background: transparent !important; border: 1px solid #475569 !important; margin-left: 2px;}
+        .icon-btn:hover { background: #475569 !important; }
+        .btn-danger { color: #ef4444; border-color: #ef4444 !important; }
+        .btn-danger:hover { background: #fee2e2 !important; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div style="display: flex; align-items: center;">
+            <strong style="font-size: 16px; margin-right: 15px; color: #38bdf8;">🟢 Simple Gantt</strong>
+            
+            <select id="projectSelector" onchange="switchProject()"></select>
+            <button class="icon-btn" onclick="renameProject()" title="Rename Project">✏️</button>
+            <button class="icon-btn" onclick="deleteProject()" title="Delete Project">🗑️</button>
+            <button class="icon-btn btn-danger" onclick="factoryReset()" title="Hard Reset Database">💣</button>
+            
+            <span id="saveStatus">✓ Saved</span>
+        </div>
+        <div class="toolbar">
+            <button onclick="jumpToToday()" class="btn-today">📅 Today</button>
+            <select id="zoomScale" onchange="changeZoom()">
+                <option value="Day">Zoom: Day</option>
+                <option value="Week">Zoom: Week</option>
+                <option value="Month">Zoom: Month</option>
+            </select>
+            <label class="toggle-label"><input type="checkbox" id="skipWeekends" onchange="forceRecalc()"> Weekends off</label>
+            <button onclick="addRow()">➕ Row</button>
+            <label class="file-btn">⬆️ <input type="file" id="csvFile" accept=".csv" onchange="importCSV(event)"></label>
+            <button onclick="exportCSV()">⬇️ CSV</button>
+            <button onclick="exportImage()">📷</button>
+            <button id="btnDbxSave" onclick="saveToDropbox()" style="background: #0061FF;">☁️ Sync</button>
+        </div>
+    </header>
+
+    <div class="workspace">
+        <div class="grid-panel">
+            <div id="spreadsheet"></div>
+        </div>
+        <div class="chart-panel">
+            <div id="gantt"></div>
+        </div>
+    </div>
+
+    <script>
+        function format(d) { return d.toISOString().split('T')[0]; }
+
+        function showStatus(text, color) {
+            const status = document.getElementById('saveStatus');
+            status.innerText = text; status.style.color = color; status.style.opacity = 1;
+            setTimeout(() => { if(text.includes('✓')) status.style.opacity = 0; }, 3000);
+        }
+
+        const DB_KEY = "simple_gantt_portfolio_v1"; 
+        
+        const defaultData = [
+            ['1', 'Phase 1: Foundation', '', '', '0', '', '', '', ''],
+            ['2', 'Site Prep', 'Alice', '100', '0', format(new Date()), '4', '', '1']
+        ];
+
+        let appDB = {
+            activeId: 'proj_1',
+            settings: { skipWeekends: true, zoom: 'Day' },
+            projects: { 'proj_1': { name: 'My First Project', data: JSON.parse(JSON.stringify(defaultData)) } }
+        };
+
+        try {
+            const savedDb = localStorage.getItem(DB_KEY);
+            if (savedDb) appDB = JSON.parse(savedDb);
+        } catch(e) { console.error("Error loading DB", e); }
+
+        document.getElementById('skipWeekends').checked = appDB.settings.skipWeekends;
+        document.getElementById('zoomScale').value = appDB.settings.zoom || 'Day';
+
+        function updateProjectDropdown() {
+            const selector = document.getElementById('projectSelector');
+            selector.innerHTML = '';
+            for (let id in appDB.projects) {
+                let opt = document.createElement('option');
+                opt.value = id; opt.innerText = appDB.projects[id].name;
+                if (id === appDB.activeId) opt.selected = true;
+                selector.appendChild(opt);
+            }
+            let newOpt = document.createElement('option');
+            newOpt.value = '__NEW__'; newOpt.innerText = '➕ Create New Project...';
+            selector.appendChild(newOpt);
+        }
+
+        function switchProject() {
+            const val = document.getElementById('projectSelector').value;
+            if (val === '__NEW__') {
+                createNewProject();
+            } else {
+                appDB.activeId = val;
+                isSyncing = true; 
+                sheet.setData(appDB.projects[val].data);
+                isSyncing = false; 
+                syncToGantt(true); 
+            }
+        }
+
+        function createNewProject() {
+            let name = prompt("Enter new project name:", "Untitled Project");
+            if (!name) { updateProjectDropdown(); return; } 
+            
+            let newId = 'proj_' + Date.now();
+            appDB.projects[newId] = {
+                name: name,
+                data: JSON.parse(JSON.stringify(defaultData)) 
+            };
+            appDB.activeId = newId;
+            updateProjectDropdown();
+            
+            isSyncing = true;
+            sheet.setData(appDB.projects[newId].data);
+            isSyncing = false;
+            syncToGantt(true);
+        }
+
+        function renameProject() {
+            let currentName = appDB.projects[appDB.activeId].name;
+            let newName = prompt("Rename project:", currentName);
+            if (newName && newName !== currentName) {
+                appDB.projects[appDB.activeId].name = newName;
+                updateProjectDropdown();
+                saveToLocal();
+            }
+        }
+
+        function deleteProject() {
+            let ids = Object.keys(appDB.projects);
+            if (ids.length <= 1) { alert("You cannot delete your only project."); return; }
+            if (confirm(`Are you sure you want to delete '${appDB.projects[appDB.activeId].name}'?`)) {
+                delete appDB.projects[appDB.activeId];
+                appDB.activeId = Object.keys(appDB.projects)[0]; 
+                updateProjectDropdown();
+                
+                isSyncing = true;
+                sheet.setData(appDB.projects[appDB.activeId].data);
+                isSyncing = false;
+                syncToGantt(true);
+            }
+        }
+
+        function factoryReset() {
+            if(confirm("🚨 WARNING: This will completely delete all projects and settings in your browser storage. Do you want to proceed?")) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+
+        function saveToLocal() {
+            if(!sheet) return;
+            appDB.projects[appDB.activeId].data = sheet.getData();
+            appDB.settings.skipWeekends = document.getElementById('skipWeekends').checked;
+            appDB.settings.zoom = document.getElementById('zoomScale').value;
+            localStorage.setItem(DB_KEY, JSON.stringify(appDB));
+            showStatus("✓ Saved", "#10b981");
+        }
+
+        // ==========================================
+        // 2. DROPBOX CONFIGURATION & AUTH FLOW
+        // ==========================================
+        const DROPBOX_APP_KEY = 'YOUR_APP_KEY_HERE'; // <-- PASTE YOUR KEY HERE
+        let dbx = null;
+
+        if (window.location.hash.includes('access_token')) {
+            const params = new URLSearchParams(window.location.hash.substring(1));
+            localStorage.setItem('dropbox_token', params.get('access_token'));
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+        if (localStorage.getItem('dropbox_token')) {
+            dbx = new Dropbox.Dropbox({ accessToken: localStorage.getItem('dropbox_token') });
+        } else {
+            document.getElementById('btnDbxSave').innerText = "☁️ Login DropBox";
+        }
+
+        function saveToDropbox() {
+            if (!dbx) {
+                const redirectUri = encodeURIComponent(window.location.href.split('#')[0]);
+                window.location.href = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_APP_KEY}&response_type=token&redirect_uri=${redirectUri}`;
+                return;
+            }
+            showStatus("Syncing...", "#f59e0b");
+            const csvString = Papa.unparse(sheet.getData());
+            let safeName = appDB.projects[appDB.activeId].name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            let filepath = `/${safeName}.csv`;
+
+            dbx.filesUpload({ path: filepath, contents: csvString, mode: { '.tag': 'overwrite' } })
+            .then(() => showStatus(`✓ Synced to DropBox`, "#10b981"))
+            .catch(err => { if(err.status === 401) { localStorage.removeItem('dropbox_token'); location.reload(); }});
+        }
+
+        // ==========================================
+        // 3. UI HELPERS
+        // ==========================================
+        function exportImage() {
+            html2canvas(document.querySelector('.chart-panel'), { scale: 2 }).then(canvas => {
+                const link = document.createElement('a'); link.download = `${appDB.projects[appDB.activeId].name}.png`;
+                link.href = canvas.toDataURL('image/png'); link.click();
+            });
+        }
+        function changeZoom() { if (ganttChart) ganttChart.change_view_mode(document.getElementById('zoomScale').value); saveToLocal(); }
+        function jumpToToday() {
+            const todayLine = document.querySelector('.today-highlight');
+            const container = document.querySelector('.gantt-container');
+            if (todayLine && container) container.scrollTo({ left: Math.max(0, todayLine.getAttribute('x') - (container.clientWidth / 2)), behavior: 'smooth' });
+        }
+
+        // ==========================================
+        // 4. CORE GANTT ENGINE 
+        // ==========================================
+        const COL = { ID: 0, NAME: 1, RESOURCE: 2, ALLOC: 3, PCT: 4, START: 5, DUR: 6, DEP: 7, PARENT: 8 };
+        let ganttChart; let isSyncing = false; let sheet;
+
+        function shouldSkipWeekends() { return document.getElementById('skipWeekends').checked; }
+
+        function calculateEndDate(startDate, durationDays) {
+            if (!startDate) return '';
+            if (durationDays === 0) return startDate; 
+            let d = new Date(startDate); let added = 0; let visualDaysToMove = durationDays - 1;
+            if (shouldSkipWeekends()) {
+                while (added < visualDaysToMove) {
+                    d.setDate(d.getDate() + 1); if (d.getDay() !== 0 && d.getDay() !== 6) added++;
+                }
+            } else { d.setDate(d.getDate() + visualDaysToMove); }
+            d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0];
+        }
+
+        function calculateWorkingDays(startDate, endDate) {
+            let s = new Date(startDate); let e = new Date(endDate); e.setDate(e.getDate() - 1); 
+            if (!shouldSkipWeekends()) return Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
+            let days = 0; let temp = new Date(s);
+            while (temp <= e) {
+                if (temp.getDay() !== 0 && temp.getDay() !== 6) days++; temp.setDate(temp.getDate() + 1);
+            }
+            return days;
+        }
+
+        function formatCells(instance, cell, col, row, val, label, cellName) {
+            if (!instance || !instance.jexcel) return;
+            let data = instance.jexcel.getData();
+            if (!data || !data[row]) return;
+
+            let rowID = data[row][COL.ID]; 
+            let parentID = data[row][COL.PARENT];
+            let hasDependency = data[row][COL.DEP] && data[row][COL.DEP].toString().trim() !== "";
+            
+            let parentIDs = [...new Set(data.map(r => r[COL.PARENT]).filter(p => p !== ""))];
+            let isParent = parentIDs.includes(rowID);
+            
+            cell.classList.remove('readonly-cell', 'readonly'); 
+            if (col == COL.ID) cell.classList.add('readonly-cell', 'readonly');
+            
+            if (col == COL.NAME) {
+                if (parentID) {
+                    cell.style.paddingLeft = '25px'; cell.style.borderLeft = '3px solid #cbd5e1'; 
+                } else {
+                    cell.style.paddingLeft = '8px'; cell.style.borderLeft = 'none';
+                    cell.style.fontWeight = isParent ? 'bold' : 'normal';
+                }
+            }
+            
+            if (isParent && [COL.START, COL.DUR, COL.PCT, COL.ALLOC].includes(parseInt(col))) {
+                cell.classList.add('readonly-cell', 'readonly');
+            } else if (hasDependency && col == COL.START) {
+                cell.classList.add('readonly-cell', 'readonly');
+            }
+        }
+
+        updateProjectDropdown();
+
+        sheet = jspreadsheet(document.getElementById('spreadsheet'), {
+            data: appDB.projects[appDB.activeId].data,
+            rowDrag: true,
+            columns: [
+                { type: 'text', title: 'ID', width: 35, readOnly: true },
+                { type: 'text', title: 'Task Name', width: 160 },
+                { type: 'text', title: 'Resource', width: 75 },
+                { type: 'numeric', title: 'Alloc', width: 55 },
+                { type: 'numeric', title: '% Done', width: 55 },
+                { type: 'calendar', title: 'Start', width: 90, options: { format: 'YYYY-MM-DD' } },
+                { type: 'numeric', title: 'Dur.', width: 45 },
+                { type: 'dropdown', title: 'Depends', width: 80, source: [], autocomplete: true, multiple: true },
+                { type: 'dropdown', title: 'Parent', width: 60, source: [], autocomplete: true }
+            ],
+            updateTable: formatCells,
+            onchange: triggerSync,
+            onmoverow: triggerSync,
+            oninsertrow: function(instance, rowNumber) {
+                let data = sheet.getData();
+                let maxId = Math.max(0, ...data.map(r => parseInt(r[COL.ID]) || 0));
+                sheet.setValueFromCoords(COL.ID, rowNumber, (maxId + 1).toString(), true);
+                sheet.setValueFromCoords(COL.ALLOC, rowNumber, '100', true);
+                triggerSync();
+            },
+            ondeleterow: triggerSync
+        });
+
+        function forceRecalc() { syncToGantt(true); }
+        function triggerSync() { if (!isSyncing) syncToGantt(); }
+
+        function syncToGantt(forceRecalculateDates = false) {
+            isSyncing = true; 
+            try {
+                let rawData = sheet.getData();
+                let sourceList = rawData.map(r => ({ id: r[COL.ID], name: `${r[COL.ID]}-${r[COL.NAME] || ''}` })).filter(r => r.id);
+                sheet.options.columns[COL.DEP].source = sourceList;
+                sheet.options.columns[COL.PARENT].source = sourceList;
+
+                let tasksMap = {};
+                let parentIDs = [...new Set(rawData.map(r => r[COL.PARENT]).filter(p => p !== ""))];
+
+                rawData.forEach((row, index) => {
+                    let id = row[COL.ID]; if (!id) return;
+                    let depArray = (row[COL.DEP] ? row[COL.DEP].toString() : "").split(';').map(d => d.trim()).filter(d => d !== "");
+                    let rawAlloc = row[COL.ALLOC] !== "" ? parseInt(row[COL.ALLOC]) : 100;
+                    
+                    tasksMap[id] = {
+                        id: id, name: row[COL.NAME], resource: row[COL.RESOURCE], alloc: rawAlloc, pct: parseInt(row[COL.PCT]) || 0,
+                        start: row[COL.START], dur: parseInt(row[COL.DUR]) || 0, end: '', dependenciesArray: depArray, 
+                        frappeDependencies: depArray.join(', '), parentId: row[COL.PARENT], rowIndex: index, isParent: parentIDs.includes(id)
+                    };
+                });
+
+                let loopLimit = 100; let changed = true;
+                while (changed && loopLimit > 0) {
+                    changed = false; loopLimit--;
+                    for (let id in tasksMap) {
+                        let t = tasksMap[id]; if (t.isParent) continue;
+                        if (t.dependenciesArray.length > 0) {
+                            let maxDepEnd = null;
+                            t.dependenciesArray.forEach(depId => {
+                                if (tasksMap[depId] && (tasksMap[depId].end || tasksMap[depId].dur === 0)) {
+                                    let dEnd = new Date(tasksMap[depId].end || tasksMap[depId].start);
+                                    if (!maxDepEnd || dEnd > maxDepEnd) maxDepEnd = dEnd;
+                                }
+                            });
+                            if (maxDepEnd) {
+                                let calculatedStart = format(maxDepEnd);
+                                if (shouldSkipWeekends()) {
+                                    let checkDate = new Date(calculatedStart);
+                                    if (checkDate.getDay() === 6) checkDate.setDate(checkDate.getDate() + 2);
+                                    if (checkDate.getDay() === 0) checkDate.setDate(checkDate.getDate() + 1);
+                                    calculatedStart = format(checkDate);
+                                }
+                                if (t.start !== calculatedStart || forceRecalculateDates) {
+                                    t.start = calculatedStart; sheet.setValueFromCoords(COL.START, t.rowIndex, t.start, true); changed = true;
+                                }
+                            }
+                        }
+                        if (t.start && t.dur >= 0) {
+                            let calcEnd = (t.dur === 0) ? t.start : calculateEndDate(t.start, t.dur);
+                            if (t.end !== calcEnd || forceRecalculateDates) { t.end = calcEnd; changed = true; }
+                        }
+                    }
+                }
+
+                parentIDs.forEach(parentId => {
+                    let pTask = tasksMap[parentId];
+                    let children = Object.values(tasksMap).filter(t => t.parentId === parentId && t.start && (t.end || t.dur === 0));
+                    if (children.length > 0 && pTask) {
+                        let minStart = new Date(Math.min(...children.map(c => new Date(c.start))));
+                        let maxEnd = new Date(Math.max(...children.map(c => new Date(c.end || c.start))));
+                        pTask.start = format(minStart); pTask.end = format(maxEnd);
+                        pTask.dur = calculateWorkingDays(pTask.start, pTask.end);
+                        
+                        let totalDur = 0; let totalWeightedPct = 0;
+                        children.forEach(c => { totalDur += c.dur; totalWeightedPct += (c.dur * c.pct); });
+                        pTask.pct = totalDur > 0 ? Math.round(totalWeightedPct / totalDur) : 0;
+                        
+                        sheet.setValueFromCoords(COL.START, pTask.rowIndex, pTask.start, true);
+                        sheet.setValueFromCoords(COL.DUR, pTask.rowIndex, pTask.dur, true);
+                        sheet.setValueFromCoords(COL.PCT, pTask.rowIndex, pTask.pct, true);
+                        sheet.setValueFromCoords(COL.ALLOC, pTask.rowIndex, '', true); 
+                    }
+                });
+
+                let today = new Date(); today.setHours(0,0,0,0);
+
+                const frappeTasks = Object.values(tasksMap).filter(t => t.start && (t.end || t.dur === 0)).map(t => {
+                    let displayName = t.name;
+                    if (t.resource) displayName += (t.alloc === 100) ? ` [${t.resource}]` : ` [${t.resource} @ ${t.alloc}%]`;
+                    
+                    let fEnd = t.end; let customClass = t.isParent ? 'is-parent' : '';
+
+                    if (t.dur === 0) {
+                        customClass = 'is-milestone';
+                        let d = new Date(t.start); d.setDate(d.getDate() + 1); fEnd = format(d);
+                    } else if (!t.isParent) {
+                        let taskEndDate = new Date(t.end);
+                        if (t.pct === 100) { customClass = 'is-complete'; } 
+                        else if (taskEndDate < today) { customClass = 'is-overdue'; }
+                    }
+
+                    return {
+                        id: t.id, name: displayName, start: t.start, end: fEnd, progress: t.pct,
+                        dependencies: t.frappeDependencies, custom_class: customClass,
+                        _rawName: t.name, _resource: t.resource || "Unassigned", _alloc: t.alloc
+                    };
+                });
+
+                const chartContainer = document.getElementById('gantt');
+                if (frappeTasks.length === 0) {
+                    chartContainer.innerHTML = '<div style="color:#94a3b8; margin-top: 20px;">Add Durations to render the chart.</div>';
+                } else {
+                    chartContainer.innerHTML = ''; 
+                    ganttChart = new Gantt('#gantt', frappeTasks, {
+                        view_mode: document.getElementById('zoomScale').value || 'Day',
+                        on_date_change: (task, start, end) => { syncToGrid(task, start, end, 'date'); },
+                        on_progress_change: (task, progress) => { syncToGrid(task, null, null, 'progress', progress); },
+                        custom_popup_html: function(task) {
+                            let statusIcon = task.progress === 100 ? '✅' : '⏳';
+                            let resText = task._resource !== "Unassigned" ? `👤 ${task._resource} (${task._alloc}%)` : `👤 Unassigned`;
+                            return `
+                                <div style="padding: 12px; background: #0f172a; color: #f8fafc; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-family: sans-serif; min-width: 180px;">
+                                    <div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid #334155; padding-bottom: 4px;">${task._rawName}</div>
+                                    <div style="font-size: 12px; margin-bottom: 4px;">📅 ${task.start} ➝ ${task.end}</div>
+                                    <div style="font-size: 12px; margin-bottom: 4px;">${resText}</div>
+                                    <div style="font-size: 12px; margin-top: 6px; font-weight: bold; color: #38bdf8;">${statusIcon} ${task.progress}% Complete</div>
+                                </div>
+                            `;
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error("Gantt Rendering Error:", err);
+            } finally {
+                isSyncing = false; 
+                saveToLocal();
+            }
+        }
+
+        function syncToGrid(task, start, end, mode, progress) {
+            isSyncing = true;
+            let rawData = sheet.getData();
+            let rowIndex = rawData.findIndex(row => row[COL.ID] === task.id);
+            if (rowIndex > -1) {
+                if (mode === 'date') {
+                    if (parseInt(rawData[rowIndex][COL.DUR]) === 0) { isSyncing = false; return; }
+                    let startStr = format(start); let newDur = calculateWorkingDays(start, end);
+                    let hasDep = rawData[rowIndex][COL.DEP] && rawData[rowIndex][COL.DEP].toString().trim() !== "";
+                    if (!hasDep) sheet.setValueFromCoords(COL.START, rowIndex, startStr, true);
+                    sheet.setValueFromCoords(COL.DUR, rowIndex, newDur, true);
+                } else if (mode === 'progress') {
+                    sheet.setValueFromCoords(COL.PCT, rowIndex, progress, true);
+                }
+            }
+            isSyncing = false;
+            syncToGantt(); 
+        }
+
+        function addRow() { 
+            try { sheet.insertRow(); } catch(e) { console.error(e); }
+        }
+        
+        function exportCSV() { 
+            const csv = Papa.unparse(sheet.getData());
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `${appDB.projects[appDB.activeId].name.replace(/ /g, '_')}.csv`;
+            link.click();
+        }
+        
+        function importCSV(event) {
+            const file = event.target.files[0]; if(!file) return;
+            Papa.parse(file, { skipEmptyLines: true, complete: function(results) {
+                let data = results.data; if(data[0] && data[0][0] === 'ID') data.shift(); 
+                sheet.setData(data); syncToGantt(); event.target.value = ''; 
+            }});
+        }
+
+        syncToGantt();
+        setTimeout(jumpToToday, 500);
+    </script>
+</body>
+</html>

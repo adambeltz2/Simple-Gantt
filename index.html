@@ -98,17 +98,27 @@
             setTimeout(() => { if(text.includes('✓')) status.style.opacity = 0; }, 3000);
         }
 
-        const DB_KEY = "simple_gantt_portfolio_v5"; 
+        const DB_KEY = "simple_gantt_portfolio_v6"; 
         
-        const defaultData = [
-            ['1', 'Phase 1: Foundation', '', '', '0', '', '', '', ''],
-            ['2', 'Site Prep', 'Alice', '100', '0', format(new Date()), '4', '', '1']
+        // Dynamic dates relative to today so the sample project always renders correctly on load
+        const todayObj = new Date();
+        const dateStr1 = format(todayObj);
+        
+        const futureDate1 = new Date(); futureDate1.setDate(todayObj.getDate() + 5);
+        const dateStr2 = format(futureDate1);
+
+        const sampleProjectData = [
+            ['1', 'Website Redesign Phase', '', '', '0', '', '', '', ''],
+            ['2', 'Discovery & Wireframes', 'Alice', '100', '100', dateStr1, '3', '', '1'],
+            ['3', 'UI Design & Assets', 'Bob', '100', '50', '', '5', '2', '1'],
+            ['4', 'Frontend Implementation', 'Charlie', '100', '0', '', '7', '3', '1'],
+            ['5', 'Launch Milestone', '', '', '0', '', '0', '4', '1']
         ];
 
         let appDB = {
             activeId: 'proj_1',
             settings: { skipWeekends: true, zoom: 'Day' },
-            projects: { 'proj_1': { name: 'My First Project', data: JSON.parse(JSON.stringify(defaultData)) } }
+            projects: { 'proj_1': { name: 'Website Redesign', data: sampleProjectData } }
         };
 
         try {
@@ -121,6 +131,7 @@
 
         function updateProjectDropdown() {
             const selector = document.getElementById('projectSelector');
+            if(!selector) return;
             selector.innerHTML = '';
             for (let id in appDB.projects) {
                 let opt = document.createElement('option');
@@ -153,7 +164,7 @@
             let newId = 'proj_' + Date.now();
             appDB.projects[newId] = {
                 name: name,
-                data: JSON.parse(JSON.stringify(defaultData)) 
+                data: JSON.parse(JSON.stringify(sampleProjectData)) 
             };
             appDB.activeId = newId;
             updateProjectDropdown();
@@ -219,7 +230,8 @@
         if (localStorage.getItem('dropbox_token')) {
             dbx = new Dropbox.Dropbox({ accessToken: localStorage.getItem('dropbox_token') });
         } else {
-            document.getElementById('btnDbxSave').innerText = "☁️ Login DropBox";
+            let dbxBtn = document.getElementById('btnDbxSave');
+            if(dbxBtn) dbxBtn.innerText = "☁️ Login DropBox";
         }
 
         function saveToDropbox() {
@@ -317,7 +329,6 @@
 
         updateProjectDropdown();
 
-        // Safe Initialization Wrapper checking both jspreadsheet and jexcel namespaces
         const sheetOptions = {
             data: appDB.projects[appDB.activeId].data,
             rowDrag: true,

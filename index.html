@@ -5,11 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Simple Gantt</title>
     
+    <!-- MATCHING V4 LIBRARIES: Guaranteed stable initialization -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsuites/4.9.6/jsuites.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jsuites/4.9.6/jsuites.min.css" type="text/css" />
-    <script src="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@4.13.3/dist/index.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@4.13.3/dist/jspreadsheet.min.css" type="text/css" />
+    <script src="https://jsuites.net/v4/jsuites.js"></script>
+    <link rel="stylesheet" href="https://jsuites.net/v4/jsuites.css" type="text/css" />
+    <script src="https://bossanova.uk/jspreadsheet/v4/jexcel.js"></script>
+    <link rel="stylesheet" href="https://bossanova.uk/jspreadsheet/v4/jexcel.css" type="text/css" />
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/frappe-gantt/0.6.1/frappe-gantt.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/frappe-gantt/0.6.1/frappe-gantt.css">
@@ -19,19 +20,27 @@
     <style>
         body, html { margin: 0; padding: 0; height: 100vh; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; overflow: hidden; background: #fff;}
         header { background: #0f172a; color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #334155;}
-        .toolbar { display: flex; gap: 8px; align-items: center; }
+        
+        .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap;}
         .toolbar button, .toolbar select, .toolbar .file-btn { background: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500;}
         .toolbar button:hover, .toolbar .file-btn:hover { background: #2563eb; }
         .toolbar select { background: #334155; border: 1px solid #475569; outline: none; padding: 6px; color: white; font-weight: bold;}
         .toolbar .file-btn input { display: none; }
-        .toggle-label { font-size: 13px; display: flex; align-items: center; gap: 5px; cursor: pointer; background: #334155; padding: 5px 10px; border-radius: 4px; border: 1px solid #475569;}
+        .toggle-label { font-size: 13px; display: flex; align-items: center; gap: 5px; cursor: pointer; background: #334155; padding: 5px 10px; border-radius: 4px; border: 1px solid #475569; color: white;}
         
         #saveStatus { font-size: 12px; color: #10b981; font-weight: bold; opacity: 0; transition: opacity 0.3s; margin-left: 15px;}
         
-        .workspace { display: flex; flex: 1; height: calc(100vh - 50px); }
-        .grid-panel { width: 55%; overflow: auto; border-right: 2px solid #cbd5e1; background: #f8fafc; padding: 20px; box-sizing: border-box;}
-        .chart-panel { width: 45%; overflow: auto; background: white; padding: 20px; box-sizing: border-box;}
+        .workspace { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+        .grid-panel { width: 55%; overflow: auto; background: #f8fafc; padding: 20px; box-sizing: border-box; }
+        .resizer { width: 8px; background: #cbd5e1; cursor: col-resize; flex-shrink: 0; z-index: 10; transition: background 0.2s;}
+        .resizer:hover, .resizer.resizing { background: #3b82f6; }
+        .chart-panel { flex: 1; overflow: auto; background: white; padding: 20px; box-sizing: border-box; }
         
+        footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 8px 20px; display: flex; justify-content: flex-end; align-items: center; gap: 20px; font-size: 13px; color: #64748b; }
+        footer a { color: #64748b; text-decoration: none; display: flex; align-items: center; gap: 6px; font-weight: 600; transition: color 0.2s; }
+        footer a.gh:hover { color: #0f172a; }
+        footer a.bmc:hover { color: #f59e0b; }
+
         .gantt .bar-wrapper.is-parent .bar { fill: #0f172a !important; }
         .gantt .bar-wrapper.is-parent .bar-progress { fill: #1e293b !important; }
         .gantt .bar-wrapper.is-milestone .bar { fill: #f59e0b !important; clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); }
@@ -44,48 +53,106 @@
         .jexcel tbody tr td.readonly-cell { background-color: #e2e8f0; color: #64748b; font-weight: bold; }
         .btn-today { background: #f59e0b !important; color: #0f172a !important;}
         .btn-today:hover { background: #d97706 !important; }
+        .btn-start { background: #0ea5e9 !important; color: #0f172a !important;}
+        .btn-start:hover { background: #0284c7 !important; color: white !important;}
+        .btn-special { background: #8b5cf6 !important; }
+        .btn-special:hover { background: #7c3aed !important; }
         
-        .icon-btn { padding: 6px !important; background: transparent !important; border: 1px solid #475569 !important; margin-left: 2px;}
-        .icon-btn:hover { background: #475569 !important; }
-        .btn-danger { color: #ef4444; border-color: #ef4444 !important; }
-        .btn-danger:hover { background: #fee2e2 !important; }
+        .header-btn { padding: 6px 12px !important; background: #1e293b; color: #f8fafc; border: 1px solid #475569; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer; margin-left: 5px;}
+        .header-btn:hover { background: #334155; }
+        .btn-danger { color: #ef4444; border-color: #ef4444; background: transparent;}
+        .btn-danger:hover { background: #fee2e2; color: #b91c1c; }
+
+        /* Modal Styles for Workload View */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(15, 23, 42, 0.6); align-items: center; justify-content: center; backdrop-filter: blur(3px);}
+        .modal.active { display: flex; }
+        .modal-content { background-color: #ffffff; border-radius: 8px; width: 95%; max-width: 1400px; height: 85vh; padding: 25px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); display: flex; flex-direction: column; }
+        .workload-table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; text-align: center; }
+        .workload-table th, .workload-table td { border-bottom: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; padding: 8px 6px; min-width: 45px;}
+        .workload-table th { background: #f1f5f9; position: sticky; top: 0; z-index: 2; color: #334155; font-weight: 600; border-top: 1px solid #cbd5e1;}
+        .workload-table th:first-child { left: 0; z-index: 3; background: #f8fafc; text-align: left; padding-left: 15px; width: 140px; border-left: 1px solid #cbd5e1;}
+        .workload-table td:first-child { position: sticky; left: 0; background: #f8fafc; font-weight: bold; text-align: left; padding-left: 15px; z-index: 1; border-left: 1px solid #cbd5e1;}
+        .cell-ok { background-color: #d1fae5; color: #065f46; font-weight: 500;}
+        .cell-over { background-color: #fee2e2; color: #991b1b; font-weight: 800; }
+        .cell-empty { color: #94a3b8; }
     </style>
 </head>
 <body>
 
     <header>
         <div style="display: flex; align-items: center;">
-            <strong style="font-size: 16px; margin-right: 15px; color: #38bdf8;">🟢 Simple Gantt</strong>
+            <strong style="font-size: 16px; margin-right: 15px; color: #38bdf8;">Simple Gantt</strong>
             
             <select id="projectSelector" onchange="switchProject()"></select>
-            <button class="icon-btn" onclick="renameProject()" title="Rename Project">✏️</button>
-            <button class="icon-btn" onclick="deleteProject()" title="Delete Project">🗑️</button>
-            <button class="icon-btn btn-danger" onclick="factoryReset()" title="Hard Reset Database">💣</button>
+            <button class="header-btn" onclick="renameProject()">Rename</button>
+            <button class="header-btn" onclick="deleteProject()">Delete</button>
+            <button class="header-btn btn-danger" onclick="factoryReset()">Reset App</button>
             
             <span id="saveStatus">✓ Saved</span>
         </div>
         <div class="toolbar">
-            <button onclick="jumpToToday()" class="btn-today">📅 Today</button>
+            <button onclick="jumpToProjectStart()" class="btn-start">Jump to Start</button>
+            <button onclick="jumpToToday()" class="btn-today">Today</button>
+            <button onclick="openWorkloadModal()" class="btn-special">👥 Workload</button>
             <select id="zoomScale" onchange="changeZoom()">
                 <option value="Day">Zoom: Day</option>
                 <option value="Week">Zoom: Week</option>
                 <option value="Month">Zoom: Month</option>
             </select>
             <label class="toggle-label"><input type="checkbox" id="skipWeekends" onchange="forceRecalc()"> Weekends off</label>
-            <button onclick="addRow()">➕ Row</button>
-            <label class="file-btn">⬆️ <input type="file" id="csvFile" accept=".csv" onchange="importCSV(event)"></label>
-            <button onclick="exportCSV()">⬇️ CSV</button>
-            <button onclick="exportImage()">📷</button>
-            <button id="btnDbxSave" onclick="saveToDropbox()" style="background: #0061FF;">☁️ Sync</button>
+            <button onclick="addRow()">Add Row</button>
+            <label class="file-btn">Import CSV <input type="file" id="csvFile" accept=".csv" onchange="importCSV(event)"></label>
+            <button onclick="exportCSV()">Export CSV</button>
+            <button onclick="exportImage()">Export PNG</button>
+            <button id="btnDbxSave" onclick="saveToDropbox()" style="background: #0061FF;">Dropbox Sync</button>
         </div>
     </header>
 
     <div class="workspace">
-        <div class="grid-panel">
+        <div class="grid-panel" id="gridPanel">
             <div id="spreadsheet"></div>
         </div>
+        <div class="resizer" id="dragDivider"></div>
         <div class="chart-panel">
             <div id="gantt"></div>
+        </div>
+    </div>
+    
+    <footer>
+        <a href="https://github.com/adambeltz2/Simple-Gantt" target="_blank" class="gh">
+            <svg height="16" viewBox="0 0 16 16" width="16" fill="currentColor"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
+            GitHub
+        </a>
+        <a href="https://buymeacoffee.com/adambeltz" target="_blank" class="bmc">
+            <svg height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
+            Buy me a coffee
+        </a>
+    </footer>
+
+    <!-- WORKLOAD MODAL -->
+    <div id="workloadModal" class="modal" onclick="if(event.target===this) closeWorkloadModal()">
+        <div class="modal-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+                <h2 style="margin:0; color:#0f172a; font-size: 20px;">👥 Resource Workload Dashboard</h2>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label style="font-weight: bold; font-size: 13px; color: #475569;">Resolution:</label>
+                    <select id="workloadView" onchange="renderWorkloadTable()" style="padding:6px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none; font-weight: bold; color: #0f172a;">
+                        <option value="Day">Daily</option>
+                        <option value="Week">Weekly</option>
+                        <option value="Month">Monthly</option>
+                    </select>
+                    
+                    <label style="font-weight: bold; font-size: 13px; color: #475569; margin-left: 10px;">Unit:</label>
+                    <select id="workloadUnit" onchange="renderWorkloadTable()" style="padding:6px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none; font-weight: bold; color: #0f172a;">
+                        <option value="percent">Percentage (%)</option>
+                        <option value="hours">Hours (8h/day)</option>
+                    </select>
+                    
+                    <button onclick="exportWorkloadCSV()" style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-left: 10px;">Export CSV</button>
+                    <button onclick="closeWorkloadModal()" style="padding: 6px 15px; background: #ef4444; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-left: 5px;">Close</button>
+                </div>
+            </div>
+            <div id="workloadTableContainer" style="flex: 1; overflow: auto; background: white; border-radius: 4px;"></div>
         </div>
     </div>
 
@@ -98,33 +165,55 @@
             setTimeout(() => { if(text.includes('✓')) status.style.opacity = 0; }, 3000);
         }
 
-        const DB_KEY = "simple_gantt_portfolio_v6"; 
+        const DB_KEY = "simple_gantt_portfolio_v26"; 
         
-        // Dynamic dates relative to today so the sample project always renders correctly on load
         const todayObj = new Date();
         const dateStr1 = format(todayObj);
         
-        const futureDate1 = new Date(); futureDate1.setDate(todayObj.getDate() + 5);
-        const dateStr2 = format(futureDate1);
-
         const sampleProjectData = [
-            ['1', 'Website Redesign Phase', '', '', '0', '', '', '', ''],
-            ['2', 'Discovery & Wireframes', 'Alice', '100', '100', dateStr1, '3', '', '1'],
-            ['3', 'UI Design & Assets', 'Bob', '100', '50', '', '5', '2', '1'],
-            ['4', 'Frontend Implementation', 'Charlie', '100', '0', '', '7', '3', '1'],
-            ['5', 'Launch Milestone', '', '', '0', '', '0', '4', '1']
+            ['1', '1', 'Website Redesign Phase', '', '', '0', '', '', '', '', ''],
+            ['2', '1.1', 'Discovery & Wireframes', 'Alice 50%, Bob', '100', '100', dateStr1, '3', '', '', '1'],
+            ['3', '1.2', 'UI Design & Assets', 'Bob (50%), Charlie @ 50%', '100', '50', '', '5', '', '2', '1'],
+            ['4', '1.3', 'Frontend Implementation', 'Charlie', '100', '0', '', '7', '', '3', '1'],
+            ['5', '1.4', 'Launch Milestone', '', '', '0', '', '0', '', '4', '1']
         ];
 
         let appDB = {
             activeId: 'proj_1',
             settings: { skipWeekends: true, zoom: 'Day' },
-            projects: { 'proj_1': { name: 'Website Redesign', data: sampleProjectData } }
+            projects: { 'proj_1': { name: 'Example Project', columns: [], data: sampleProjectData } }
         };
 
         try {
-            const savedDb = localStorage.getItem(DB_KEY);
-            if (savedDb) appDB = JSON.parse(savedDb);
+            let savedDb = localStorage.getItem(DB_KEY) || 
+                          localStorage.getItem("simple_gantt_portfolio_v25") ||
+                          localStorage.getItem("simple_gantt_portfolio_v24") ||
+                          localStorage.getItem("simple_gantt_portfolio_v23") ||
+                          localStorage.getItem("simple_gantt_portfolio_v22") ||
+                          localStorage.getItem("simple_gantt_portfolio_v21") ||
+                          localStorage.getItem("simple_gantt_portfolio_v20") ||
+                          localStorage.getItem("simple_gantt_portfolio_v19") ||
+                          localStorage.getItem("simple_gantt_portfolio_v18") ||
+                          localStorage.getItem("simple_gantt_portfolio_v17");
+            if (savedDb) {
+                appDB = JSON.parse(savedDb);
+                for (let pid in appDB.projects) {
+                    if (!appDB.projects[pid].columns) appDB.projects[pid].columns = [];
+                    appDB.projects[pid].data = normalizeData(appDB.projects[pid].data, appDB.projects[pid].columns.length);
+                }
+            }
         } catch(e) { console.error("Error loading DB", e); }
+
+        function normalizeData(data, customColsCount) {
+            let targetLength = 11 + (customColsCount || 0);
+            if (!data || !Array.isArray(data) || data.length === 0) return [['1', '1', '', '', '100', '0', '', '', '', '', ...Array(customColsCount || 0).fill('')]];
+            return data.map(row => {
+                if (row.length === 9) row.splice(7, 0, ''); 
+                if (row.length === 10) row.splice(1, 0, ''); 
+                while (row.length < targetLength) row.push('');
+                return row;
+            });
+        }
 
         document.getElementById('skipWeekends').checked = appDB.settings.skipWeekends;
         document.getElementById('zoomScale').value = appDB.settings.zoom || 'Day';
@@ -150,28 +239,24 @@
                 createNewProject();
             } else {
                 appDB.activeId = val;
-                isSyncing = true; 
-                sheet.setData(appDB.projects[val].data);
-                isSyncing = false; 
-                syncToGantt(true); 
+                renderGrid();
+                syncToGantt(true);
             }
         }
 
         function createNewProject() {
-            let name = prompt("Enter new project name:", "Untitled Project");
+            let name = prompt("Enter new project name:", "New Project");
             if (!name) { updateProjectDropdown(); return; } 
             
             let newId = 'proj_' + Date.now();
             appDB.projects[newId] = {
                 name: name,
-                data: JSON.parse(JSON.stringify(sampleProjectData)) 
+                columns: [],
+                data: [['1', '1', '', '', '100', '0', '', '', '', '', '']] 
             };
             appDB.activeId = newId;
             updateProjectDropdown();
-            
-            isSyncing = true;
-            sheet.setData(appDB.projects[newId].data);
-            isSyncing = false;
+            renderGrid();
             syncToGantt(true);
         }
 
@@ -192,10 +277,7 @@
                 delete appDB.projects[appDB.activeId];
                 appDB.activeId = Object.keys(appDB.projects)[0]; 
                 updateProjectDropdown();
-                
-                isSyncing = true;
-                sheet.setData(appDB.projects[appDB.activeId].data);
-                isSyncing = false;
+                renderGrid();
                 syncToGantt(true);
             }
         }
@@ -217,9 +299,9 @@
         }
 
         // ==========================================
-        // 2. DROPBOX CONFIGURATION & AUTH FLOW
+        // DROPBOX CONFIGURATION
         // ==========================================
-        const DROPBOX_APP_KEY = 'YOUR_APP_KEY_HERE'; // <-- PASTE YOUR KEY HERE
+        const DROPBOX_APP_KEY = '63246m2wldbbmwi'; 
         let dbx = null;
 
         if (window.location.hash.includes('access_token')) {
@@ -231,7 +313,7 @@
             dbx = new Dropbox.Dropbox({ accessToken: localStorage.getItem('dropbox_token') });
         } else {
             let dbxBtn = document.getElementById('btnDbxSave');
-            if(dbxBtn) dbxBtn.innerText = "☁️ Login DropBox";
+            if(dbxBtn) dbxBtn.innerText = "Login DropBox";
         }
 
         function saveToDropbox() {
@@ -241,7 +323,11 @@
                 return;
             }
             showStatus("Syncing...", "#f59e0b");
-            const csvString = Papa.unparse(sheet.getData());
+            let exportData = [...sheet.getData()];
+            let headers = sheet.options.columns.map(c => c.title);
+            exportData.unshift(headers);
+            
+            const csvString = Papa.unparse(exportData);
             let safeName = appDB.projects[appDB.activeId].name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
             let filepath = `/${safeName}.csv`;
 
@@ -251,7 +337,7 @@
         }
 
         // ==========================================
-        // 3. UI HELPERS
+        // UI HELPERS & SPLIT PANE RESIZER
         // ==========================================
         function exportImage() {
             html2canvas(document.querySelector('.chart-panel'), { scale: 2 }).then(canvas => {
@@ -259,17 +345,282 @@
                 link.href = canvas.toDataURL('image/png'); link.click();
             });
         }
-        function changeZoom() { if (ganttChart) ganttChart.change_view_mode(document.getElementById('zoomScale').value); saveToLocal(); }
+        
+        function changeZoom() { 
+            if (ganttChart) ganttChart.change_view_mode(document.getElementById('zoomScale').value); 
+            saveToLocal(); 
+        }
+
         function jumpToToday() {
             const todayLine = document.querySelector('.today-highlight');
             const container = document.querySelector('.gantt-container');
             if (todayLine && container) container.scrollTo({ left: Math.max(0, todayLine.getAttribute('x') - (container.clientWidth / 2)), behavior: 'smooth' });
         }
 
+        function jumpToProjectStart() {
+            const container = document.querySelector('.gantt-container');
+            if (!container) return;
+            
+            let minX = Infinity;
+            document.querySelectorAll('.gantt .bar').forEach(bar => {
+                let x = parseFloat(bar.getAttribute('x') || 0);
+                if (x > 0 && x < minX) minX = x;
+            });
+            
+            if (minX !== Infinity) {
+                container.scrollTo({ left: Math.max(0, minX - 50), behavior: 'smooth' });
+            }
+        }
+
+        const divider = document.getElementById('dragDivider');
+        const gridPanel = document.getElementById('gridPanel');
+        let isResizing = false;
+
+        divider.addEventListener('mousedown', function(e) {
+            isResizing = true;
+            document.body.style.cursor = 'col-resize';
+            divider.classList.add('resizing');
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', function(e) {
+            if (!isResizing) return;
+            let newWidth = (e.clientX / window.innerWidth) * 100;
+            if (newWidth > 15 && newWidth < 85) {
+                gridPanel.style.width = newWidth + '%';
+            }
+        });
+
+        document.addEventListener('mouseup', function(e) {
+            if (isResizing) {
+                isResizing = false;
+                document.body.style.cursor = 'default';
+                divider.classList.remove('resizing');
+            }
+        });
+
         // ==========================================
-        // 4. CORE GANTT ENGINE 
+        // RESOURCE WORKLOAD DASHBOARD
         // ==========================================
-        const COL = { ID: 0, NAME: 1, RESOURCE: 2, ALLOC: 3, PCT: 4, START: 5, DUR: 6, DEP: 7, PARENT: 8 };
+        function openWorkloadModal() {
+            document.getElementById('workloadModal').classList.add('active');
+            renderWorkloadTable();
+        }
+        function closeWorkloadModal() {
+            document.getElementById('workloadModal').classList.remove('active');
+        }
+
+        function parseAssignments(resStr, defAlloc) {
+            if (!resStr) return [];
+            let assignments = [];
+            let fallback = parseInt(defAlloc);
+            if (isNaN(fallback)) fallback = 100;
+
+            resStr.split(',').forEach(p => {
+                let s = p.trim();
+                if (!s) return;
+                
+                let alloc = fallback;
+                let name = s;
+                
+                let match = s.match(/(.*?)(?:[\(\:\@]\s*(\d+)\s*\%?\)?|\s+(\d+)\%)$/);
+                if (match) {
+                    name = match[1].trim();
+                    alloc = parseInt(match[2] || match[3], 10);
+                }
+                assignments.push({ name: name, alloc: alloc });
+            });
+            return assignments;
+        }
+
+        function renderWorkloadTable() {
+            const viewMode = document.getElementById('workloadView').value;
+            const unit = document.getElementById('workloadUnit').value;
+            const skipWeekends = shouldSkipWeekends();
+            let rawData = sheet.getData();
+            
+            let resources = {}; 
+            let minDate = null;
+            let maxDate = null;
+
+            let workingTasks = rawData.map(r => {
+                let dur = parseInt(r[COL.DUR]) || 0;
+                let rawAlloc = r[COL.ALLOC] !== "" ? parseInt(r[COL.ALLOC]) : 100;
+                let assigns = parseAssignments(r[COL.RESOURCE], rawAlloc);
+                let start = r[COL.START];
+                let isParent = rawData.some(row => row[COL.PARENT] == r[COL.ID] && row[COL.ID] !== "");
+                
+                return { isParent, assigns, start, dur };
+            }).filter(t => !t.isParent && t.assigns.length > 0 && t.start && t.dur > 0);
+
+            if(workingTasks.length === 0) {
+                document.getElementById('workloadTableContainer').innerHTML = 
+                    "<div style='padding: 30px; color: #64748b; text-align: center; font-size: 16px; margin-top: 100px;'>No assigned tasks with durations found. Add resources and durations to tasks to view workload.</div>";
+                return;
+            }
+
+            workingTasks.forEach(task => {
+                let d = new Date(task.start);
+                let daysAdded = 0;
+                
+                while(daysAdded < task.dur) {
+                    if (skipWeekends && (d.getDay() === 0 || d.getDay() === 6)) { } else {
+                        let dateStr = format(d);
+                        task.assigns.forEach(assign => {
+                            if (!resources[assign.name]) resources[assign.name] = {};
+                            resources[assign.name][dateStr] = (resources[assign.name][dateStr] || 0) + assign.alloc;
+                        });
+                        daysAdded++;
+                        if (!minDate || d < minDate) minDate = new Date(d);
+                        if (!maxDate || d > maxDate) maxDate = new Date(d);
+                    }
+                    d.setDate(d.getDate() + 1);
+                }
+            });
+
+            if (!minDate || !maxDate) return;
+
+            let dateIterator = new Date(minDate.getTime());
+            let dates = [];
+            while (dateIterator <= maxDate) {
+                dates.push(new Date(dateIterator));
+                dateIterator.setDate(dateIterator.getDate() + 1);
+            }
+
+            let html = '<table class="workload-table"><thead><tr><th>Resource Name</th>';
+            let cols = [];
+
+            if (viewMode === 'Day') {
+                dates.forEach(d => {
+                    if (skipWeekends && (d.getDay() === 0 || d.getDay() === 6)) return;
+                    let dStr = format(d);
+                    cols.push({ keys: [dStr] });
+                    html += `<th><span style="font-size:11px; color:#64748b; font-weight:normal;">${d.toLocaleDateString(undefined, {weekday:'short'})}</span><br/>${d.toLocaleDateString(undefined, {month:'short', day:'numeric'})}</th>`;
+                });
+            } else if (viewMode === 'Week') {
+                let currentWeekKeys = [];
+                let weekLabel = "";
+                
+                dates.forEach(d => {
+                    if (skipWeekends && (d.getDay() === 0 || d.getDay() === 6)) return;
+                    if (currentWeekKeys.length === 0 || d.getDay() === 1) {
+                        if (currentWeekKeys.length > 0) {
+                            cols.push({ label: weekLabel, keys: currentWeekKeys });
+                            html += `<th>${weekLabel}</th>`;
+                            currentWeekKeys = [];
+                        }
+                        weekLabel = "Wk of " + d.toLocaleDateString(undefined, {month:'short', day:'numeric'});
+                    }
+                    currentWeekKeys.push(format(d));
+                });
+                
+                if (currentWeekKeys.length > 0) {
+                    cols.push({ label: weekLabel, keys: currentWeekKeys });
+                    html += `<th>${weekLabel}</th>`;
+                }
+            } else if (viewMode === 'Month') {
+                let currentMonthKeys = [];
+                let monthLabel = "";
+                
+                dates.forEach(d => {
+                    if (skipWeekends && (d.getDay() === 0 || d.getDay() === 6)) return;
+                    let newLabel = d.toLocaleDateString(undefined, {month:'short', year:'numeric'});
+                    if (currentMonthKeys.length === 0 || monthLabel !== newLabel) {
+                        if (currentMonthKeys.length > 0) {
+                            cols.push({ label: monthLabel, keys: currentMonthKeys });
+                            html += `<th>${monthLabel}</th>`;
+                            currentMonthKeys = [];
+                        }
+                        monthLabel = newLabel;
+                    }
+                    currentMonthKeys.push(format(d));
+                });
+                
+                if (currentMonthKeys.length > 0) {
+                    cols.push({ label: monthLabel, keys: currentMonthKeys });
+                    html += `<th>${monthLabel}</th>`;
+                }
+            }
+            
+            html += '</tr></thead><tbody>';
+
+            let resourceNames = Object.keys(resources).sort();
+            resourceNames.forEach(res => {
+                html += `<tr><td>${res}</td>`;
+                cols.forEach(col => {
+                    let maxVal = 0; let sumVal = 0;
+                    col.keys.forEach(k => {
+                         let val = resources[res][k] || 0;
+                         if (val > maxVal) maxVal = val;
+                         sumVal += val;
+                    });
+                    
+                    let isOver = false; let text = "-";
+
+                    if (viewMode === 'Week' || viewMode === 'Month') {
+                        if (unit === 'hours') {
+                            let totalHrs = (sumVal / 100) * 8;
+                            isOver = totalHrs > (col.keys.length * 8); 
+                            if (totalHrs > 0) text = Number.isInteger(totalHrs) ? totalHrs + 'h' : totalHrs.toFixed(1) + 'h';
+                        } else {
+                            isOver = maxVal > 100;
+                            if (maxVal > 0) text = maxVal + '%';
+                        }
+                    } else {
+                        let dailyVal = sumVal; 
+                        if (unit === 'hours') {
+                            let hrs = (dailyVal / 100) * 8;
+                            isOver = hrs > 8;
+                            if (hrs > 0) text = Number.isInteger(hrs) ? hrs + 'h' : hrs.toFixed(1) + 'h';
+                        } else {
+                            isOver = dailyVal > 100;
+                            if (dailyVal > 0) text = dailyVal + '%';
+                        }
+                    }
+
+                    if (text === "-") html += `<td class="cell-empty">-</td>`;
+                    else if (isOver) html += `<td class="cell-over">${text}</td>`;
+                    else html += `<td class="cell-ok">${text}</td>`;
+                });
+                html += `</tr>`;
+            });
+            html += '</tbody></table>';
+            document.getElementById('workloadTableContainer').innerHTML = html;
+        }
+
+        function exportWorkloadCSV() {
+            const table = document.querySelector('.workload-table');
+            if (!table) {
+                alert("No workload data available to export.");
+                return;
+            }
+            
+            let rows = [];
+            for (let i = 0; i < table.rows.length; i++) {
+                let row = table.rows[i];
+                let rowData = [];
+                for (let j = 0; j < row.cells.length; j++) {
+                    let cell = row.cells[j];
+                    let text = cell.innerText.replace(/\n/g, ' - ');
+                    rowData.push(text);
+                }
+                rows.push(rowData);
+            }
+            
+            const csv = Papa.unparse(rows);
+            const viewMode = document.getElementById('workloadView').value;
+            const unit = document.getElementById('workloadUnit').value;
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `${appDB.projects[appDB.activeId].name.replace(/ /g, '_')}_workload_${viewMode.toLowerCase()}_${unit}.csv`;
+            link.click();
+        }
+
+        // ==========================================
+        // CORE GANTT ENGINE & DYNAMIC COLUMNS
+        // ==========================================
+        const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10 };
         let ganttChart; let isSyncing = false; let sheet;
 
         function shouldSkipWeekends() { return document.getElementById('skipWeekends').checked; }
@@ -297,71 +648,186 @@
         }
 
         function formatCells(instance, cell, col, row, val, label, cellName) {
-            if (!instance || !instance.jexcel) return;
-            let data = instance.jexcel.getData();
-            if (!data || !data[row]) return;
+            try {
+                if (!instance || !instance.jexcel) return;
+                let rowData = instance.jexcel.getRowData(row);
+                if (!rowData) return;
 
-            let rowID = data[row][COL.ID]; 
-            let parentID = data[row][COL.PARENT];
-            let hasDependency = data[row][COL.DEP] && data[row][COL.DEP].toString().trim() !== "";
-            
-            let parentIDs = [...new Set(data.map(r => r[COL.PARENT]).filter(p => p !== ""))];
-            let isParent = parentIDs.includes(rowID);
-            
-            cell.classList.remove('readonly-cell', 'readonly'); 
-            if (col == COL.ID) cell.classList.add('readonly-cell', 'readonly');
-            
-            if (col == COL.NAME) {
-                if (parentID) {
-                    cell.style.paddingLeft = '25px'; cell.style.borderLeft = '3px solid #cbd5e1'; 
-                } else {
-                    cell.style.paddingLeft = '8px'; cell.style.borderLeft = 'none';
-                    cell.style.fontWeight = isParent ? 'bold' : 'normal';
+                let rowID = (rowData[COL.ID] != null) ? rowData[COL.ID].toString().trim() : ''; 
+                let parentID = (rowData[COL.PARENT] != null) ? rowData[COL.PARENT].toString().trim() : '';
+                let hasDependency = (rowData[COL.DEP] != null) && rowData[COL.DEP].toString().trim() !== "";
+                
+                let allData = instance.jexcel.options.data || [];
+                let isParent = false;
+                
+                for(let i = 0; i < allData.length; i++) {
+                    if (allData[i] && allData[i][COL.PARENT] == rowID && rowID !== "") {
+                        isParent = true; break;
+                    }
                 }
-            }
-            
-            if (isParent && [COL.START, COL.DUR, COL.PCT, COL.ALLOC].includes(parseInt(col))) {
-                cell.classList.add('readonly-cell', 'readonly');
-            } else if (hasDependency && col == COL.START) {
-                cell.classList.add('readonly-cell', 'readonly');
-            }
+
+                let depth = 0;
+                let currentParent = parentID;
+                let loopProtect = 0; 
+                while (currentParent !== "" && loopProtect < 15) {
+                    depth++;
+                    let pMatch = allData.find(r => r[COL.ID] == currentParent);
+                    currentParent = (pMatch && pMatch[COL.PARENT] != null) ? pMatch[COL.PARENT].toString().trim() : "";
+                    loopProtect++;
+                }
+                
+                cell.classList.remove('readonly-cell', 'readonly'); 
+                if (col == COL.ID || col == COL.OUTLINE || col == COL.END) cell.classList.add('readonly-cell', 'readonly');
+                
+                if (col == COL.NAME) {
+                    cell.style.textAlign = 'left';
+                    if (depth > 0) {
+                        cell.style.paddingLeft = (8 + (depth * 20)) + 'px'; 
+                        cell.style.borderLeft = '3px solid #cbd5e1'; 
+                    } else {
+                        cell.style.paddingLeft = '8px'; 
+                        cell.style.borderLeft = 'none';
+                        cell.style.fontWeight = isParent ? 'bold' : 'normal';
+                    }
+                }
+                
+                if (isParent && [COL.START, COL.DUR, COL.END, COL.PCT, COL.ALLOC].includes(parseInt(col))) {
+                    cell.classList.add('readonly-cell', 'readonly');
+                } else if (hasDependency && col == COL.START) {
+                    cell.classList.add('readonly-cell', 'readonly');
+                }
+            } catch (err) {}
         }
 
-        updateProjectDropdown();
+        function syncColumnsToDB() {
+            if(!sheet) return;
+            let headers = sheet.options.columns.map(c => c.title);
+            appDB.projects[appDB.activeId].columns = headers.slice(11);
+            saveToLocal();
+        }
 
-        const sheetOptions = {
-            data: appDB.projects[appDB.activeId].data,
-            rowDrag: true,
-            columns: [
-                { type: 'text', title: 'ID', width: 35, readOnly: true },
-                { type: 'text', title: 'Task Name', width: 160 },
-                { type: 'text', title: 'Resource', width: 75 },
-                { type: 'numeric', title: 'Alloc', width: 55 },
-                { type: 'numeric', title: '% Done', width: 55 },
-                { type: 'calendar', title: 'Start', width: 90, options: { format: 'YYYY-MM-DD' } },
-                { type: 'numeric', title: 'Dur.', width: 45 },
-                { type: 'dropdown', title: 'Depends', width: 80, source: [], autocomplete: true, multiple: true },
-                { type: 'dropdown', title: 'Parent', width: 60, source: [], autocomplete: true }
-            ],
-            updateTable: formatCells,
-            onchange: triggerSync,
-            onmoverow: triggerSync,
-            oninsertrow: function(instance, rowNumber) {
-                let data = sheet.getData();
-                let maxId = Math.max(0, ...data.map(r => parseInt(r[COL.ID]) || 0));
-                sheet.setValueFromCoords(COL.ID, rowNumber, (maxId + 1).toString(), true);
-                sheet.setValueFromCoords(COL.ALLOC, rowNumber, '100', true);
-                triggerSync();
-            },
-            ondeleterow: triggerSync
-        };
+        function renderGrid(overrideData = null) {
+            let spreadsheetDiv = document.getElementById('spreadsheet');
+            if(sheet) jspreadsheet.destroy(spreadsheetDiv);
+            
+            let activeProj = appDB.projects[appDB.activeId];
+            let dataToLoad = overrideData || activeProj.data;
+            
+            let cols = [
+                { type: 'text', title: 'ID', width: 35, readOnly: true, align: 'center' },
+                { type: 'text', title: 'Outline', width: 55, readOnly: true, align: 'left' },
+                { type: 'text', title: 'Task Name', width: 160, align: 'left' },
+                { type: 'text', title: 'Resource', width: 100, align: 'left' },
+                { type: 'numeric', title: 'Def. Alloc', width: 65, align: 'center' },
+                { type: 'numeric', title: '% Done', width: 50, align: 'center' },
+                { type: 'calendar', title: 'Start', width: 85, options: { format: 'YYYY-MM-DD' }, align: 'center' },
+                { type: 'numeric', title: 'Dur.', width: 40, align: 'center' },
+                { type: 'calendar', title: 'End', width: 85, readOnly: true, options: { format: 'YYYY-MM-DD' }, align: 'center' },
+                { type: 'dropdown', title: 'Depends', width: 70, source: [], autocomplete: true, multiple: true, align: 'left' },
+                { type: 'dropdown', title: 'Parent', width: 60, source: [], autocomplete: true, align: 'left' }
+            ];
 
-        if (typeof jspreadsheet !== 'undefined') {
-            sheet = jspreadsheet(document.getElementById('spreadsheet'), sheetOptions);
-        } else if (typeof jexcel !== 'undefined') {
-            sheet = jexcel(document.getElementById('spreadsheet'), sheetOptions);
-        } else {
-            console.error("Critical Error: Spreadsheet library failed to load.");
+            if (activeProj.columns) {
+                activeProj.columns.forEach(c => cols.push({ type: 'text', title: c, width: 100, align: 'left' }));
+            }
+
+            let initialSourceList = dataToLoad.map(r => ({ id: r[COL.ID], name: `${r[COL.ID]} - ${r[COL.NAME] || ''}` })).filter(r => r.id);
+            cols[COL.DEP].source = initialSourceList;
+            cols[COL.PARENT].source = initialSourceList;
+
+            const sheetOptions = {
+                data: dataToLoad,
+                columns: cols,
+                rowDrag: true,
+                allowInsertColumn: true,
+                allowDeleteColumn: true,
+                updateTable: formatCells,
+                onchange: triggerSync,
+                onmoverow: triggerSync,
+                oninsertcolumn: syncColumnsToDB,
+                ondeletecolumn: syncColumnsToDB,
+                oninsertrow: function(instance, rowNumber) {
+                    let data = sheet.getData();
+                    let maxId = Math.max(0, ...data.map(r => parseInt(r[COL.ID]) || 0));
+                    sheet.setValueFromCoords(COL.ID, rowNumber, (maxId + 1).toString(), true);
+                    sheet.setValueFromCoords(COL.ALLOC, rowNumber, '100', true);
+                    triggerSync();
+                },
+                ondeleterow: function() {
+                    let data = sheet.getData();
+                    if (!data || data.length === 0) {
+                        let emptyRow = ['1', '1', '', '', '100', '0', '', '', '', '', ...Array(appDB.projects[appDB.activeId].columns.length).fill('')];
+                        sheet.setData([emptyRow]);
+                    }
+                    triggerSync();
+                },
+                contextMenu: function(obj, x, y, e) {
+                    var items = [];
+                    if (y === null) { 
+                        if (x >= 10) { 
+                            items.push({
+                                title: '➕ Insert Column Right',
+                                onclick: function() {
+                                    sheet.insertColumn(1, parseInt(x), false);
+                                    let newColIdx = parseInt(x) + 1;
+                                    sheet.setHeader(newColIdx, 'Custom ' + (newColIdx - 10));
+                                    syncColumnsToDB();
+                                }
+                            });
+                        }
+                        if (x >= 11) {
+                            items.push({
+                                title: '✏️ Rename Column',
+                                onclick: function() {
+                                    let currentTitle = sheet.options.columns[x].title;
+                                    let newName = prompt("Enter new column name:", currentTitle);
+                                    if(newName) {
+                                        sheet.setHeader(x, newName);
+                                        syncColumnsToDB();
+                                    }
+                                }
+                            });
+                            items.push({
+                                title: '🗑️ Delete Column',
+                                onclick: function() {
+                                    if(confirm("Delete this column?")) {
+                                        sheet.deleteColumn(parseInt(x), 1);
+                                        syncColumnsToDB();
+                                    }
+                                }
+                            });
+                        }
+                        if (items.length === 0) {
+                            items.push({ title: '🔒 Core columns cannot be modified.', type: 'line' });
+                        }
+                    } else {
+                        items.push({ title: 'Insert row above', onclick: () => sheet.insertRow(1, parseInt(y), 0) });
+                        items.push({ title: 'Insert row below', onclick: () => sheet.insertRow(1, parseInt(y), 1) });
+                        items.push({ title: 'Delete row', onclick: () => sheet.deleteRow(parseInt(y), 1) });
+                    }
+                    return items;
+                }
+            };
+
+            sheet = jspreadsheet(spreadsheetDiv, sheetOptions);
+            
+            spreadsheetDiv.onkeydown = function(e) {
+                if (e.key === 'Tab' && sheet && sheet.selectedCell) {
+                    let col = parseInt(sheet.selectedCell[0]);
+                    let row = parseInt(sheet.selectedCell[1]);
+                    let totalCols = sheet.options.columns.length;
+                    let totalRows = sheet.options.data.length;
+
+                    if (col === totalCols - 1 && row === totalRows - 1) {
+                        e.preventDefault(); 
+                        setTimeout(() => {
+                            sheet.insertRow();
+                            let newRowIndex = sheet.options.data.length - 1;
+                            sheet.setSelectedCell(COL.NAME, newRowIndex);
+                        }, 50);
+                    }
+                }
+            };
         }
 
         function forceRecalc() { syncToGantt(true); }
@@ -371,7 +837,33 @@
             isSyncing = true; 
             try {
                 let rawData = sheet.getData();
-                let sourceList = rawData.map(r => ({ id: r[COL.ID], name: `${r[COL.ID]}-${r[COL.NAME] || ''}` })).filter(r => r.id);
+                if(!rawData || rawData.length === 0) return; 
+                
+                let wbsMap = {};
+                let siblingCounts = {};
+                
+                rawData.forEach((row, index) => {
+                    let id = (row[COL.ID] != null) ? row[COL.ID].toString().trim() : '';
+                    if (!id) return;
+                    
+                    let parentId = (row[COL.PARENT] != null) ? row[COL.PARENT].toString().trim() : '';
+                    let effectiveParent = wbsMap[parentId] ? parentId : ""; 
+                    
+                    if (!siblingCounts[effectiveParent]) siblingCounts[effectiveParent] = 0;
+                    siblingCounts[effectiveParent]++;
+                    
+                    let currentNum = siblingCounts[effectiveParent];
+                    let wbsStr = (effectiveParent === "") ? currentNum.toString() : wbsMap[effectiveParent] + "." + currentNum.toString();
+                    
+                    wbsMap[id] = wbsStr;
+
+                    if (row[COL.OUTLINE] !== wbsStr) {
+                        sheet.setValueFromCoords(COL.OUTLINE, index, wbsStr, true);
+                        row[COL.OUTLINE] = wbsStr; 
+                    }
+                });
+
+                let sourceList = rawData.map(r => ({ id: r[COL.ID], name: `${r[COL.ID]} - ${r[COL.NAME] || ''}` })).filter(r => r.id);
                 sheet.options.columns[COL.DEP].source = sourceList;
                 sheet.options.columns[COL.PARENT].source = sourceList;
 
@@ -383,10 +875,14 @@
                     let depArray = (row[COL.DEP] ? row[COL.DEP].toString() : "").split(';').map(d => d.trim()).filter(d => d !== "");
                     let rawAlloc = row[COL.ALLOC] !== "" ? parseInt(row[COL.ALLOC]) : 100;
                     
+                    let assignments = parseAssignments(row[COL.RESOURCE], rawAlloc);
+
                     tasksMap[id] = {
-                        id: id, name: row[COL.NAME], resource: row[COL.RESOURCE], alloc: rawAlloc, pct: parseInt(row[COL.PCT]) || 0,
-                        start: row[COL.START], dur: parseInt(row[COL.DUR]) || 0, end: '', dependenciesArray: depArray, 
-                        frappeDependencies: depArray.join(', '), parentId: row[COL.PARENT], rowIndex: index, isParent: parentIDs.includes(id)
+                        id: id, name: row[COL.NAME], resource: row[COL.RESOURCE], alloc: rawAlloc, 
+                        assignments: assignments, pct: parseInt(row[COL.PCT]) || 0,
+                        start: row[COL.START], dur: parseInt(row[COL.DUR]) || 0, end: row[COL.END], 
+                        dependenciesArray: depArray, frappeDependencies: depArray.join(', '), 
+                        parentId: row[COL.PARENT], rowIndex: index, isParent: parentIDs.includes(id)
                     };
                 });
 
@@ -418,7 +914,11 @@
                         }
                         if (t.start && t.dur >= 0) {
                             let calcEnd = (t.dur === 0) ? t.start : calculateEndDate(t.start, t.dur);
-                            if (t.end !== calcEnd || forceRecalculateDates) { t.end = calcEnd; changed = true; }
+                            if (t.end !== calcEnd || forceRecalculateDates) { 
+                                t.end = calcEnd; 
+                                sheet.setValueFromCoords(COL.END, t.rowIndex, t.end, true);
+                                changed = true; 
+                            }
                         }
                     }
                 }
@@ -438,6 +938,7 @@
                         
                         sheet.setValueFromCoords(COL.START, pTask.rowIndex, pTask.start, true);
                         sheet.setValueFromCoords(COL.DUR, pTask.rowIndex, pTask.dur, true);
+                        sheet.setValueFromCoords(COL.END, pTask.rowIndex, pTask.end, true);
                         sheet.setValueFromCoords(COL.PCT, pTask.rowIndex, pTask.pct, true);
                         sheet.setValueFromCoords(COL.ALLOC, pTask.rowIndex, '', true); 
                     }
@@ -447,7 +948,10 @@
 
                 const frappeTasks = Object.values(tasksMap).filter(t => t.start && (t.end || t.dur === 0)).map(t => {
                     let displayName = t.name;
-                    if (t.resource) displayName += (t.alloc === 100) ? ` [${t.resource}]` : ` [${t.resource} @ ${t.alloc}%]`;
+                    if (t.assignments.length > 0) {
+                        let resStrings = t.assignments.map(a => `${a.name} (${a.alloc}%)`);
+                        displayName += ` [${resStrings.join(', ')}]`;
+                    }
                     
                     let fEnd = t.end; let customClass = t.isParent ? 'is-parent' : '';
 
@@ -463,7 +967,7 @@
                     return {
                         id: t.id, name: displayName, start: t.start, end: fEnd, progress: t.pct,
                         dependencies: t.frappeDependencies, custom_class: customClass,
-                        _rawName: t.name, _resource: t.resource || "Unassigned", _alloc: t.alloc
+                        _rawName: t.name, _assignments: t.assignments
                     };
                 });
 
@@ -478,18 +982,25 @@
                         on_progress_change: (task, progress) => { syncToGrid(task, null, null, 'progress', progress); },
                         custom_popup_html: function(task) {
                             let statusIcon = task.progress === 100 ? '✅' : '⏳';
-                            let resText = task._resource !== "Unassigned" ? `👤 ${task._resource} (${task._alloc}%)` : `👤 Unassigned`;
+                            let resText = task._assignments && task._assignments.length > 0 
+                                ? task._assignments.map(a => `👤 ${a.name} (${a.alloc}%)`).join('<br/>') 
+                                : `👤 Unassigned`;
                             return `
                                 <div style="padding: 12px; background: #0f172a; color: #f8fafc; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-family: sans-serif; min-width: 180px;">
                                     <div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid #334155; padding-bottom: 4px;">${task._rawName}</div>
                                     <div style="font-size: 12px; margin-bottom: 4px;">📅 ${task.start} ➝ ${task.end}</div>
-                                    <div style="font-size: 12px; margin-bottom: 4px;">${resText}</div>
+                                    <div style="font-size: 12px; margin-bottom: 4px; line-height: 1.4;">${resText}</div>
                                     <div style="font-size: 12px; margin-top: 6px; font-weight: bold; color: #38bdf8;">${statusIcon} ${task.progress}% Complete</div>
                                 </div>
                             `;
                         }
                     });
                 }
+                
+                if (document.getElementById('workloadModal').classList.contains('active')) {
+                    renderWorkloadTable();
+                }
+
             } catch (err) {
                 console.error("Gantt Rendering Error:", err);
             } finally {
@@ -522,7 +1033,11 @@
         }
         
         function exportCSV() { 
-            const csv = Papa.unparse(sheet.getData());
+            let exportData = [...sheet.getData()];
+            let headers = sheet.options.columns.map(c => c.title);
+            exportData.unshift(headers);
+            
+            const csv = Papa.unparse(exportData);
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
@@ -533,13 +1048,22 @@
         function importCSV(event) {
             const file = event.target.files[0]; if(!file) return;
             Papa.parse(file, { skipEmptyLines: true, complete: function(results) {
-                let data = results.data; if(data[0] && data[0][0] === 'ID') data.shift(); 
-                sheet.setData(data); syncToGantt(); event.target.value = ''; 
+                let data = results.data; 
+                if (data.length > 0 && (data[0][0] === 'ID' || data[0][1] === 'Outline')) {
+                    let headers = data.shift(); 
+                    appDB.projects[appDB.activeId].columns = headers.slice(11);
+                }
+                renderGrid(data); 
+                syncToGantt(true); 
+                event.target.value = ''; 
             }});
         }
 
+        updateProjectDropdown();
+        renderGrid();
         syncToGantt();
-        setTimeout(jumpToToday, 500);
+        
+        setTimeout(jumpToProjectStart, 500);
     </script>
 </body>
 </html>

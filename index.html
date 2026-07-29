@@ -55,6 +55,15 @@
         .resizer { width: 8px; background: #cbd5e1; cursor: col-resize; flex-shrink: 0; z-index: 10; transition: background 0.2s;}
         .resizer:hover, .resizer.resizing { background: #3b82f6; }
         .chart-panel { flex: 1; overflow: auto; background: white; padding: 20px; box-sizing: border-box; }
+
+        .gantt-range-bar { position: sticky; top: -20px; z-index: 5; background: white; margin: -20px -20px 14px; padding: 10px 20px; border-bottom: 2px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; font-size: 13px; }
+        .gantt-range-bar .range-main { font-weight: 700; color: #0f172a; }
+        .gantt-range-bar .range-sub { color: #64748b; }
+        .gantt-range-bar .range-today { color: #185FA5; font-weight: 600; }
+
+        /* Frappe Gantt's own axis labels are small/light by default; boost legibility */
+        .gantt .upper-text { font-size: 12px; font-weight: 700; fill: #0f172a; }
+        .gantt .lower-text { font-size: 11px; fill: #475569; }
         
         footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 8px 20px; display: flex; justify-content: flex-end; align-items: center; gap: 20px; font-size: 13px; color: #64748b; }
         footer a { color: #64748b; text-decoration: none; display: flex; align-items: center; gap: 6px; font-weight: 600; transition: color 0.2s; }
@@ -180,6 +189,7 @@
         </div>
         <div class="resizer" id="dragDivider"></div>
         <div class="chart-panel">
+            <div id="ganttRangeBar" class="gantt-range-bar"></div>
             <div id="gantt"></div>
         </div>
     </div>
@@ -832,6 +842,50 @@
             })
             .catch(err => console.error("Import failed for", discovered.name, err));
         }
+        function escapeHtml(str) {
+            const d = document.createElement('div');
+            d.innerText = str == null ? '' : String(str);
+            return d.innerHTML;
+        }
+
+        function renderGanttRangeBar(frappeTasks) {
+            const bar = document.getElementById('ganttRangeBar');
+            if (!bar) return;
+
+            if (!frappeTasks || frappeTasks.length === 0) { bar.innerHTML = ''; return; }
+
+            let minStart = null, maxEnd = null;
+            frappeTasks.forEach(t => {
+                const s = new Date(t.start), e = new Date(t.end);
+                if (isNaN(s) || isNaN(e)) return;
+                if (!minStart || s < minStart) minStart = s;
+                if (!maxEnd || e > maxEnd) maxEnd = e;
+            });
+            if (!minStart || !maxEnd) { bar.innerHTML = ''; return; }
+
+            const fmt = d => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+            const days = Math.max(1, Math.round((maxEnd - minStart) / 86400000));
+            let span;
+            if (days < 60) span = `${days} day${days === 1 ? '' : 's'}`;
+            else if (days < 365) span = `${Math.round(days / 30.44 * 10) / 10} months`;
+            else span = `${Math.round(days / 365 * 10) / 10} years`;
+
+            const zoomEl = document.getElementById('zoomScale');
+            const zoom = zoomEl ? zoomEl.value : 'Day';
+
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const todayInRange = today >= minStart && today <= maxEnd;
+            const projectName = appDB.projects[appDB.activeId] ? appDB.projects[appDB.activeId].name : '';
+
+            bar.innerHTML = `
+                <div>
+                    <div style="font-size:10.5px; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px;">${escapeHtml(projectName)}</div>
+                    <span class="range-main">📅 ${fmt(minStart)} &rarr; ${fmt(maxEnd)}</span>
+                </div>
+                <span class="range-sub">${span} &middot; ${zoom} view${todayInRange ? ` &middot; <span class="range-today">Today: ${fmt(today)}</span>` : ''}</span>
+            `;
+        }
+
         function exportImage() {
             html2canvas(document.querySelector('.chart-panel'), { scale: 2 }).then(canvas => {
                 const link = document.createElement('a'); link.download = `${appDB.projects[appDB.activeId].name}.png`;
@@ -1465,6 +1519,7 @@
                 });
 
                 const chartContainer = document.getElementById('gantt');
+                renderGanttRangeBar(frappeTasks);
                 if (frappeTasks.length === 0) {
                     chartContainer.innerHTML = '<div style="color:#94a3b8; margin-top: 20px;">Add Durations to render the chart.</div>';
                 } else {

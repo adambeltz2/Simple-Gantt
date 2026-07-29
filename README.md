@@ -29,7 +29,7 @@ You don't need `npm`, `node`, or a database to run Simple Gantt.
 All project data is stored in your browser's `localStorage` — nothing is sent to a server. This means:
 
 * Data is scoped to a single browser on a single device. Opening the app in a different browser or on another computer starts fresh.
-* Clearing your browser's site data (or using "Reset App" in the header) will permanently delete all saved projects.
+* Clearing your browser's site data (or using "Reset App" in the header) will permanently delete all saved projects in this browser. This doesn't touch anything already backed up to Dropbox, and doesn't log you out of Dropbox -- use "Disconnect" (next to the Dropbox buttons, visible while logged in) if you want to log this browser out of Dropbox separately.
 * To move data between devices/browsers or keep an off-browser backup, use **Export CSV** or the Dropbox backups described below.
 
 ### With Dropbox vs. without

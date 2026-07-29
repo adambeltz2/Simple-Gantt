@@ -61,6 +61,11 @@
         .gantt-range-bar .range-sub { color: #64748b; }
         .gantt-range-bar .range-today { color: #185FA5; font-weight: 600; }
 
+        .gantt-legend { display: none; align-items: center; flex-wrap: wrap; gap: 14px; padding: 6px 2px 12px; font-size: 12px; color: #475569; }
+        .gantt-legend .legend-item { display: flex; align-items: center; gap: 5px; }
+        .gantt-legend .swatch { width: 11px; height: 11px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+        .gantt-legend .swatch.diamond { border-radius: 0; transform: rotate(45deg); width: 9px; height: 9px; }
+
         /* Frappe Gantt's own axis labels are small/light by default; boost legibility */
         .gantt .upper-text { font-size: 12px; font-weight: 700; fill: #0f172a; }
         .gantt .lower-text { font-size: 11px; fill: #475569; }
@@ -71,14 +76,23 @@
         footer a.bmc:hover { color: #f59e0b; }
         footer .version-tag { margin-right: auto; font-weight: 500; color: #94a3b8; font-variant-numeric: tabular-nums; }
 
-        .gantt .bar-wrapper.is-parent .bar { fill: #0f172a !important; }
-        .gantt .bar-wrapper.is-parent .bar-progress { fill: #1e293b !important; }
+        /* Standard status palette: gray = not started, blue = in progress,
+           green = complete, red = overdue, amber diamond = milestone,
+           dark slate = summary/parent row. Fills are kept saturated enough
+           (not pale pastels) for the white bar label text to stay legible. */
+        .gantt .bar-wrapper.is-parent .bar { fill: #334155 !important; }
+        .gantt .bar-wrapper.is-parent .bar-progress { fill: #0f172a !important; }
         .gantt .bar-wrapper.is-milestone .bar { fill: #f59e0b !important; clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); }
         .gantt .bar-wrapper.is-milestone .bar-progress { display: none !important; }
-        .gantt .bar-wrapper.is-complete .bar { fill: #d1fae5 !important; } 
-        .gantt .bar-wrapper.is-complete .bar-progress { fill: #10b981 !important; } 
-        .gantt .bar-wrapper.is-overdue .bar { fill: #fee2e2 !important; } 
-        .gantt .bar-wrapper.is-overdue .bar-progress { fill: #ef4444 !important; } 
+        .gantt .bar-wrapper.is-not-started .bar { fill: #cbd5e1 !important; }
+        .gantt .bar-wrapper.is-not-started .bar-progress { fill: #94a3b8 !important; }
+        .gantt .bar-wrapper.is-inprogress .bar { fill: #93c5fd !important; }
+        .gantt .bar-wrapper.is-inprogress .bar-progress { fill: #2563eb !important; }
+        .gantt .bar-wrapper.is-complete .bar { fill: #6ee7b7 !important; }
+        .gantt .bar-wrapper.is-complete .bar-progress { fill: #059669 !important; }
+        .gantt .bar-wrapper.is-overdue .bar { fill: #fca5a5 !important; }
+        .gantt .bar-wrapper.is-overdue .bar-progress { fill: #dc2626 !important; }
+        .gantt .bar-wrapper.is-not-started .bar-label { fill: #1e293b !important; }
         
         .jexcel tbody tr td.readonly-cell { background-color: #e2e8f0; color: #64748b; font-weight: bold; }
 
@@ -195,6 +209,7 @@
         <div class="resizer" id="dragDivider"></div>
         <div class="chart-panel">
             <div id="ganttRangeBar" class="gantt-range-bar"></div>
+            <div id="ganttLegend" class="gantt-legend"></div>
             <div id="gantt"></div>
         </div>
     </div>
@@ -336,7 +351,7 @@
 
         // Bump this on meaningful releases (feature-level changes -> minor/major,
         // fixes/tweaks -> patch). Shown in the footer so bug reports can reference it.
-        const APP_VERSION = "2.1.0";
+        const APP_VERSION = "2.2.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -901,6 +916,28 @@
             const d = document.createElement('div');
             d.innerText = str == null ? '' : String(str);
             return d.innerHTML;
+        }
+
+        function renderGanttLegend(show) {
+            const legend = document.getElementById('ganttLegend');
+            if (!legend) return;
+            if (!show) { legend.style.display = 'none'; return; }
+
+            const items = [
+                { color: '#94a3b8', label: 'Not started' },
+                { color: '#2563eb', label: 'In progress' },
+                { color: '#059669', label: 'Complete' },
+                { color: '#dc2626', label: 'Overdue' },
+                { color: '#f59e0b', label: 'Milestone', diamond: true },
+                { color: '#334155', label: 'Summary' }
+            ];
+            legend.innerHTML = items.map(i => `
+                <span class="legend-item">
+                    <span class="swatch${i.diamond ? ' diamond' : ''}" style="background:${i.color};"></span>
+                    ${i.label}
+                </span>
+            `).join('');
+            legend.style.display = 'flex';
         }
 
         function renderGanttRangeBar(frappeTasks) {
@@ -1562,8 +1599,13 @@
                         let d = new Date(t.start); d.setDate(d.getDate() + 1); fEnd = format(d);
                     } else if (!t.isParent) {
                         let taskEndDate = new Date(t.end);
-                        if (t.pct === 100) { customClass = 'is-complete'; } 
+                        // Standard status precedence: complete beats everything, then
+                        // overdue (even a 0%-progress task that's already past due is
+                        // overdue, not just "not started"), then not-started vs in-progress.
+                        if (t.pct === 100) { customClass = 'is-complete'; }
                         else if (taskEndDate < today) { customClass = 'is-overdue'; }
+                        else if (t.pct === 0) { customClass = 'is-not-started'; }
+                        else { customClass = 'is-inprogress'; }
                     }
 
                     return {
@@ -1575,6 +1617,7 @@
 
                 const chartContainer = document.getElementById('gantt');
                 renderGanttRangeBar(frappeTasks);
+                renderGanttLegend(frappeTasks.length > 0);
                 if (frappeTasks.length === 0) {
                     chartContainer.innerHTML = '<div style="color:#94a3b8; margin-top: 20px;">Add Durations to render the chart.</div>';
                 } else {

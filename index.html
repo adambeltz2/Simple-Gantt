@@ -232,7 +232,7 @@
                 This permanently deletes <strong id="resetProjectCount">all projects</strong> saved in this browser. It cannot be undone.
             </p>
             <p style="color:#334155; font-size: 14px; line-height: 1.5;">
-                Consider using <strong>Export CSV</strong> or <strong>Push to Dropbox</strong> on any project you want to keep before continuing.
+                Consider using <strong>Export CSV</strong> or <strong>Back up</strong> on any project you want to keep before continuing.
             </p>
             <p style="color:#475569; font-size: 13px; margin-bottom: 6px;">Type <strong>DELETE</strong> to confirm:</p>
             <input id="resetConfirmInput" type="text" autocomplete="off" placeholder="DELETE" oninput="onResetInputChange()"
@@ -253,6 +253,52 @@
             </div>
             <p style="color:#64748b; font-size:12.5px; margin: 0 0 10px;">Automatic backups run about a minute after you stop editing. You can also back up manually any time.</p>
             <div id="versionsListContainer" style="flex: 1; overflow: auto;"></div>
+            <a href="#" onclick="event.preventDefault(); discoverDropboxProjects(true);" style="display:inline-block; margin-top:12px; font-size:12px; color:#185FA5; text-decoration:none;">Check Dropbox for other projects not in this browser →</a>
+        </div>
+    </div>
+
+    <div id="discoveryModal" class="modal" onclick="if(event.target===this) closeDiscoveryModal()">
+        <div class="modal-content" style="max-width: 460px; height: auto; max-height: 70vh;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+                <h2 style="margin:0; color:#0f172a; font-size: 18px;">Projects found in Dropbox</h2>
+            </div>
+            <p style="color:#64748b; font-size:12.5px; margin: 0 0 12px;">These project backups exist in your Dropbox but aren't in this browser. Each will be imported as its own project using its latest backup.</p>
+            <div id="discoveryListContainer" style="flex: 1; overflow: auto; margin-bottom: 16px;"></div>
+            <div style="display:flex; justify-content:flex-end; gap: 10px;">
+                <button onclick="closeDiscoveryModal()" style="padding: 8px 16px; background: #e2e8f0; color: #334155; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Skip</button>
+                <button onclick="importSelectedDiscoveries()" style="padding: 8px 16px; background: #185FA5; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Import Selected</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dropboxInfoModal" class="modal" onclick="if(event.target===this) closeDropboxInfoModal()">
+        <div class="modal-content" style="max-width: 480px; height: auto; padding: 30px;">
+            <h2 style="margin:0 0 15px; color:#0f172a; font-size: 19px;">Dropbox is optional</h2>
+            <p style="color:#334155; font-size: 14px; line-height: 1.5; margin: 0 0 14px;">
+                Simple Gantt works fully offline with no account. Here's what changes if you sign in:
+            </p>
+            <div style="display:flex; gap:16px; margin-bottom: 16px;">
+                <div style="flex:1; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px;">
+                    <div style="font-weight:700; font-size:12.5px; color:#64748b; margin-bottom:8px;">WITHOUT DROPBOX</div>
+                    <ul style="margin:0; padding-left:18px; font-size:12.5px; color:#334155; line-height:1.6;">
+                        <li>Data lives only in this browser</li>
+                        <li>No version history — only the current state exists</li>
+                        <li>Clearing browser data loses everything, unless you've manually exported a CSV</li>
+                    </ul>
+                </div>
+                <div style="flex:1; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:12px;">
+                    <div style="font-weight:700; font-size:12.5px; color:#185FA5; margin-bottom:8px;">WITH DROPBOX</div>
+                    <ul style="margin:0; padding-left:18px; font-size:12.5px; color:#334155; line-height:1.6;">
+                        <li>Automatic backups ~1 min after edits stop</li>
+                        <li>Full version history — restore any past backup</li>
+                        <li>Projects can be found and imported on a new device</li>
+                    </ul>
+                </div>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap: 10px;">
+                <button onclick="closeDropboxInfoModal()" style="padding: 8px 16px; background: #e2e8f0; color: #334155; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Maybe later</button>
+                <button onclick="proceedToDropboxLogin()" style="padding: 8px 16px; background: #185FA5; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Continue to Dropbox</button>
+            </div>
         </div>
     </div>
 
@@ -446,14 +492,22 @@
         const AUTO_BACKUP_DELAY_MS = 60000; // back up ~1 minute after edits stop
         let dbx = null;
         let dbxAutoBackupTimer = null;
+        let isFreshDropboxLogin = false;
 
         if (window.location.hash.includes('access_token')) {
             const params = new URLSearchParams(window.location.hash.substring(1));
             localStorage.setItem('dropbox_token', params.get('access_token'));
             window.history.replaceState({}, document.title, window.location.pathname);
+            isFreshDropboxLogin = true;
         }
         if (localStorage.getItem('dropbox_token')) {
             dbx = new Dropbox.Dropbox({ accessToken: localStorage.getItem('dropbox_token') });
+            if (isFreshDropboxLogin) {
+                // Only check on an actual login/re-login event, not on every page load
+                // with an already-cached token -- otherwise this would re-prompt for
+                // projects you already have, every single session.
+                discoverDropboxProjects(false);
+            }
         } else {
             let dbxBtn = document.getElementById('btnDbxSave');
             if(dbxBtn) dbxBtn.innerHTML = dbxBtn.innerHTML.replace('Back up', 'Login to Dropbox');
@@ -462,6 +516,14 @@
         }
 
         function dropboxLogin() {
+            document.getElementById('dropboxInfoModal').classList.add('active');
+        }
+
+        function closeDropboxInfoModal() {
+            document.getElementById('dropboxInfoModal').classList.remove('active');
+        }
+
+        function proceedToDropboxLogin() {
             const redirectUri = encodeURIComponent(window.location.href.split('#')[0]);
             window.location.href = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_APP_KEY}&response_type=token&redirect_uri=${redirectUri}`;
         }
@@ -476,9 +538,23 @@
             return false;
         }
 
+        function ensureDropboxProjectId(projectId) {
+            let p = appDB.projects[projectId];
+            if (!p.dropboxProjectId) {
+                p.dropboxProjectId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+                    : 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+                // Persist immediately so the id survives even if no backup follows right away.
+                localStorage.setItem(DB_KEY, JSON.stringify(appDB));
+            }
+            return p.dropboxProjectId;
+        }
+
         function getDropboxFolder(projectId) {
-            let safeName = appDB.projects[projectId].name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-            return `/Simple Gantt Backups/${safeName}`;
+            // Folders are keyed by a stable id, not the project's display name, so
+            // renaming a project never orphans its backup history, and two projects
+            // that happen to share a name never collide.
+            const id = ensureDropboxProjectId(projectId);
+            return `/Simple Gantt Backups/${id}`;
         }
 
         function timestampForFilename() {
@@ -520,8 +596,13 @@
 
             const folder = getDropboxFolder(projectId);
             const filepath = `${folder}/${timestampForFilename()}.csv`;
+            const metaPath = `${folder}/meta.json`;
+            const metaContents = JSON.stringify({ name: appDB.projects[projectId].name, updatedAt: new Date().toISOString() });
 
-            dbx.filesUpload({ path: filepath, contents: csvString, mode: { '.tag': 'add' }, autorename: true })
+            Promise.all([
+                dbx.filesUpload({ path: filepath, contents: csvString, mode: { '.tag': 'add' }, autorename: true }),
+                dbx.filesUpload({ path: metaPath, contents: metaContents, mode: { '.tag': 'overwrite' } })
+            ])
             .then(() => {
                 updateCloudStatus('synced');
                 if (!isAuto) showStatus("✓ Backed up to Dropbox", "#10b981");
@@ -538,7 +619,7 @@
         function pruneOldBackups(folder) {
             dbx.filesListFolder({ path: folder })
             .then(res => {
-                let entries = res.result.entries.filter(e => e['.tag'] === 'file');
+                let entries = res.result.entries.filter(e => e['.tag'] === 'file' && e.name.toLowerCase().endsWith('.csv'));
                 if (entries.length <= MAX_BACKUPS_PER_PROJECT) return;
                 entries.sort((a, b) => new Date(b.client_modified) - new Date(a.client_modified));
                 entries.slice(MAX_BACKUPS_PER_PROJECT).forEach(e => {
@@ -570,7 +651,7 @@
             const folder = getDropboxFolder(appDB.activeId);
             dbx.filesListFolder({ path: folder })
             .then(res => {
-                let entries = res.result.entries.filter(e => e['.tag'] === 'file');
+                let entries = res.result.entries.filter(e => e['.tag'] === 'file' && e.name.toLowerCase().endsWith('.csv'));
                 entries.sort((a, b) => new Date(b.client_modified) - new Date(a.client_modified));
                 renderVersionsList(entries);
             })
@@ -632,8 +713,125 @@
         }
 
         // ==========================================
-        // UI HELPERS & SPLIT PANE RESIZER
+        // DISCOVER PROJECTS FROM DROPBOX
         // ==========================================
+        // Finds project folders in Dropbox that aren't present in this browser
+        // (matched by the stable dropboxProjectId, not by name) and offers to
+        // import them. Runs automatically right after a fresh login/re-login,
+        // and can also be triggered manually from the Versions modal.
+        let _discoveredProjects = [];
+
+        function readMetaJson(folderPathLower) {
+            return dbx.filesDownload({ path: `${folderPathLower}/meta.json` })
+                .then(r => new Promise(resolve => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        try { resolve(JSON.parse(reader.result).name); }
+                        catch(e) { resolve(null); }
+                    };
+                    reader.onerror = () => resolve(null);
+                    reader.readAsText(r.result.fileBlob);
+                }))
+                .catch(() => null);
+        }
+
+        function discoverDropboxProjects(manualTrigger) {
+            if (!dbx) { if (manualTrigger) dropboxLogin(); return; }
+
+            dbx.filesListFolder({ path: '/Simple Gantt Backups' })
+            .then(res => {
+                let folders = res.result.entries.filter(e => e['.tag'] === 'folder');
+                const localIds = new Set(Object.values(appDB.projects).map(p => p.dropboxProjectId).filter(Boolean));
+                const candidates = folders.filter(f => !localIds.has(f.name));
+
+                if (candidates.length === 0) {
+                    if (manualTrigger) alert("No additional Dropbox projects found beyond what's already in this browser.");
+                    return;
+                }
+
+                Promise.all(candidates.map(f =>
+                    readMetaJson(f.path_lower).then(name => ({ id: f.name, pathLower: f.path_lower, name: name || '(unnamed project)' }))
+                )).then(discovered => {
+                    _discoveredProjects = discovered;
+                    openDiscoveryModal(discovered);
+                });
+            })
+            .catch(err => {
+                if (handleDropboxAuthError(err)) return;
+                const summary = (err && err.error && err.error.error_summary) || '';
+                if (summary.indexOf('path/not_found') > -1) {
+                    if (manualTrigger) alert("No Dropbox backups found yet.");
+                } else {
+                    console.error("Dropbox discovery error:", err);
+                }
+            });
+        }
+
+        function openDiscoveryModal(discovered) {
+            const container = document.getElementById('discoveryListContainer');
+            container.innerHTML = discovered.map((d, i) => `
+                <label style="display:flex; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid #e2e8f0; font-size:13px; color:#0f172a;">
+                    <input type="checkbox" class="discoveryCheckbox" value="${i}" checked>
+                    ${d.name}
+                </label>
+            `).join('');
+            document.getElementById('discoveryModal').classList.add('active');
+        }
+
+        function closeDiscoveryModal() {
+            document.getElementById('discoveryModal').classList.remove('active');
+        }
+
+        function importSelectedDiscoveries() {
+            const checked = Array.from(document.querySelectorAll('.discoveryCheckbox:checked'))
+                .map(cb => _discoveredProjects[parseInt(cb.value, 10)]);
+            closeDiscoveryModal();
+            if (checked.length === 0) return;
+
+            showStatus("Importing from Dropbox...", "#f59e0b");
+            Promise.all(checked.map(d => importDiscoveredProject(d)))
+            .then(() => {
+                localStorage.setItem(DB_KEY, JSON.stringify(appDB));
+                updateProjectDropdown();
+                showStatus("✓ Imported from Dropbox", "#10b981");
+            });
+        }
+
+        function importDiscoveredProject(discovered) {
+            return dbx.filesListFolder({ path: discovered.pathLower })
+            .then(res => {
+                let files = res.result.entries.filter(e => e['.tag'] === 'file' && e.name.toLowerCase().endsWith('.csv'));
+                if (files.length === 0) return null;
+                files.sort((a, b) => new Date(b.client_modified) - new Date(a.client_modified));
+                return dbx.filesDownload({ path: files[0].path_lower });
+            })
+            .then(response => {
+                if (!response) return;
+                return new Promise(resolve => {
+                    const reader = new FileReader();
+                    reader.onload = function() {
+                        Papa.parse(reader.result, { skipEmptyLines: true, complete: function(results) {
+                            let data = results.data;
+                            let columns = [];
+                            if (data.length > 0 && (data[0][0] === 'ID' || data[0][1] === 'Outline')) {
+                                let headers = data.shift();
+                                columns = headers.slice(11);
+                            }
+                            const newId = 'proj_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+                            appDB.projects[newId] = {
+                                name: discovered.name,
+                                columns: columns,
+                                data: normalizeData(data, columns.length),
+                                dropboxProjectId: discovered.id
+                            };
+                            resolve();
+                        }});
+                    };
+                    reader.readAsText(response.result.fileBlob);
+                });
+            })
+            .catch(err => console.error("Import failed for", discovered.name, err));
+        }
         function exportImage() {
             html2canvas(document.querySelector('.chart-panel'), { scale: 2 }).then(canvas => {
                 const link = document.createElement('a'); link.download = `${appDB.projects[appDB.activeId].name}.png`;

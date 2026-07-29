@@ -19,16 +19,36 @@
 
     <style>
         body, html { margin: 0; padding: 0; height: 100vh; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; overflow: hidden; background: #fff;}
-        header { background: #0f172a; color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #334155;}
-        
-        .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap;}
-        .toolbar button, .toolbar select, .toolbar .file-btn { background: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500;}
-        .toolbar button:hover, .toolbar .file-btn:hover { background: #2563eb; }
-        .toolbar select { background: #334155; border: 1px solid #475569; outline: none; padding: 6px; color: white; font-weight: bold;}
-        .toolbar .file-btn input { display: none; }
-        .toggle-label { font-size: 13px; display: flex; align-items: center; gap: 5px; cursor: pointer; background: #334155; padding: 5px 10px; border-radius: 4px; border: 1px solid #475569; color: white;}
-        
-        #saveStatus { font-size: 12px; color: #10b981; font-weight: bold; opacity: 0; transition: opacity 0.3s; margin-left: 15px;}
+        header { background: #0f172a; color: white; padding: 12px 20px 10px; display: flex; flex-direction: column; gap: 12px; border-bottom: 2px solid #334155;}
+        .header-top { display: flex; justify-content: space-between; align-items: center; }
+        .header-left { display: flex; align-items: center; gap: 10px; }
+        .brand { font-size: 15px; font-weight: 600; color: #38bdf8; margin-right: 6px; }
+
+        #projectSelector { background: #1e293b; color: #e2e8f0; border: 0.5px solid #334155; border-radius: 6px; padding: 6px 10px; font-size: 13px; outline: none; }
+
+        .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 0; }
+        .toolbar-group { display: flex; align-items: center; gap: 6px; padding: 0 14px; border-right: 1px solid #334155; }
+        .toolbar-group:first-child { padding-left: 0; }
+        .toolbar-group:last-child { border-right: none; }
+
+        .tbtn { background: #1e293b; color: #e2e8f0; border: none; padding: 7px 11px; border-radius: 6px; cursor: pointer; font-size: 12.5px; font-weight: 500; display: flex; align-items: center; gap: 6px; white-space: nowrap; transition: background 0.15s; }
+        .tbtn:hover { background: #334155; }
+        .tbtn svg { flex-shrink: 0; }
+        .tbtn.file-btn input { display: none; }
+
+        .tbtn-cloud { background: #185FA5; color: #E6F1FB; }
+        .tbtn-cloud:hover { background: #0C447C; }
+        .tbtn-cloud-outline { background: transparent; border: 1px solid #185FA5; color: #85B7EB; }
+        .tbtn-cloud-outline:hover { background: rgba(24,95,165,0.15); }
+
+        select.tbtn-select { background: #1e293b; color: #e2e8f0; border: none; border-radius: 6px; padding: 7px 9px; font-size: 12.5px; outline: none; cursor: pointer; }
+        .toggle-label { font-size: 12.5px; display: flex; align-items: center; gap: 6px; cursor: pointer; background: #1e293b; padding: 7px 10px; border-radius: 6px; color: #e2e8f0; }
+
+        #saveStatus { font-size: 12px; color: #97C459; font-weight: 500; opacity: 0; transition: opacity 0.3s; display: flex; align-items: center; gap: 5px;}
+        #cloudStatus { font-size: 11px; color: #64748b; margin-left: 10px; }
+        #cloudStatus.dirty { color: #EF9F27; }
+        #cloudStatus.syncing { color: #85B7EB; }
+        #cloudStatus.synced { color: #639922; }
         
         .workspace { display: flex; flex: 1; min-height: 0; overflow: hidden; }
         .grid-panel { width: 55%; overflow: auto; background: #f8fafc; padding: 20px; box-sizing: border-box; }
@@ -51,17 +71,11 @@
         .gantt .bar-wrapper.is-overdue .bar-progress { fill: #ef4444 !important; } 
         
         .jexcel tbody tr td.readonly-cell { background-color: #e2e8f0; color: #64748b; font-weight: bold; }
-        .btn-today { background: #f59e0b !important; color: #0f172a !important;}
-        .btn-today:hover { background: #d97706 !important; }
-        .btn-start { background: #0ea5e9 !important; color: #0f172a !important;}
-        .btn-start:hover { background: #0284c7 !important; color: white !important;}
-        .btn-special { background: #8b5cf6 !important; }
-        .btn-special:hover { background: #7c3aed !important; }
-        
-        .header-btn { padding: 6px 12px !important; background: #1e293b; color: #f8fafc; border: 1px solid #475569; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer; margin-left: 5px;}
-        .header-btn:hover { background: #334155; }
-        .btn-danger { color: #ef4444; border-color: #ef4444; background: transparent;}
-        .btn-danger:hover { background: #fee2e2; color: #b91c1c; }
+
+        .header-btn { padding: 6px 10px !important; background: transparent; color: #94a3b8; border: 0.5px solid #334155; border-radius: 6px; font-size: 12.5px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+        .header-btn:hover { background: #1e293b; color: #e2e8f0; }
+        .header-btn.btn-danger { color: #F09595; border-color: #E24B4A; }
+        .header-btn.btn-danger:hover { background: rgba(226,75,74,0.12); color: #F09595; }
 
         /* Modal Styles for Workload View */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(15, 23, 42, 0.6); align-items: center; justify-content: center; backdrop-filter: blur(3px);}
@@ -80,32 +94,83 @@
 <body>
 
     <header>
-        <div style="display: flex; align-items: center;">
-            <strong style="font-size: 16px; margin-right: 15px; color: #38bdf8;">Simple Gantt</strong>
-            
-            <select id="projectSelector" onchange="switchProject()"></select>
-            <button class="header-btn" onclick="renameProject()">Rename</button>
-            <button class="header-btn" onclick="deleteProject()">Delete</button>
-            <button class="header-btn btn-danger" onclick="factoryReset()">Reset App</button>
-            
-            <span id="saveStatus">✓ Saved</span>
+        <div class="header-top">
+            <div class="header-left">
+                <span class="brand">Simple Gantt</span>
+                <select id="projectSelector" onchange="switchProject()"></select>
+                <button class="header-btn" onclick="renameProject()">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                    Rename
+                </button>
+                <button class="header-btn" onclick="deleteProject()">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    Delete
+                </button>
+                <button class="header-btn btn-danger" onclick="factoryReset()">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    Reset
+                </button>
+            </div>
+            <div style="display:flex; align-items:center;">
+                <span id="saveStatus">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    <span id="saveStatusText">Saved</span>
+                </span>
+                <span id="cloudStatus"></span>
+            </div>
         </div>
         <div class="toolbar">
-            <button onclick="jumpToProjectStart()" class="btn-start">Jump to Start</button>
-            <button onclick="jumpToToday()" class="btn-today">Today</button>
-            <button onclick="openWorkloadModal()" class="btn-special">👥 Workload</button>
-            <select id="zoomScale" onchange="changeZoom()">
-                <option value="Day">Zoom: Day</option>
-                <option value="Week">Zoom: Week</option>
-                <option value="Month">Zoom: Month</option>
-            </select>
-            <label class="toggle-label"><input type="checkbox" id="skipWeekends" onchange="forceRecalc()"> Weekends off</label>
-            <button onclick="addRow()">Add Row</button>
-            <label class="file-btn">Import CSV <input type="file" id="csvFile" accept=".csv" onchange="importCSV(event)"></label>
-            <button onclick="exportCSV()">Export CSV</button>
-            <button onclick="exportImage()">Export PNG</button>
-            <button id="btnDbxSave" onclick="saveToDropbox()" style="background: #0061FF;">⬆ Push to Dropbox</button>
-            <button id="btnDbxLoad" onclick="loadFromDropbox()" style="background: #0061FF;">⬇ Pull from Dropbox</button>
+            <div class="toolbar-group">
+                <button class="tbtn" onclick="jumpToProjectStart()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
+                    Start
+                </button>
+                <button class="tbtn" onclick="jumpToToday()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    Today
+                </button>
+                <button class="tbtn" onclick="openWorkloadModal()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                    Workload
+                </button>
+            </div>
+            <div class="toolbar-group">
+                <select id="zoomScale" class="tbtn-select" onchange="changeZoom()">
+                    <option value="Day">Zoom: Day</option>
+                    <option value="Week">Zoom: Week</option>
+                    <option value="Month">Zoom: Month</option>
+                </select>
+                <label class="toggle-label"><input type="checkbox" id="skipWeekends" onchange="forceRecalc()"> Weekends off</label>
+            </div>
+            <div class="toolbar-group">
+                <button class="tbtn" onclick="addRow()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    Add row
+                </button>
+                <label class="tbtn file-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    Import
+                    <input type="file" id="csvFile" accept=".csv" onchange="importCSV(event)">
+                </label>
+                <button class="tbtn" onclick="exportCSV()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Export CSV
+                </button>
+                <button class="tbtn" onclick="exportImage()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                    Export PNG
+                </button>
+            </div>
+            <div class="toolbar-group">
+                <button id="btnDbxSave" class="tbtn tbtn-cloud" onclick="backupToDropbox(false)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 17l4-4 4 4"></path><line x1="12" y1="13" x2="12" y2="21"></line><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"></path></svg>
+                    Back up
+                </button>
+                <button id="btnDbxLoad" class="tbtn tbtn-cloud-outline" onclick="openVersionsModal()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    Versions
+                </button>
+            </div>
         </div>
     </header>
 
@@ -157,13 +222,51 @@
         </div>
     </div>
 
+    <div id="resetModal" class="modal" onclick="if(event.target===this) closeResetModal()">
+        <div class="modal-content" style="max-width: 480px; height: auto; padding: 30px;">
+            <div style="display:flex; align-items:center; gap: 12px; margin-bottom: 15px;">
+                <span style="font-size: 28px;">🚨</span>
+                <h2 style="margin:0; color:#0f172a; font-size: 19px;">Reset App</h2>
+            </div>
+            <p style="color:#334155; font-size: 14px; line-height: 1.5;">
+                This permanently deletes <strong id="resetProjectCount">all projects</strong> saved in this browser. It cannot be undone.
+            </p>
+            <p style="color:#334155; font-size: 14px; line-height: 1.5;">
+                Consider using <strong>Export CSV</strong> or <strong>Push to Dropbox</strong> on any project you want to keep before continuing.
+            </p>
+            <p style="color:#475569; font-size: 13px; margin-bottom: 6px;">Type <strong>DELETE</strong> to confirm:</p>
+            <input id="resetConfirmInput" type="text" autocomplete="off" placeholder="DELETE" oninput="onResetInputChange()"
+                style="width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; margin-bottom: 20px;">
+            <div style="display:flex; justify-content:flex-end; gap: 10px;">
+                <button onclick="closeResetModal()" style="padding: 8px 16px; background: #e2e8f0; color: #334155; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Cancel</button>
+                <button id="resetConfirmBtn" onclick="confirmFactoryReset()" disabled
+                    style="padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: not-allowed; opacity: 0.5;">Delete Everything</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="versionsModal" class="modal" onclick="if(event.target===this) closeVersionsModal()">
+        <div class="modal-content" style="max-width: 460px; height: auto; max-height: 70vh;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+                <h2 style="margin:0; color:#0f172a; font-size: 18px;">Dropbox versions</h2>
+                <button onclick="closeVersionsModal()" style="padding: 6px 15px; background: #ef4444; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Close</button>
+            </div>
+            <p style="color:#64748b; font-size:12.5px; margin: 0 0 10px;">Automatic backups run about a minute after you stop editing. You can also back up manually any time.</p>
+            <div id="versionsListContainer" style="flex: 1; overflow: auto;"></div>
+        </div>
+    </div>
+
     <script>
         function format(d) { return d.toISOString().split('T')[0]; }
 
         function showStatus(text, color) {
             const status = document.getElementById('saveStatus');
-            status.innerText = text; status.style.color = color; status.style.opacity = 1;
-            setTimeout(() => { if(text.includes('✓')) status.style.opacity = 0; }, 3000);
+            const clean = text.replace(/^[✓✗⚠]\s*/, '');
+            document.getElementById('saveStatusText').innerText = clean;
+            status.style.color = color;
+            status.style.opacity = 1;
+            const isSuccess = (color === '#10b981' || color === '#639922');
+            if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -283,11 +386,41 @@
             }
         }
 
+        const LEGACY_DB_KEYS = ["simple_gantt_portfolio_v25","simple_gantt_portfolio_v24","simple_gantt_portfolio_v23",
+            "simple_gantt_portfolio_v22","simple_gantt_portfolio_v21","simple_gantt_portfolio_v20",
+            "simple_gantt_portfolio_v19","simple_gantt_portfolio_v18","simple_gantt_portfolio_v17"];
+
         function factoryReset() {
-            if(confirm("🚨 WARNING: This will completely delete all projects and settings in your browser storage. Do you want to proceed?")) {
-                localStorage.clear();
-                location.reload();
-            }
+            const projectNames = Object.values(appDB.projects).map(p => p.name);
+            const label = projectNames.length === 1
+                ? `all data in "${projectNames[0]}"`
+                : `all ${projectNames.length} projects (${projectNames.join(', ')})`;
+            document.getElementById('resetProjectCount').innerText = label;
+            document.getElementById('resetConfirmInput').value = '';
+            onResetInputChange();
+            document.getElementById('resetModal').classList.add('active');
+        }
+
+        function closeResetModal() {
+            document.getElementById('resetModal').classList.remove('active');
+        }
+
+        function onResetInputChange() {
+            const match = document.getElementById('resetConfirmInput').value.trim() === 'DELETE';
+            const btn = document.getElementById('resetConfirmBtn');
+            btn.disabled = !match;
+            btn.style.cursor = match ? 'pointer' : 'not-allowed';
+            btn.style.opacity = match ? 1 : 0.5;
+        }
+
+        function confirmFactoryReset() {
+            // Only remove keys this app owns. Deliberately NOT localStorage.clear() --
+            // that would wipe localStorage for the entire origin, including any other
+            // tools/apps hosted on the same domain (e.g. other GitHub Pages projects).
+            localStorage.removeItem(DB_KEY);
+            LEGACY_DB_KEYS.forEach(k => localStorage.removeItem(k));
+            localStorage.removeItem('dropbox_token');
+            location.reload();
         }
 
         function saveToLocal() {
@@ -297,13 +430,22 @@
             appDB.settings.zoom = document.getElementById('zoomScale').value;
             localStorage.setItem(DB_KEY, JSON.stringify(appDB));
             showStatus("✓ Saved", "#10b981");
+            scheduleAutoBackup();
         }
 
         // ==========================================
-        // DROPBOX CONFIGURATION
+        // DROPBOX CONFIGURATION -- versioned backups
         // ==========================================
-        const DROPBOX_APP_KEY = '63246m2wldbbmwi'; 
+        // Each backup is a new timestamped file under a per-project folder
+        // (/Simple Gantt Backups/<project>/<timestamp>.csv). Nothing on the
+        // Dropbox side is ever overwritten, so you can always restore an
+        // older version. Old versions beyond MAX_BACKUPS_PER_PROJECT are
+        // pruned automatically after each successful backup.
+        const DROPBOX_APP_KEY = '63246m2wldbbmwi';
+        const MAX_BACKUPS_PER_PROJECT = 25;
+        const AUTO_BACKUP_DELAY_MS = 60000; // back up ~1 minute after edits stop
         let dbx = null;
+        let dbxAutoBackupTimer = null;
 
         if (window.location.hash.includes('access_token')) {
             const params = new URLSearchParams(window.location.hash.substring(1));
@@ -314,14 +456,14 @@
             dbx = new Dropbox.Dropbox({ accessToken: localStorage.getItem('dropbox_token') });
         } else {
             let dbxBtn = document.getElementById('btnDbxSave');
-            if(dbxBtn) dbxBtn.innerText = "🔑 Login to Dropbox";
+            if(dbxBtn) dbxBtn.innerHTML = dbxBtn.innerHTML.replace('Back up', 'Login to Dropbox');
             let dbxLoadBtn = document.getElementById('btnDbxLoad');
             if(dbxLoadBtn) dbxLoadBtn.style.display = 'none';
         }
 
-        function getDropboxPath(projectId) {
-            let safeName = appDB.projects[projectId].name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-            return `/${safeName}.csv`;
+        function dropboxLogin() {
+            const redirectUri = encodeURIComponent(window.location.href.split('#')[0]);
+            window.location.href = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_APP_KEY}&response_type=token&redirect_uri=${redirectUri}`;
         }
 
         function handleDropboxAuthError(err) {
@@ -334,47 +476,76 @@
             return false;
         }
 
-        function saveToDropbox() {
-            if (!dbx) {
-                const redirectUri = encodeURIComponent(window.location.href.split('#')[0]);
-                window.location.href = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_APP_KEY}&response_type=token&redirect_uri=${redirectUri}`;
-                return;
-            }
-            showStatus("Pushing to Dropbox...", "#f59e0b");
+        function getDropboxFolder(projectId) {
+            let safeName = appDB.projects[projectId].name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            return `/Simple Gantt Backups/${safeName}`;
+        }
+
+        function timestampForFilename() {
+            const d = new Date();
+            const pad = n => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+        }
+
+        function updateCloudStatus(state) {
+            const el = document.getElementById('cloudStatus');
+            if (!el || !dbx) { if(el) { el.textContent = ''; el.className = ''; } return; }
+            if (state === 'pending') { el.textContent = '· backup pending'; el.className = 'dirty'; }
+            else if (state === 'syncing') { el.textContent = '· backing up…'; el.className = 'syncing'; }
+            else if (state === 'synced') { el.textContent = '· backed up just now'; el.className = 'synced'; }
+            else if (state === 'error') { el.textContent = '· last backup failed'; el.className = 'dirty'; }
+            else { el.textContent = ''; el.className = ''; }
+        }
+
+        function scheduleAutoBackup() {
+            if (!dbx) return;
+            if (dbxAutoBackupTimer) clearTimeout(dbxAutoBackupTimer);
+            updateCloudStatus('pending');
+            dbxAutoBackupTimer = setTimeout(() => backupToDropbox(true), AUTO_BACKUP_DELAY_MS);
+        }
+
+        function backupToDropbox(isAuto) {
+            if (!dbx) { if (!isAuto) dropboxLogin(); return; }
+            if (dbxAutoBackupTimer) { clearTimeout(dbxAutoBackupTimer); dbxAutoBackupTimer = null; }
+            if (!sheet) return;
+
+            const projectId = appDB.activeId;
+            updateCloudStatus('syncing');
+            if (!isAuto) showStatus("Backing up to Dropbox...", "#f59e0b");
 
             let exportData = [...sheet.getData()];
             let headers = sheet.options.columns.map(c => c.title);
             exportData.unshift(headers);
             const csvString = Papa.unparse(exportData);
 
-            const projectId = appDB.activeId;
-            const filepath = getDropboxPath(projectId);
-            const known = appDB.projects[projectId].dropboxMeta;
+            const folder = getDropboxFolder(projectId);
+            const filepath = `${folder}/${timestampForFilename()}.csv`;
 
-            // If we know the revision we last saw, use "update" mode so Dropbox rejects
-            // the write (a conflict error) if the file changed elsewhere since our last
-            // sync, instead of silently overwriting someone/something else's changes.
-            const mode = (known && known.rev) ? { '.tag': 'update', update: known.rev } : { '.tag': 'overwrite' };
-
-            dbx.filesUpload({ path: filepath, contents: csvString, mode: mode })
-            .then(response => {
-                appDB.projects[projectId].dropboxMeta = {
-                    path: filepath, rev: response.result.rev, modifiedAt: response.result.server_modified
-                };
-                saveToLocal();
-                showStatus("✓ Pushed to Dropbox", "#10b981");
+            dbx.filesUpload({ path: filepath, contents: csvString, mode: { '.tag': 'add' }, autorename: true })
+            .then(() => {
+                updateCloudStatus('synced');
+                if (!isAuto) showStatus("✓ Backed up to Dropbox", "#10b981");
+                pruneOldBackups(folder);
             })
             .catch(err => {
                 if (handleDropboxAuthError(err)) return;
-                const summary = (err && err.error && err.error.error_summary) || '';
-                if (summary.indexOf('conflict') > -1 || summary.indexOf('rev_mismatch') > -1) {
-                    showStatus("⚠ Dropbox changed elsewhere", "#ef4444");
-                    alert("This project's Dropbox file changed elsewhere since your last sync. Click 'Pull from Dropbox' to grab the latest version first, so you don't overwrite those changes.");
-                } else {
-                    showStatus("✗ Dropbox push failed", "#ef4444");
-                    console.error("Dropbox upload error:", err);
-                }
+                updateCloudStatus('error');
+                if (!isAuto) showStatus("✗ Backup failed", "#ef4444");
+                console.error("Dropbox backup error:", err);
             });
+        }
+
+        function pruneOldBackups(folder) {
+            dbx.filesListFolder({ path: folder })
+            .then(res => {
+                let entries = res.result.entries.filter(e => e['.tag'] === 'file');
+                if (entries.length <= MAX_BACKUPS_PER_PROJECT) return;
+                entries.sort((a, b) => new Date(b.client_modified) - new Date(a.client_modified));
+                entries.slice(MAX_BACKUPS_PER_PROJECT).forEach(e => {
+                    dbx.filesDeleteV2({ path: e.path_lower }).catch(err => console.error("Prune delete failed:", err));
+                });
+            })
+            .catch(err => console.error("Dropbox prune list failed:", err));
         }
 
         function applyImportedCSVData(data) {
@@ -386,43 +557,77 @@
             syncToGantt(true);
         }
 
-        function loadFromDropbox() {
-            if (!dbx) {
-                const redirectUri = encodeURIComponent(window.location.href.split('#')[0]);
-                window.location.href = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_APP_KEY}&response_type=token&redirect_uri=${redirectUri}`;
+        function formatBackupTimestamp(iso) {
+            return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+        }
+
+        function openVersionsModal() {
+            if (!dbx) { dropboxLogin(); return; }
+            document.getElementById('versionsModal').classList.add('active');
+            const container = document.getElementById('versionsListContainer');
+            container.innerHTML = '<p style="color:#94a3b8; font-size:13px;">Loading versions...</p>';
+
+            const folder = getDropboxFolder(appDB.activeId);
+            dbx.filesListFolder({ path: folder })
+            .then(res => {
+                let entries = res.result.entries.filter(e => e['.tag'] === 'file');
+                entries.sort((a, b) => new Date(b.client_modified) - new Date(a.client_modified));
+                renderVersionsList(entries);
+            })
+            .catch(err => {
+                if (handleDropboxAuthError(err)) return;
+                const summary = (err && err.error && err.error.error_summary) || '';
+                if (summary.indexOf('path/not_found') > -1) {
+                    container.innerHTML = '<p style="color:#94a3b8; font-size:13px;">No backups yet for this project. Click "Back up" to create the first one.</p>';
+                } else {
+                    container.innerHTML = '<p style="color:#ef4444; font-size:13px;">Could not load versions from Dropbox.</p>';
+                    console.error("Dropbox list error:", err);
+                }
+            });
+        }
+
+        function closeVersionsModal() {
+            document.getElementById('versionsModal').classList.remove('active');
+        }
+
+        function renderVersionsList(entries) {
+            const container = document.getElementById('versionsListContainer');
+            if (entries.length === 0) {
+                container.innerHTML = '<p style="color:#94a3b8; font-size:13px;">No backups yet for this project. Click "Back up" to create the first one.</p>';
                 return;
             }
-            const projectId = appDB.activeId;
-            const filepath = getDropboxPath(projectId);
-            showStatus("Checking Dropbox...", "#f59e0b");
+            container.innerHTML = entries.map((e, i) => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 4px; border-bottom:1px solid #e2e8f0;">
+                    <div>
+                        <div style="font-weight:600; font-size:13px; color:#0f172a;">${formatBackupTimestamp(e.client_modified)}</div>
+                        ${i === 0 ? '<div style="font-size:11px; color:#10b981; font-weight:600;">Most recent</div>' : ''}
+                    </div>
+                    <button onclick="restoreBackup('${e.path_lower}')" style="padding:6px 14px; background:#185FA5; color:white; border:none; border-radius:4px; font-weight:600; cursor:pointer; font-size:12px;">Restore</button>
+                </div>
+            `).join('');
+        }
 
-            dbx.filesDownload({ path: filepath })
+        function restoreBackup(path) {
+            const projectName = appDB.projects[appDB.activeId].name;
+            if (!confirm(`Replace the current '${projectName}' data with this backup? This will overwrite what's on screen now.`)) return;
+
+            dbx.filesDownload({ path: path })
             .then(response => {
                 const reader = new FileReader();
                 reader.onload = function() {
                     Papa.parse(reader.result, { skipEmptyLines: true, complete: function(results) {
-                        const proceed = confirm(`Replace the current '${appDB.projects[projectId].name}' data with the version stored in Dropbox? This will overwrite what's on screen now.`);
-                        if (!proceed) { showStatus("Pull cancelled", "#64748b"); return; }
                         applyImportedCSVData(results.data);
-                        appDB.projects[projectId].dropboxMeta = {
-                            path: filepath, rev: response.result.rev, modifiedAt: response.result.server_modified
-                        };
                         saveToLocal();
-                        showStatus("✓ Pulled from Dropbox", "#10b981");
+                        closeVersionsModal();
+                        showStatus("✓ Restored from Dropbox", "#10b981");
                     }});
                 };
                 reader.readAsText(response.result.fileBlob);
             })
             .catch(err => {
                 if (handleDropboxAuthError(err)) return;
-                const summary = (err && err.error && err.error.error_summary) || '';
-                if (summary.indexOf('path/not_found') > -1) {
-                    showStatus("No file in Dropbox yet", "#f59e0b");
-                    alert("No Dropbox file found for this project yet. Use 'Push to Dropbox' first to create one.");
-                } else {
-                    showStatus("✗ Dropbox pull failed", "#ef4444");
-                    console.error("Dropbox download error:", err);
-                }
+                alert("Couldn't restore this backup. Please try again.");
+                console.error("Dropbox restore error:", err);
             });
         }
 

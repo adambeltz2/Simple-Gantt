@@ -69,6 +69,7 @@
         footer a { color: #64748b; text-decoration: none; display: flex; align-items: center; gap: 6px; font-weight: 600; transition: color 0.2s; }
         footer a.gh:hover { color: #0f172a; }
         footer a.bmc:hover { color: #f59e0b; }
+        footer .version-tag { margin-right: auto; font-weight: 500; color: #94a3b8; font-variant-numeric: tabular-nums; }
 
         .gantt .bar-wrapper.is-parent .bar { fill: #0f172a !important; }
         .gantt .bar-wrapper.is-parent .bar-progress { fill: #1e293b !important; }
@@ -195,6 +196,7 @@
     </div>
     
     <footer>
+        <span class="version-tag" id="versionTag" title="Simple Gantt version"></span>
         <a href="https://github.com/adambeltz2/Simple-Gantt" target="_blank" class="gh">
             <svg height="16" viewBox="0 0 16 16" width="16" fill="currentColor"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
             GitHub
@@ -325,6 +327,11 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
+        // Bump this on meaningful releases (feature-level changes -> minor/major,
+        // fixes/tweaks -> patch). Shown in the footer so bug reports can reference it.
+        const APP_VERSION = "2.0.1";
+        document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
+
         const DB_KEY = "simple_gantt_portfolio_v26"; 
         
         const todayObj = new Date();
@@ -433,13 +440,42 @@
         function deleteProject() {
             let ids = Object.keys(appDB.projects);
             if (ids.length <= 1) { alert("You cannot delete your only project."); return; }
-            if (confirm(`Are you sure you want to delete '${appDB.projects[appDB.activeId].name}'?`)) {
-                delete appDB.projects[appDB.activeId];
-                appDB.activeId = Object.keys(appDB.projects)[0]; 
-                updateProjectDropdown();
-                renderGrid();
-                syncToGantt(true);
+
+            const project = appDB.projects[appDB.activeId];
+            if (!confirm(`Are you sure you want to delete '${project.name}'?`)) return;
+
+            const dropboxProjectId = project.dropboxProjectId; // may be undefined if never backed up
+
+            delete appDB.projects[appDB.activeId];
+            appDB.activeId = Object.keys(appDB.projects)[0];
+            updateProjectDropdown();
+            renderGrid();
+            syncToGantt(true);
+            saveToLocal(); // persist the deletion immediately, don't wait for the next edit
+
+            if (!dropboxProjectId) return; // this project was never backed up, nothing on Dropbox to clean up
+
+            if (!dbx) {
+                alert(`Heads up: this project has backups saved in Dropbox that weren't deleted, since you're not currently logged in. If you don't want it reappearing under "Check Dropbox for other projects" later, log into Dropbox and delete its folder manually, or delete it next time you're logged in.`);
+                return;
             }
+
+            if (confirm(`This project also has backups saved in Dropbox. Delete those too?\n\nIf you keep them, this project may show up again under "Check Dropbox for other projects."`)) {
+                deleteDropboxProjectFolder(dropboxProjectId, project.name);
+            }
+        }
+
+        function deleteDropboxProjectFolder(dropboxProjectId, projectName) {
+            const folder = `/Simple Gantt Backups/${dropboxProjectId}`;
+            showStatus("Removing from Dropbox...", "#f59e0b");
+            dbx.filesDeleteV2({ path: folder })
+            .then(() => showStatus("✓ Removed from Dropbox", "#10b981"))
+            .catch(err => {
+                if (handleDropboxAuthError(err)) return;
+                console.error("Dropbox folder delete failed:", err);
+                showStatus("✗ Dropbox cleanup failed", "#ef4444");
+                alert(`Couldn't delete '${projectName}''s backups from Dropbox. You can remove the "${dropboxProjectId}" folder manually from Dropbox's Simple Gantt Backups folder if needed.`);
+            });
         }
 
         const LEGACY_DB_KEYS = ["simple_gantt_portfolio_v25","simple_gantt_portfolio_v24","simple_gantt_portfolio_v23",

@@ -96,6 +96,16 @@
         
         .jexcel tbody tr td.readonly-cell { background-color: #e2e8f0; color: #64748b; font-weight: bold; }
 
+        /* Hide jspreadsheet's built-in row-number gutter -- redundant now that Task ID
+           is clearly labeled, and was creating a confusing second numbering system next
+           to it. Best-effort selector based on jspreadsheet CE's known class names; if
+           it doesn't take (older/newer library builds sometimes rename these), the grid
+           still works fine, just with the row-number column visible. */
+        .jexcel_row, .jexcel td.jexcel_row, td.jexcel_row,
+        .jexcel_selectall, .jexcel th.jexcel_selectall {
+            display: none !important;
+        }
+
         .header-btn { padding: 6px 10px !important; background: transparent; color: #94a3b8; border: 0.5px solid #334155; border-radius: 6px; font-size: 12.5px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 5px; }
         .header-btn:hover { background: #1e293b; color: #e2e8f0; }
         .header-btn.btn-danger { color: #F09595; border-color: #E24B4A; }
@@ -351,7 +361,7 @@
 
         // Bump this on meaningful releases (feature-level changes -> minor/major,
         // fixes/tweaks -> patch). Shown in the footer so bug reports can reference it.
-        const APP_VERSION = "2.2.0";
+        const APP_VERSION = "2.2.1";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -1353,7 +1363,7 @@
             let dataToLoad = overrideData || activeProj.data;
             
             let cols = [
-                { type: 'text', title: 'ID', width: 35, readOnly: true, align: 'center' },
+                { type: 'text', title: 'Task ID', width: 55, readOnly: true, align: 'center' },
                 { type: 'text', title: 'Outline', width: 55, readOnly: true, align: 'left' },
                 { type: 'text', title: 'Task Name', width: 160, align: 'left' },
                 { type: 'text', title: 'Resource', width: 100, align: 'left' },
@@ -1378,6 +1388,13 @@
                 data: dataToLoad,
                 columns: cols,
                 rowDrag: true,
+                // Column sorting (double-click header) is a native jspreadsheet feature,
+                // enabled by default. It's unsafe here: WBS/Outline numbering, parent-child
+                // grouping, and dependency rendering all assume rows stay in a meaningful
+                // order (children adjacent to their parent). A generic sort would scramble
+                // that regardless of which column it's sorted by. Use row drag or the
+                // Parent field to restructure instead.
+                columnSorting: false,
                 allowInsertColumn: true,
                 allowDeleteColumn: true,
                 updateTable: formatCells,

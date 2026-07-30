@@ -103,6 +103,8 @@
            to zero-width via CSS desynced those coordinates from the visible layout. The
            gutter is a real jspreadsheet interaction surface, not just decoration -- don't
            hide it with display:none/width:0 without also patching the resize handle math. */
+        .jexcel_row { cursor: grab !important; }
+        .jexcel_row:active { cursor: grabbing !important; }
 
         .header-btn { padding: 6px 10px !important; background: transparent; color: #94a3b8; border: 0.5px solid #334155; border-radius: 6px; font-size: 12.5px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 5px; }
         .header-btn:hover { background: #1e293b; color: #e2e8f0; }
@@ -359,7 +361,7 @@
 
         // Bump this on meaningful releases (feature-level changes -> minor/major,
         // fixes/tweaks -> patch). Shown in the footer so bug reports can reference it.
-        const APP_VERSION = "2.2.2";
+        const APP_VERSION = "2.2.3";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 

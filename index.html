@@ -96,15 +96,13 @@
         
         .jexcel tbody tr td.readonly-cell { background-color: #e2e8f0; color: #64748b; font-weight: bold; }
 
-        /* Hide jspreadsheet's built-in row-number gutter -- redundant now that Task ID
-           is clearly labeled, and was creating a confusing second numbering system next
-           to it. Best-effort selector based on jspreadsheet CE's known class names; if
-           it doesn't take (older/newer library builds sometimes rename these), the grid
-           still works fine, just with the row-number column visible. */
-        .jexcel_row, .jexcel td.jexcel_row, td.jexcel_row,
-        .jexcel_selectall, .jexcel th.jexcel_selectall {
-            display: none !important;
-        }
+        /* NOTE: Previously attempted to hide jspreadsheet's native row-number gutter here
+           via CSS (targeting .jexcel_row / .jexcel_selectall). Reverted -- it broke column
+           resize, almost certainly because jspreadsheet positions its resize-drag handles
+           using JS-computed offsets that assume that gutter's original width. Forcing it
+           to zero-width via CSS desynced those coordinates from the visible layout. The
+           gutter is a real jspreadsheet interaction surface, not just decoration -- don't
+           hide it with display:none/width:0 without also patching the resize handle math. */
 
         .header-btn { padding: 6px 10px !important; background: transparent; color: #94a3b8; border: 0.5px solid #334155; border-radius: 6px; font-size: 12.5px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 5px; }
         .header-btn:hover { background: #1e293b; color: #e2e8f0; }
@@ -361,7 +359,7 @@
 
         // Bump this on meaningful releases (feature-level changes -> minor/major,
         // fixes/tweaks -> patch). Shown in the footer so bug reports can reference it.
-        const APP_VERSION = "2.2.1";
+        const APP_VERSION = "2.2.2";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 

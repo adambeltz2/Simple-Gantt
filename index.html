@@ -175,11 +175,27 @@
                     <option value="Month">Zoom: Month</option>
                 </select>
                 <label class="toggle-label"><input type="checkbox" id="skipWeekends" onchange="forceRecalc()"> Weekends off</label>
+                <button class="tbtn" onclick="snapPanes(92)" title="Show grid only">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="2" y="4" width="16" height="16" rx="1.5"></rect><rect x="20" y="4" width="2" height="16" rx="1" opacity="0.35"></rect></svg>
+                    Grid
+                </button>
+                <button class="tbtn" onclick="snapPanes(55)" title="Split view (default)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="2" y="4" width="9" height="16" rx="1.5"></rect><rect x="13" y="4" width="9" height="16" rx="1.5"></rect></svg>
+                    Split
+                </button>
+                <button class="tbtn" onclick="snapPanes(8)" title="Show chart only">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="2" y="4" width="2" height="16" rx="1" opacity="0.35"></rect><rect x="6" y="4" width="16" height="16" rx="1.5"></rect></svg>
+                    Chart
+                </button>
             </div>
             <div class="toolbar-group">
                 <button class="tbtn" onclick="addRow()">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                     Add row
+                </button>
+                <button class="tbtn" onclick="autoFitColumns()" title="Resize columns to fit their content">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 7 5 12 9 17"></polyline><polyline points="15 7 19 12 15 17"></polyline></svg>
+                    Fit columns
                 </button>
                 <label class="tbtn file-btn">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
@@ -361,7 +377,7 @@
 
         // Bump this on meaningful releases (feature-level changes -> minor/major,
         // fixes/tweaks -> patch). Shown in the footer so bug reports can reference it.
-        const APP_VERSION = "2.3.0";
+        const APP_VERSION = "2.4.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -1045,8 +1061,20 @@
                 isResizing = false;
                 document.body.style.cursor = 'default';
                 divider.classList.remove('resizing');
+                localStorage.setItem('simple_gantt_pane_width', gridPanel.style.width);
             }
         });
+
+        function snapPanes(gridPercent) {
+            gridPanel.style.width = gridPercent + '%';
+            localStorage.setItem('simple_gantt_pane_width', gridPercent + '%');
+        }
+
+        // Restore whatever pane layout was last used (dragged or snapped),
+        // so the workspace opens the way you left it instead of always
+        // defaulting back to the 55/45 split.
+        const savedPaneWidth = localStorage.getItem('simple_gantt_pane_width');
+        if (savedPaneWidth) gridPanel.style.width = savedPaneWidth;
 
         // ==========================================
         // RESOURCE WORKLOAD DASHBOARD
@@ -1355,6 +1383,43 @@
             saveToLocal();
         }
 
+        function autoFitColumns() {
+            if (!sheet) return;
+            try {
+                const numCols = sheet.options.columns.length;
+                // Dropdown columns (Depends, Parent) display a formatted label, not
+                // their raw stored value -- measuring raw data would undersize them.
+                // Leave those at their configured widths.
+                const skipCols = new Set([COL.DEP, COL.PARENT]);
+
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                ctx.font = '13px -apple-system, sans-serif';
+
+                const data = sheet.getData();
+
+                for (let col = 0; col < numCols; col++) {
+                    if (skipCols.has(col)) continue;
+
+                    const headerTitle = sheet.options.columns[col].title || '';
+                    let maxWidth = ctx.measureText(headerTitle).width;
+
+                    data.forEach(row => {
+                        const text = row[col] != null ? String(row[col]) : '';
+                        if (!text) return;
+                        const w = ctx.measureText(text).width;
+                        if (w > maxWidth) maxWidth = w;
+                    });
+
+                    let newWidth = Math.ceil(maxWidth) + 26; // padding for cell borders/spacing
+                    newWidth = Math.max(45, Math.min(newWidth, 320)); // sane bounds
+                    sheet.setWidth(col, newWidth);
+                }
+            } catch (e) {
+                console.error("Auto-fit columns failed:", e);
+            }
+        }
+
         function renderGrid(overrideData = null) {
             let spreadsheetDiv = document.getElementById('spreadsheet');
             if(sheet) jspreadsheet.destroy(spreadsheetDiv);
@@ -1403,11 +1468,16 @@
                 oninsertcolumn: syncColumnsToDB,
                 ondeletecolumn: syncColumnsToDB,
                 oninsertrow: function(instance, rowNumber) {
-                    let data = sheet.getData();
-                    let maxId = Math.max(0, ...data.map(r => parseInt(r[COL.ID]) || 0));
-                    sheet.setValueFromCoords(COL.ID, rowNumber, (maxId + 1).toString(), true);
-                    sheet.setValueFromCoords(COL.ALLOC, rowNumber, '100', true);
-                    triggerSync();
+                    // Deferred to the next tick so this runs after jspreadsheet finishes
+                    // its own row-insert rendering/focus handling for the new row, rather
+                    // than racing it with programmatic cell writes at the same moment.
+                    setTimeout(() => {
+                        let data = sheet.getData();
+                        let maxId = Math.max(0, ...data.map(r => parseInt(r[COL.ID]) || 0));
+                        sheet.setValueFromCoords(COL.ID, rowNumber, (maxId + 1).toString(), true);
+                        sheet.setValueFromCoords(COL.ALLOC, rowNumber, '100', true);
+                        triggerSync();
+                    }, 0);
                 },
                 ondeleterow: function() {
                     let data = sheet.getData();
@@ -1470,6 +1540,7 @@
             };
 
             sheet = jspreadsheet(spreadsheetDiv, sheetOptions);
+            setTimeout(autoFitColumns, 0);
             
             spreadsheetDiv.onkeydown = function(e) {
                 if (e.key === 'Tab' && sheet && sheet.selectedCell) {

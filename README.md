@@ -4,6 +4,8 @@
 
 A lightweight, purely browser-based Gantt chart and project management tool built with HTML, JavaScript, and CSS. No database deployment or server infrastructure required — everything saves locally to your browser, with optional CSV export and Dropbox backup/sync.
 
+The current version number is shown in the footer of the app (bottom-left) — handy to reference if you're reporting a bug.
+
 ## Features
 
 * **Interactive Dual-Pane View**: Work with a dynamic spreadsheet grid on the left while rendering a drag-and-drop Frappe Gantt chart on the right.
@@ -63,9 +65,23 @@ Simple Gantt can automatically back up each project to Dropbox as a series of ti
 * Dropbox login uses a short-lived access token (no refresh token). If it expires, you'll be prompted to log in again — your local data isn't affected, just the active Dropbox session.
 * The app connects to Dropbox using a personal app key belonging to this project. If you fork/self-host this app under a different domain, you'll need to [create your own Dropbox app](https://www.dropbox.com/developers/apps), set its redirect URI to match your hosting URL, and swap in your own key (`DROPBOX_APP_KEY` near the top of the script in `index.html`).
 
+## Working with the Grid
+
+* **Task ID vs. Outline vs. row position** are three different things that can look similar at a glance: **Task ID** is a permanent identifier assigned when a task is created and never changes — it's what Dependencies and Parent links point to. **Outline** is the WBS number (1, 1.1, 2...) and reflects a task's current position and hierarchy, so it updates as you reorder or reparent tasks. The unlabeled leftmost column is just jspreadsheet's own row-position indicator and has no meaning beyond that.
+* **Reordering tasks**: right-click any row → **Move row up** / **Move row down**. This is the reliable way to reorder — it also recalculates WBS numbers, dependency arrows, and the Gantt chart immediately. (jspreadsheet's built-in drag-to-reorder, via the row-number gutter, may also work depending on your browser, but isn't guaranteed.)
+* **Column sorting is intentionally disabled.** Sorting by any column would physically reorder rows, which would scramble the parent-child adjacency that WBS numbering and hierarchy rollups depend on. Use row reordering or the **Parent** field to restructure instead.
+* **Column widths auto-fit** to their content automatically whenever a project opens, switches, imports, or restores. Use the **Fit columns** button in the toolbar to re-trigger it manually after editing. Depends and Parent are excluded, since they display a formatted label rather than their raw stored value.
+* Right-click a row for **Insert row above/below** and **Delete row** as well.
+
+## Reading the Gantt Chart
+
+* A summary bar above the chart shows the project's overall date range, duration, current zoom level, and today's date (when it falls within range) — this is included when you export a PNG, so exported images are self-contained.
+* Task bars use a standard status color scheme, shown in a legend above the chart: gray = not started, blue = in progress, green = complete, red = overdue, amber diamond = milestone, dark slate = summary/parent row.
+* Use the **Grid / Split / Chart** buttons in the toolbar to snap the divider between the grid and chart to preset widths, or drag it manually. Whichever layout you land on is remembered and restored next time you open the app.
+
 ## CSV Import/Export Format
 
-Exported/imported CSVs include a header row followed by columns in this order: `ID, Outline, Name, Resource, Allocation, % Complete, Start Date, Duration, End Date, Dependencies, Parent ID`, followed by any custom tracking columns you've added. When importing, keep the header row intact so custom columns are recognized correctly.
+Exported/imported CSVs include a header row followed by columns in this order: `Task ID, Outline, Name, Resource, Allocation, % Complete, Start Date, Duration, End Date, Dependencies, Parent ID`, followed by any custom tracking columns you've added. When importing, keep the header row intact so custom columns are recognized correctly.
 
 ## Known Limitations
 

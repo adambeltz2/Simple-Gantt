@@ -377,7 +377,7 @@
 
         // Bump this on meaningful releases (feature-level changes -> minor/major,
         // fixes/tweaks -> patch). Shown in the footer so bug reports can reference it.
-        const APP_VERSION = "2.4.0";
+        const APP_VERSION = "2.4.1";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -1531,8 +1531,8 @@
                         let rowCount = sheet.getData().length;
                         items.push({ title: '⬆️ Move row up', disabled: rowIdx === 0, onclick: () => moveRow(rowIdx, -1) });
                         items.push({ title: '⬇️ Move row down', disabled: rowIdx === rowCount - 1, onclick: () => moveRow(rowIdx, 1) });
-                        items.push({ title: 'Insert row above', onclick: () => sheet.insertRow(1, parseInt(y), 0) });
-                        items.push({ title: 'Insert row below', onclick: () => sheet.insertRow(1, parseInt(y), 1) });
+                        items.push({ title: 'Insert row above', onclick: () => sheet.insertRow(1, parseInt(y), 1) });
+                        items.push({ title: 'Insert row below', onclick: () => sheet.insertRow(1, parseInt(y), 0) });
                         items.push({ title: 'Delete row', onclick: () => sheet.deleteRow(parseInt(y), 1) });
                     }
                     return items;

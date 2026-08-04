@@ -96,13 +96,6 @@
         
         .jexcel tbody tr td.readonly-cell { background-color: #e2e8f0; color: #64748b; font-weight: bold; }
 
-        /* NOTE: Previously attempted to hide jspreadsheet's native row-number gutter here
-           via CSS (targeting .jexcel_row / .jexcel_selectall). Reverted -- it broke column
-           resize, almost certainly because jspreadsheet positions its resize-drag handles
-           using JS-computed offsets that assume that gutter's original width. Forcing it
-           to zero-width via CSS desynced those coordinates from the visible layout. The
-           gutter is a real jspreadsheet interaction surface, not just decoration -- don't
-           hide it with display:none/width:0 without also patching the resize handle math. */
         .jexcel_row { cursor: grab !important; }
         .jexcel_row:active { cursor: grabbing !important; }
 
@@ -375,8 +368,6 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        // Bump this on meaningful releases (feature-level changes -> minor/major,
-        // fixes/tweaks -> patch). Shown in the footer so bug reports can reference it.
         const APP_VERSION = "2.4.1";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
@@ -492,16 +483,16 @@
             const project = appDB.projects[appDB.activeId];
             if (!confirm(`Are you sure you want to delete '${project.name}'?`)) return;
 
-            const dropboxProjectId = project.dropboxProjectId; // may be undefined if never backed up
+            const dropboxProjectId = project.dropboxProjectId;
 
             delete appDB.projects[appDB.activeId];
             appDB.activeId = Object.keys(appDB.projects)[0];
             updateProjectDropdown();
             renderGrid();
             syncToGantt(true);
-            saveToLocal(); // persist the deletion immediately, don't wait for the next edit
+            saveToLocal();
 
-            if (!dropboxProjectId) return; // this project was never backed up, nothing on Dropbox to clean up
+            if (!dropboxProjectId) return;
 
             if (!dbx) {
                 alert(`Heads up: this project has backups saved in Dropbox that weren't deleted, since you're not currently logged in. If you don't want it reappearing under "Check Dropbox for other projects" later, log into Dropbox and delete its folder manually, or delete it next time you're logged in.`);
@@ -554,12 +545,6 @@
         }
 
         function confirmFactoryReset() {
-            // Only remove keys this app owns. Deliberately NOT localStorage.clear() --
-            // that would wipe localStorage for the entire origin, including any other
-            // tools/apps hosted on the same domain (e.g. other GitHub Pages projects).
-            // Note: this no longer touches the Dropbox connection -- that's handled by
-            // the separate "Disconnect" button, since logging out of Dropbox and wiping
-            // local project data are different-stakes actions.
             localStorage.removeItem(DB_KEY);
             LEGACY_DB_KEYS.forEach(k => localStorage.removeItem(k));
             location.reload();
@@ -576,16 +561,11 @@
         }
 
         // ==========================================
-        // DROPBOX CONFIGURATION -- versioned backups
+        // DROPBOX CONFIGURATION
         // ==========================================
-        // Each backup is a new timestamped file under a per-project folder
-        // (/Simple Gantt Backups/<project>/<timestamp>.csv). Nothing on the
-        // Dropbox side is ever overwritten, so you can always restore an
-        // older version. Old versions beyond MAX_BACKUPS_PER_PROJECT are
-        // pruned automatically after each successful backup.
         const DROPBOX_APP_KEY = '63246m2wldbbmwi';
         const MAX_BACKUPS_PER_PROJECT = 25;
-        const AUTO_BACKUP_DELAY_MS = 60000; // back up ~1 minute after edits stop
+        const AUTO_BACKUP_DELAY_MS = 60000;
         let dbx = null;
         let dbxAutoBackupTimer = null;
         let isFreshDropboxLogin = false;
@@ -601,9 +581,6 @@
             let dbxLogoutBtn = document.getElementById('btnDbxLogout');
             if(dbxLogoutBtn) dbxLogoutBtn.style.display = '';
             if (isFreshDropboxLogin) {
-                // Only check on an actual login/re-login event, not on every page load
-                // with an already-cached token -- otherwise this would re-prompt for
-                // projects you already have, every single session.
                 discoverDropboxProjects(false);
             }
         } else {
@@ -649,16 +626,12 @@
             if (!p.dropboxProjectId) {
                 p.dropboxProjectId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
                     : 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
-                // Persist immediately so the id survives even if no backup follows right away.
                 localStorage.setItem(DB_KEY, JSON.stringify(appDB));
             }
             return p.dropboxProjectId;
         }
 
         function getDropboxFolder(projectId) {
-            // Folders are keyed by a stable id, not the project's display name, so
-            // renaming a project never orphans its backup history, and two projects
-            // that happen to share a name never collide.
             const id = ensureDropboxProjectId(projectId);
             return `/Simple Gantt Backups/${id}`;
         }
@@ -818,13 +791,6 @@
             });
         }
 
-        // ==========================================
-        // DISCOVER PROJECTS FROM DROPBOX
-        // ==========================================
-        // Finds project folders in Dropbox that aren't present in this browser
-        // (matched by the stable dropboxProjectId, not by name) and offers to
-        // import them. Runs automatically right after a fresh login/re-login,
-        // and can also be triggered manually from the Versions modal.
         let _discoveredProjects = [];
 
         function readMetaJson(folderPathLower) {
@@ -1070,9 +1036,6 @@
             localStorage.setItem('simple_gantt_pane_width', gridPercent + '%');
         }
 
-        // Restore whatever pane layout was last used (dragged or snapped),
-        // so the workspace opens the way you left it instead of always
-        // defaulting back to the 55/45 split.
         const savedPaneWidth = localStorage.getItem('simple_gantt_pane_width');
         if (savedPaneWidth) gridPanel.style.width = savedPaneWidth;
 
@@ -1387,9 +1350,6 @@
             if (!sheet) return;
             try {
                 const numCols = sheet.options.columns.length;
-                // Dropdown columns (Depends, Parent) display a formatted label, not
-                // their raw stored value -- measuring raw data would undersize them.
-                // Leave those at their configured widths.
                 const skipCols = new Set([COL.DEP, COL.PARENT]);
 
                 const canvas = document.createElement('canvas');
@@ -1411,8 +1371,8 @@
                         if (w > maxWidth) maxWidth = w;
                     });
 
-                    let newWidth = Math.ceil(maxWidth) + 26; // padding for cell borders/spacing
-                    newWidth = Math.max(45, Math.min(newWidth, 320)); // sane bounds
+                    let newWidth = Math.ceil(maxWidth) + 26;
+                    newWidth = Math.max(45, Math.min(newWidth, 320)); 
                     sheet.setWidth(col, newWidth);
                 }
             } catch (e) {
@@ -1453,12 +1413,6 @@
                 data: dataToLoad,
                 columns: cols,
                 rowDrag: true,
-                // Column sorting (double-click header) is a native jspreadsheet feature,
-                // enabled by default. It's unsafe here: WBS/Outline numbering, parent-child
-                // grouping, and dependency rendering all assume rows stay in a meaningful
-                // order (children adjacent to their parent). A generic sort would scramble
-                // that regardless of which column it's sorted by. Use row drag or the
-                // Parent field to restructure instead.
                 columnSorting: false,
                 allowInsertColumn: true,
                 allowDeleteColumn: true,
@@ -1468,9 +1422,6 @@
                 oninsertcolumn: syncColumnsToDB,
                 ondeletecolumn: syncColumnsToDB,
                 oninsertrow: function(instance, rowNumber) {
-                    // Deferred to the next tick so this runs after jspreadsheet finishes
-                    // its own row-insert rendering/focus handling for the new row, rather
-                    // than racing it with programmatic cell writes at the same moment.
                     setTimeout(() => {
                         let data = sheet.getData();
                         let maxId = Math.max(0, ...data.map(r => parseInt(r[COL.ID]) || 0));
@@ -1640,12 +1591,26 @@
                         let t = tasksMap[id]; if (t.isParent) continue;
                         if (t.dependenciesArray.length > 0) {
                             let maxDepEnd = null;
+                            
+                            // -------------------------------------------------------------
+                            // BUG FIX: Prevent empty rows (Duration 0, missing Start date)
+                            // from evaluating to "Invalid Date" and fatally crashing the 
+                            // script's formatting function further down.
+                            // -------------------------------------------------------------
                             t.dependenciesArray.forEach(depId => {
-                                if (tasksMap[depId] && (tasksMap[depId].end || tasksMap[depId].dur === 0)) {
-                                    let dEnd = new Date(tasksMap[depId].end || tasksMap[depId].start);
-                                    if (!maxDepEnd || dEnd > maxDepEnd) maxDepEnd = dEnd;
+                                let dep = tasksMap[depId];
+                                if (dep) {
+                                    let dateStr = dep.end || dep.start;
+                                    if (dateStr) {
+                                        let dEnd = new Date(dateStr);
+                                        if (!isNaN(dEnd) && (!maxDepEnd || dEnd > maxDepEnd)) {
+                                            maxDepEnd = dEnd;
+                                        }
+                                    }
                                 }
                             });
+                            // -------------------------------------------------------------
+                            
                             if (maxDepEnd) {
                                 let calculatedStart = format(maxDepEnd);
                                 if (shouldSkipWeekends()) {
@@ -1668,6 +1633,7 @@
                             }
                         }
                     }
+                    forceRecalculateDates = false;
                 }
 
                 parentIDs.forEach(parentId => {
@@ -1707,9 +1673,6 @@
                         let d = new Date(t.start); d.setDate(d.getDate() + 1); fEnd = format(d);
                     } else if (!t.isParent) {
                         let taskEndDate = new Date(t.end);
-                        // Standard status precedence: complete beats everything, then
-                        // overdue (even a 0%-progress task that's already past due is
-                        // overdue, not just "not started"), then not-started vs in-progress.
                         if (t.pct === 100) { customClass = 'is-complete'; }
                         else if (taskEndDate < today) { customClass = 'is-overdue'; }
                         else if (t.pct === 0) { customClass = 'is-not-started'; }

@@ -368,7 +368,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.4.1";
+        const APP_VERSION = "2.4.4";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -555,9 +555,17 @@
             appDB.projects[appDB.activeId].data = sheet.getData();
             appDB.settings.skipWeekends = document.getElementById('skipWeekends').checked;
             appDB.settings.zoom = document.getElementById('zoomScale').value;
-            localStorage.setItem(DB_KEY, JSON.stringify(appDB));
-            showStatus("✓ Saved", "#10b981");
-            scheduleAutoBackup();
+            try {
+                localStorage.setItem(DB_KEY, JSON.stringify(appDB));
+                showStatus("✓ Saved", "#10b981");
+                scheduleAutoBackup();
+            } catch (err) {
+                // Most likely QuotaExceededError -- this must never fail silently,
+                // since the alternative is the user believing their work is saved
+                // when it isn't.
+                console.error("localStorage save failed:", err);
+                showStatus("✗ Save failed -- storage may be full", "#ef4444");
+            }
         }
 
         // ==========================================
@@ -844,7 +852,7 @@
             container.innerHTML = discovered.map((d, i) => `
                 <label style="display:flex; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid #e2e8f0; font-size:13px; color:#0f172a;">
                     <input type="checkbox" class="discoveryCheckbox" value="${i}" checked>
-                    ${d.name}
+                    ${escapeHtml(d.name)}
                 </label>
             `).join('');
             document.getElementById('discoveryModal').classList.add('active');
@@ -1101,6 +1109,7 @@
 
             workingTasks.forEach(task => {
                 let d = new Date(task.start);
+                if (isNaN(d.getTime())) return; // malformed start date on this task -- skip it rather than crash the whole workload view
                 let daysAdded = 0;
                 
                 while(daysAdded < task.dur) {
@@ -1186,7 +1195,7 @@
 
             let resourceNames = Object.keys(resources).sort();
             resourceNames.forEach(res => {
-                html += `<tr><td>${res}</td>`;
+                html += `<tr><td>${escapeHtml(res)}</td>`;
                 cols.forEach(col => {
                     let maxVal = 0; let sumVal = 0;
                     col.keys.forEach(k => {
@@ -1268,7 +1277,9 @@
         function calculateEndDate(startDate, durationDays) {
             if (!startDate) return '';
             if (durationDays === 0) return startDate; 
-            let d = new Date(startDate); let added = 0; let visualDaysToMove = durationDays - 1;
+            let d = new Date(startDate);
+            if (isNaN(d.getTime())) return ''; // malformed start date -- don't let this throw and abort the whole sync
+            let added = 0; let visualDaysToMove = durationDays - 1;
             if (shouldSkipWeekends()) {
                 while (added < visualDaysToMove) {
                     d.setDate(d.getDate() + 1); if (d.getDay() !== 0 && d.getDay() !== 6) added++;
@@ -1278,7 +1289,9 @@
         }
 
         function calculateWorkingDays(startDate, endDate) {
-            let s = new Date(startDate); let e = new Date(endDate); e.setDate(e.getDate() - 1); 
+            let s = new Date(startDate); let e = new Date(endDate);
+            if (isNaN(s.getTime()) || isNaN(e.getTime())) return 0; // malformed dates -- degrade gracefully instead of propagating NaN
+            e.setDate(e.getDate() - 1); 
             if (!shouldSkipWeekends()) return Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
             let days = 0; let temp = new Date(s);
             while (temp <= e) {
@@ -1566,11 +1579,29 @@
                 sheet.options.columns[COL.PARENT].source = sourceList;
 
                 let tasksMap = {};
-                let parentIDs = [...new Set(rawData.map(r => r[COL.PARENT]).filter(p => p !== ""))];
+                let parentIDs = [...new Set(rawData.map(r => (r[COL.PARENT] !== r[COL.ID] ? r[COL.PARENT] : "")).filter(p => p !== ""))];
+                let selfRefFound = false;
 
                 rawData.forEach((row, index) => {
                     let id = row[COL.ID]; if (!id) return;
-                    let depArray = (row[COL.DEP] ? row[COL.DEP].toString() : "").split(';').map(d => d.trim()).filter(d => d !== "");
+                    let rawDepArray = (row[COL.DEP] ? row[COL.DEP].toString() : "").split(';').map(d => d.trim()).filter(d => d !== "");
+                    // A task depending on (or being parented to) itself is invalid --
+                    // strip it out here so it can never create a self-referential
+                    // scheduling loop, regardless of how it got into the cell (dropdown,
+                    // paste, or CSV import).
+                    let depArray = rawDepArray.filter(depId => depId !== id);
+                    if (depArray.length !== rawDepArray.length) {
+                        sheet.setValueFromCoords(COL.DEP, index, depArray.join(';'), true);
+                        selfRefFound = true;
+                    }
+
+                    let parentId = row[COL.PARENT];
+                    if (parentId === id) {
+                        sheet.setValueFromCoords(COL.PARENT, index, '', true);
+                        parentId = '';
+                        selfRefFound = true;
+                    }
+
                     let rawAlloc = row[COL.ALLOC] !== "" ? parseInt(row[COL.ALLOC]) : 100;
                     
                     let assignments = parseAssignments(row[COL.RESOURCE], rawAlloc);
@@ -1580,15 +1611,20 @@
                         assignments: assignments, pct: parseInt(row[COL.PCT]) || 0,
                         start: row[COL.START], dur: parseInt(row[COL.DUR]) || 0, end: row[COL.END], 
                         dependenciesArray: depArray, frappeDependencies: depArray.join(', '), 
-                        parentId: row[COL.PARENT], rowIndex: index, isParent: parentIDs.includes(id)
+                        parentId: parentId, rowIndex: index, isParent: parentIDs.includes(id)
                     };
                 });
+
+                if (selfRefFound) {
+                    showStatus("⚠ Removed a self-reference (task can't depend on or be parented to itself)", "#f59e0b");
+                }
 
                 let loopLimit = 100; let changed = true;
                 while (changed && loopLimit > 0) {
                     changed = false; loopLimit--;
                     for (let id in tasksMap) {
                         let t = tasksMap[id]; if (t.isParent) continue;
+                        try {
                         if (t.dependenciesArray.length > 0) {
                             let maxDepEnd = null;
                             
@@ -1626,11 +1662,16 @@
                         }
                         if (t.start && t.dur >= 0) {
                             let calcEnd = (t.dur === 0) ? t.start : calculateEndDate(t.start, t.dur);
-                            if (t.end !== calcEnd || forceRecalculateDates) { 
+                            if (calcEnd && (t.end !== calcEnd || forceRecalculateDates)) { 
                                 t.end = calcEnd; 
                                 sheet.setValueFromCoords(COL.END, t.rowIndex, t.end, true);
                                 changed = true; 
                             }
+                        }
+                        } catch (taskErr) {
+                            // A malformed date on this specific task should never take down
+                            // date calculation for every other row -- log it and move on.
+                            console.error(`Date calculation failed for task ${id} (${t.name}):`, taskErr);
                         }
                     }
                     forceRecalculateDates = false;
@@ -1640,8 +1681,11 @@
                     let pTask = tasksMap[parentId];
                     let children = Object.values(tasksMap).filter(t => t.parentId === parentId && t.start && (t.end || t.dur === 0));
                     if (children.length > 0 && pTask) {
+                        try {
                         let minStart = new Date(Math.min(...children.map(c => new Date(c.start))));
                         let maxEnd = new Date(Math.max(...children.map(c => new Date(c.end || c.start))));
+                        if (isNaN(minStart.getTime()) || isNaN(maxEnd.getTime())) return; // a child has a malformed date -- skip this parent's rollup rather than crash
+
                         pTask.start = format(minStart); pTask.end = format(maxEnd);
                         pTask.dur = calculateWorkingDays(pTask.start, pTask.end);
                         
@@ -1654,6 +1698,9 @@
                         sheet.setValueFromCoords(COL.END, pTask.rowIndex, pTask.end, true);
                         sheet.setValueFromCoords(COL.PCT, pTask.rowIndex, pTask.pct, true);
                         sheet.setValueFromCoords(COL.ALLOC, pTask.rowIndex, '', true); 
+                        } catch (parentErr) {
+                            console.error(`Parent rollup failed for task ${parentId}:`, parentErr);
+                        }
                     }
                 });
 
@@ -1670,7 +1717,8 @@
 
                     if (t.dur === 0) {
                         customClass = 'is-milestone';
-                        let d = new Date(t.start); d.setDate(d.getDate() + 1); fEnd = format(d);
+                        let d = new Date(t.start);
+                        if (!isNaN(d.getTime())) { d.setDate(d.getDate() + 1); fEnd = format(d); }
                     } else if (!t.isParent) {
                         let taskEndDate = new Date(t.end);
                         if (t.pct === 100) { customClass = 'is-complete'; }
@@ -1700,11 +1748,11 @@
                         custom_popup_html: function(task) {
                             let statusIcon = task.progress === 100 ? '✅' : '⏳';
                             let resText = task._assignments && task._assignments.length > 0 
-                                ? task._assignments.map(a => `👤 ${a.name} (${a.alloc}%)`).join('<br/>') 
+                                ? task._assignments.map(a => `👤 ${escapeHtml(a.name)} (${a.alloc}%)`).join('<br/>') 
                                 : `👤 Unassigned`;
                             return `
                                 <div style="padding: 12px; background: #0f172a; color: #f8fafc; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-family: sans-serif; min-width: 180px;">
-                                    <div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid #334155; padding-bottom: 4px;">${task._rawName}</div>
+                                    <div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid #334155; padding-bottom: 4px;">${escapeHtml(task._rawName)}</div>
                                     <div style="font-size: 12px; margin-bottom: 4px;">📅 ${task.start} ➝ ${task.end}</div>
                                     <div style="font-size: 12px; margin-bottom: 4px; line-height: 1.4;">${resText}</div>
                                     <div style="font-size: 12px; margin-top: 6px; font-weight: bold; color: #38bdf8;">${statusIcon} ${task.progress}% Complete</div>

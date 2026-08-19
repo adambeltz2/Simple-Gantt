@@ -356,7 +356,20 @@
     </div>
 
     <script>
-        function format(d) { return d.toISOString().split('T')[0]; }
+        function format(d) { 
+            if (!d) return '';
+            if (typeof d === 'string') {
+                // Already a string, validate and return
+                if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+                d = new Date(d);
+            }
+            if (!(d instanceof Date) || isNaN(d.getTime())) return '';
+            // Use local date components to avoid timezone shifts
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
 
         function showStatus(text, color) {
             const status = document.getElementById('saveStatus');
@@ -1285,7 +1298,7 @@
                     d.setDate(d.getDate() + 1); if (d.getDay() !== 0 && d.getDay() !== 6) added++;
                 }
             } else { d.setDate(d.getDate() + visualDaysToMove); }
-            d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0];
+            d.setDate(d.getDate() + 1); return format(d);
         }
 
         function calculateWorkingDays(startDate, endDate) {
@@ -1800,6 +1813,25 @@
         function exportCSV() { 
             let exportData = [...sheet.getData()];
             let headers = sheet.options.columns.map(c => c.title);
+            
+            // Find date columns (START and END)
+            const startIdx = headers.indexOf('Start');
+            const endIdx = headers.indexOf('End');
+            
+            // Format dates properly to avoid timezone issues
+            exportData = exportData.map(row => {
+                const newRow = [...row];
+                // Ensure Start date is in YYYY-MM-DD format
+                if (startIdx >= 0 && newRow[startIdx]) {
+                    newRow[startIdx] = formatDateForCSV(newRow[startIdx]);
+                }
+                // Ensure End date is in YYYY-MM-DD format
+                if (endIdx >= 0 && newRow[endIdx]) {
+                    newRow[endIdx] = formatDateForCSV(newRow[endIdx]);
+                }
+                return newRow;
+            });
+            
             exportData.unshift(headers);
             
             const csv = Papa.unparse(exportData);
@@ -1810,12 +1842,71 @@
             link.click();
         }
         
+        function formatDateForCSV(dateValue) {
+            if (!dateValue) return '';
+            // If already a proper YYYY-MM-DD string, return as-is
+            if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+                return dateValue;
+            }
+            // If it's a Date object, extract YYYY-MM-DD only
+            if (dateValue instanceof Date) {
+                const year = dateValue.getFullYear();
+                const month = String(dateValue.getMonth() + 1).padStart(2, '0');
+                const day = String(dateValue.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+            // Try parsing as string
+            const d = new Date(dateValue);
+            if (!isNaN(d.getTime())) {
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+            return '';
+        }
+        
         function importCSV(event) {
             const file = event.target.files[0]; if(!file) return;
             Papa.parse(file, { skipEmptyLines: true, complete: function(results) {
-                applyImportedCSVData(results.data);
+                // Sanitize imported data before applying
+                const sanitizedData = results.data.map((row, idx) => {
+                    if (idx === 0) return row; // Keep headers unchanged
+                    return row.map((cell, colIdx) => sanitizeImportedCell(cell, colIdx, results.data[0]));
+                });
+                applyImportedCSVData(sanitizedData);
                 event.target.value = '';
             }});
+        }
+        
+        function sanitizeImportedCell(cellValue, colIdx, headers) {
+            if (!cellValue) return cellValue;
+            const header = headers[colIdx] || '';
+            // Sanitize date columns
+            if (header === 'Start' || header === 'End') {
+                return parseCSVDate(cellValue);
+            }
+            return cellValue;
+        }
+        
+        function parseCSVDate(dateString) {
+            if (!dateString) return '';
+            const trimmed = String(dateString).trim();
+            // Validate YYYY-MM-DD format
+            if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+                return trimmed; // Already good format
+            }
+            // Try to parse and reformat
+            const d = new Date(trimmed);
+            if (!isNaN(d.getTime())) {
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+            // If parsing fails, return empty
+            console.warn(`Could not parse date: "${trimmed}"`);
+            return '';
         }
 
         updateProjectDropdown();

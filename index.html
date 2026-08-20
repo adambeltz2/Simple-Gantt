@@ -1284,6 +1284,7 @@
         // ==========================================
         const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10 };
         let ganttChart; let isSyncing = false; let sheet;
+        let syncTimeout = null; let isInCalendarMode = false;
 
         function shouldSkipWeekends() { return document.getElementById('skipWeekends').checked; }
 
@@ -1298,7 +1299,7 @@
                     d.setDate(d.getDate() + 1); if (d.getDay() !== 0 && d.getDay() !== 6) added++;
                 }
             } else { d.setDate(d.getDate() + visualDaysToMove); }
-            d.setDate(d.getDate() + 1); return format(d);
+            return format(d);
         }
 
         function calculateWorkingDays(startDate, endDate) {
@@ -1539,7 +1540,30 @@
         }
 
         function forceRecalc() { syncToGantt(true); }
-        function triggerSync() { if (!isSyncing) syncToGantt(); }
+        
+        function triggerSync() { 
+            if (isSyncing) return;
+            
+            // Detect if we're in a calendar picker or date input field
+            const activeEl = document.activeElement;
+            const isCalendarInput = activeEl && (
+                activeEl.classList.contains('jexcel_calendar') ||
+                activeEl.tagName === 'INPUT' && activeEl.type === 'date' ||
+                activeEl.closest('.jexcel_calendar')
+            );
+            
+            if (isCalendarInput) {
+                // Debounce calendar interactions - wait 400ms of inactivity before syncing
+                clearTimeout(syncTimeout);
+                syncTimeout = setTimeout(() => {
+                    syncToGantt();
+                }, 400);
+            } else {
+                // Non-calendar changes sync immediately
+                clearTimeout(syncTimeout);
+                syncToGantt();
+            }
+        }
 
         function moveRow(rowIndex, direction) {
             if (!sheet) return;

@@ -823,20 +823,24 @@
             updateCloudStatus('syncing');
             if (!isAuto) showStatus("Backing up to Dropbox...", "#f59e0b");
 
-            // Get current data (no recalculation - keep backup simple)
+            // Get current data
             let exportData = [...sheet.getData()];
             let headers = sheet.options.columns.map(c => c.title);
             exportData.unshift(headers);
             const csvString = Papa.unparse(exportData);
 
+            // Convert to Blob for Dropbox upload
+            const csvBlob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+
             const folder = getDropboxFolder(projectId);
             const filepath = `${folder}/${timestampForFilename()}.csv`;
             const metaPath = `${folder}/meta.json`;
             const metaContents = JSON.stringify({ name: appDB.projects[projectId].name, updatedAt: new Date().toISOString() });
+            const metaBlob = new Blob([metaContents], { type: 'application/json;charset=utf-8;' });
 
             Promise.all([
-                dbx.filesUpload({ path: filepath, contents: csvString, mode: { '.tag': 'add' }, autorename: true }),
-                dbx.filesUpload({ path: metaPath, contents: metaContents, mode: { '.tag': 'overwrite' } })
+                dbx.filesUpload({ path: filepath, contents: csvBlob, mode: { '.tag': 'add' }, autorename: true }),
+                dbx.filesUpload({ path: metaPath, contents: metaBlob, mode: { '.tag': 'overwrite' } })
             ])
             .then(() => {
                 updateCloudStatus('synced');

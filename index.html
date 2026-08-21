@@ -515,7 +515,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.4.4";
+        const APP_VERSION = "2.4.5";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -823,16 +823,11 @@
             updateCloudStatus('syncing');
             if (!isAuto) showStatus("Backing up to Dropbox...", "#f59e0b");
 
-            // KEY INTEGRATION: Pre-backup date recalculation
-            const exportResult = processBeforeExport(sheet.getData());
-            let exportData = [...exportResult.cleanedTasks];
+            // Get current data (no recalculation - keep backup simple)
+            let exportData = [...sheet.getData()];
             let headers = sheet.options.columns.map(c => c.title);
             exportData.unshift(headers);
             const csvString = Papa.unparse(exportData);
-            
-            if (exportResult.changeCount > 0) {
-                console.log(`✓ Backup: Recalculated ${exportResult.changeCount} parent task(s)`);
-            }
 
             const folder = getDropboxFolder(projectId);
             const filepath = `${folder}/${timestampForFilename()}.csv`;

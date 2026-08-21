@@ -1,1587 +1,1919 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Simple Gantt</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Gantt</title>
+    
+    <!-- MATCHING V4 LIBRARIES: Guaranteed stable initialization -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://jsuites.net/v4/jsuites.js"></script>
+    <link rel="stylesheet" href="https://jsuites.net/v4/jsuites.css" type="text/css" />
+    <script src="https://bossanova.uk/jspreadsheet/v4/jexcel.js"></script>
+    <link rel="stylesheet" href="https://bossanova.uk/jspreadsheet/v4/jexcel.css" type="text/css" />
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/frappe-gantt/0.6.1/frappe-gantt.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/frappe-gantt/0.6.1/frappe-gantt.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dropbox.js/10.34.0/Dropbox-sdk.min.js"></script>
 
-<!-- MATCHING V4 LIBRARIES: Guaranteed stable initialization -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-<script src="https://jsuites.net/v4/jsuites.js"></script>
-<link rel="stylesheet" href="https://jsuites.net/v4/jsuites.css" type="text/css" />
-<script src="https://bossanova.uk/jspreadsheet/v4/jexcel.js"></script>
-<link rel="stylesheet" href="https://bossanova.uk/jspreadsheet/v4/jexcel.css" type="text/css" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/frappe-gantt/0.6.1/frappe-gantt.min.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/frappe-gantt/0.6.1/frappe-gantt.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/dropbox.js/10.34.0/Dropbox-sdk.min.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; height: 100vh; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; overflow: hidden; background: #fff;}
+        header { background: #0f172a; color: white; padding: 12px 20px 10px; display: flex; flex-direction: column; gap: 12px; border-bottom: 2px solid #334155;}
+        .header-top { display: flex; justify-content: space-between; align-items: center; }
+        .header-left { display: flex; align-items: center; gap: 10px; }
+        .brand { font-size: 15px; font-weight: 600; color: #38bdf8; margin-right: 6px; }
 
-<style>
-body, html { margin: 0; padding: 0; height: 100vh; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; overflow: hidden; background: #fff;}
-header { background: #0f172a; color: white; padding: 12px 20px 10px; display: flex; flex-direction: column; gap: 12px; border-bottom: 2px solid #334155;}
-.header-top { display: flex; justify-content: space-between; align-items: center; }
-.header-left { display: flex; align-items: center; gap: 10px; }
-.brand { font-size: 15px; font-weight: 600; color: #38bdf8; margin-right: 6px; }
-#projectSelector { background: #1e293b; color: #e2e8f0; border: 0.5px solid #334155; border-radius: 6px; padding: 6px 10px; font-size: 13px; outline: none; }
-.toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 0; }
-.toolbar-group { display: flex; align-items: center; gap: 6px; padding: 0 14px; border-right: 1px solid #334155; }
-.toolbar-group:first-child { padding-left: 0; }
-.toolbar-group:last-child { border-right: none; }
-.tbtn { background: #1e293b; color: #e2e8f0; border: none; padding: 7px 11px; border-radius: 6px; cursor: pointer; font-size: 12.5px; font-weight: 500; display: flex; align-items: center; gap: 6px; white-space: nowrap; transition: background 0.15s; }
-.tbtn:hover { background: #334155; }
-.tbtn svg { flex-shrink: 0; }
-.tbtn.file-btn input { display: none; }
-.tbtn-cloud { background: #185FA5; color: #E6F1FB; }
-.tbtn-cloud:hover { background: #0C447C; }
-.tbtn-cloud-outline { background: transparent; border: 1px solid #185FA5; color: #85B7EB; }
-.tbtn-cloud-outline:hover { background: rgba(24,95,165,0.15); }
-select.tbtn-select { background: #1e293b; color: #e2e8f0; border: none; border-radius: 6px; padding: 7px 9px; font-size: 12.5px; outline: none; cursor: pointer; }
-.toggle-label { font-size: 12.5px; display: flex; align-items: center; gap: 6px; cursor: pointer; background: #1e293b; padding: 7px 10px; border-radius: 6px; color: #e2e8f0; }
-#saveStatus { font-size: 12px; color: #97C459; font-weight: 500; opacity: 0; transition: opacity 0.3s; display: flex; align-items: center; gap: 5px;}
-#cloudStatus { font-size: 11px; color: #64748b; margin-left: 10px; }
-#cloudStatus.dirty { color: #EF9F27; }
-#cloudStatus.syncing { color: #85B7EB; }
-#cloudStatus.synced { color: #639922; }
-.workspace { display: flex; flex: 1; min-height: 0; overflow: hidden; }
-.grid-panel { width: 55%; overflow: auto; background: #f8fafc; padding: 20px; box-sizing: border-box; }
-.resizer { width: 8px; background: #cbd5e1; cursor: col-resize; flex-shrink: 0; z-index: 10; transition: background 0.2s;}
-.resizer:hover, .resizer.resizing { background: #3b82f6; }
-.chart-panel { flex: 1; overflow: auto; background: white; padding: 20px; box-sizing: border-box; }
-.gantt-range-bar { position: sticky; top: -20px; z-index: 5; background: white; margin: -20px -20px 14px; padding: 10px 20px; border-bottom: 2px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; font-size: 13px; }
-.gantt-range-bar .range-main { font-weight: 700; color: #0f172a; }
-.gantt-range-bar .range-sub { color: #64748b; }
-.gantt-range-bar .range-today { color: #185FA5; font-weight: 600; }
-.gantt-legend { display: none; align-items: center; flex-wrap: wrap; gap: 14px; padding: 6px 2px 12px; font-size: 12px; color: #475569; }
-.gantt-legend .legend-item { display: flex; align-items: center; gap: 5px; }
-.gantt-legend .swatch { width: 11px; height: 11px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
-.gantt-legend .swatch.diamond { border-radius: 0; transform: rotate(45deg); width: 9px; height: 9px; }
-.gantt .upper-text { font-size: 12px; font-weight: 700; fill: #0f172a; }
-.gantt .lower-text { font-size: 11px; fill: #475569; }
-footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 8px 20px; display: flex; justify-content: flex-end; align-items: center; gap: 20px; font-size: 13px; color: #64748b; }
-footer a { color: #64748b; text-decoration: none; display: flex; align-items: center; gap: 6px; font-weight: 600; transition: color 0.2s; }
-footer a.gh:hover { color: #0f172a; }
-footer a.bmc:hover { color: #f59e0b; }
-footer .version-tag { margin-right: auto; font-weight: 500; color: #94a3b8; font-variant-numeric: tabular-nums; }
-.gantt .bar-wrapper.is-parent .bar { fill: #334155 !important; }
-.gantt .bar-wrapper.is-parent .bar-progress { fill: #0f172a !important; }
-.gantt .bar-wrapper.is-milestone .bar { fill: #f59e0b !important; clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); }
-.gantt .bar-wrapper.is-milestone .bar-progress { display: none !important; }
-.gantt .bar-wrapper.is-not-started .bar { fill: #cbd5e1 !important; }
-.gantt .bar-wrapper.is-not-started .bar-progress { fill: #94a3b8 !important; }
-.gantt .bar-wrapper.is-inprogress .bar { fill: #93c5fd !important; }
-.gantt .bar-wrapper.is-inprogress .bar-progress { fill: #2563eb !important; }
-.gantt .bar-wrapper.is-complete .bar { fill: #6ee7b7 !important; }
-.gantt .bar-wrapper.is-complete .bar-progress { fill: #059669 !important; }
-.gantt .bar-wrapper.is-overdue .bar { fill: #fca5a5 !important; }
-.gantt .bar-wrapper.is-overdue .bar-progress { fill: #dc2626 !important; }
-.gantt .bar-wrapper.is-not-started .bar-label { fill: #1e293b !important; }
-.jexcel tbody tr td.readonly-cell { background-color: #e2e8f0; color: #64748b; font-weight: bold; }
-.jexcel_row { cursor: grab !important; }
-.jexcel_row:active { cursor: grabbing !important; }
-.header-btn { padding: 6px 10px !important; background: transparent; color: #94a3b8; border: 0.5px solid #334155; border-radius: 6px; font-size: 12.5px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 5px; }
-.header-btn:hover { background: #1e293b; color: #e2e8f0; }
-.header-btn.btn-danger { color: #F09595; border-color: #E24B4A; }
-.header-btn.btn-danger:hover { background: rgba(226,75,74,0.12); color: #F09595; }
-.modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(15, 23, 42, 0.6); align-items: center; justify-content: center; backdrop-filter: blur(3px);}
-.modal.active { display: flex; }
-.modal-content { background-color: #ffffff; border-radius: 8px; width: 95%; max-width: 1400px; height: 85vh; padding: 25px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); display: flex; flex-direction: column; }
-.workload-table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; text-align: center; }
-.workload-table th, .workload-table td { border-bottom: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; padding: 8px 6px; min-width: 45px;}
-.workload-table th { background: #f1f5f9; position: sticky; top: 0; z-index: 2; color: #334155; font-weight: 600; border-top: 1px solid #cbd5e1;}
-.workload-table th:first-child { left: 0; z-index: 3; background: #f8fafc; text-align: left; padding-left: 15px; width: 140px; border-left: 1px solid #cbd5e1;}
-.workload-table td:first-child { position: sticky; left: 0; background: #f8fafc; font-weight: bold; text-align: left; padding-left: 15px; z-index: 1; border-left: 1px solid #cbd5e1;}
-.cell-ok { background-color: #d1fae5; color: #065f46; font-weight: 500;}
-.cell-over { background-color: #fee2e2; color: #991b1b; font-weight: 800; }
-.cell-empty { color: #94a3b8; }
-</style>
+        #projectSelector { background: #1e293b; color: #e2e8f0; border: 0.5px solid #334155; border-radius: 6px; padding: 6px 10px; font-size: 13px; outline: none; }
 
+        .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 0; }
+        .toolbar-group { display: flex; align-items: center; gap: 6px; padding: 0 14px; border-right: 1px solid #334155; }
+        .toolbar-group:first-child { padding-left: 0; }
+        .toolbar-group:last-child { border-right: none; }
+
+        .tbtn { background: #1e293b; color: #e2e8f0; border: none; padding: 7px 11px; border-radius: 6px; cursor: pointer; font-size: 12.5px; font-weight: 500; display: flex; align-items: center; gap: 6px; white-space: nowrap; transition: background 0.15s; }
+        .tbtn:hover { background: #334155; }
+        .tbtn svg { flex-shrink: 0; }
+        .tbtn.file-btn input { display: none; }
+
+        .tbtn-cloud { background: #185FA5; color: #E6F1FB; }
+        .tbtn-cloud:hover { background: #0C447C; }
+        .tbtn-cloud-outline { background: transparent; border: 1px solid #185FA5; color: #85B7EB; }
+        .tbtn-cloud-outline:hover { background: rgba(24,95,165,0.15); }
+
+        select.tbtn-select { background: #1e293b; color: #e2e8f0; border: none; border-radius: 6px; padding: 7px 9px; font-size: 12.5px; outline: none; cursor: pointer; }
+        .toggle-label { font-size: 12.5px; display: flex; align-items: center; gap: 6px; cursor: pointer; background: #1e293b; padding: 7px 10px; border-radius: 6px; color: #e2e8f0; }
+
+        #saveStatus { font-size: 12px; color: #97C459; font-weight: 500; opacity: 0; transition: opacity 0.3s; display: flex; align-items: center; gap: 5px;}
+        #cloudStatus { font-size: 11px; color: #64748b; margin-left: 10px; }
+        #cloudStatus.dirty { color: #EF9F27; }
+        #cloudStatus.syncing { color: #85B7EB; }
+        #cloudStatus.synced { color: #639922; }
+        
+        .workspace { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+        .grid-panel { width: 55%; overflow: auto; background: #f8fafc; padding: 20px; box-sizing: border-box; }
+        .resizer { width: 8px; background: #cbd5e1; cursor: col-resize; flex-shrink: 0; z-index: 10; transition: background 0.2s;}
+        .resizer:hover, .resizer.resizing { background: #3b82f6; }
+        .chart-panel { flex: 1; overflow: auto; background: white; padding: 20px; box-sizing: border-box; }
+
+        .gantt-range-bar { position: sticky; top: -20px; z-index: 5; background: white; margin: -20px -20px 14px; padding: 10px 20px; border-bottom: 2px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; font-size: 13px; }
+        .gantt-range-bar .range-main { font-weight: 700; color: #0f172a; }
+        .gantt-range-bar .range-sub { color: #64748b; }
+        .gantt-range-bar .range-today { color: #185FA5; font-weight: 600; }
+
+        .gantt-legend { display: none; align-items: center; flex-wrap: wrap; gap: 14px; padding: 6px 2px 12px; font-size: 12px; color: #475569; }
+        .gantt-legend .legend-item { display: flex; align-items: center; gap: 5px; }
+        .gantt-legend .swatch { width: 11px; height: 11px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+        .gantt-legend .swatch.diamond { border-radius: 0; transform: rotate(45deg); width: 9px; height: 9px; }
+
+        /* Frappe Gantt's own axis labels are small/light by default; boost legibility */
+        .gantt .upper-text { font-size: 12px; font-weight: 700; fill: #0f172a; }
+        .gantt .lower-text { font-size: 11px; fill: #475569; }
+        
+        footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 8px 20px; display: flex; justify-content: flex-end; align-items: center; gap: 20px; font-size: 13px; color: #64748b; }
+        footer a { color: #64748b; text-decoration: none; display: flex; align-items: center; gap: 6px; font-weight: 600; transition: color 0.2s; }
+        footer a.gh:hover { color: #0f172a; }
+        footer a.bmc:hover { color: #f59e0b; }
+        footer .version-tag { margin-right: auto; font-weight: 500; color: #94a3b8; font-variant-numeric: tabular-nums; }
+
+        /* Standard status palette: gray = not started, blue = in progress,
+           green = complete, red = overdue, amber diamond = milestone,
+           dark slate = summary/parent row. Fills are kept saturated enough
+           (not pale pastels) for the white bar label text to stay legible. */
+        .gantt .bar-wrapper.is-parent .bar { fill: #334155 !important; }
+        .gantt .bar-wrapper.is-parent .bar-progress { fill: #0f172a !important; }
+        .gantt .bar-wrapper.is-milestone .bar { fill: #f59e0b !important; clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); }
+        .gantt .bar-wrapper.is-milestone .bar-progress { display: none !important; }
+        .gantt .bar-wrapper.is-not-started .bar { fill: #cbd5e1 !important; }
+        .gantt .bar-wrapper.is-not-started .bar-progress { fill: #94a3b8 !important; }
+        .gantt .bar-wrapper.is-inprogress .bar { fill: #93c5fd !important; }
+        .gantt .bar-wrapper.is-inprogress .bar-progress { fill: #2563eb !important; }
+        .gantt .bar-wrapper.is-complete .bar { fill: #6ee7b7 !important; }
+        .gantt .bar-wrapper.is-complete .bar-progress { fill: #059669 !important; }
+        .gantt .bar-wrapper.is-overdue .bar { fill: #fca5a5 !important; }
+        .gantt .bar-wrapper.is-overdue .bar-progress { fill: #dc2626 !important; }
+        .gantt .bar-wrapper.is-not-started .bar-label { fill: #1e293b !important; }
+        
+        .jexcel tbody tr td.readonly-cell { background-color: #e2e8f0; color: #64748b; font-weight: bold; }
+
+        .jexcel_row { cursor: grab !important; }
+        .jexcel_row:active { cursor: grabbing !important; }
+
+        .header-btn { padding: 6px 10px !important; background: transparent; color: #94a3b8; border: 0.5px solid #334155; border-radius: 6px; font-size: 12.5px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+        .header-btn:hover { background: #1e293b; color: #e2e8f0; }
+        .header-btn.btn-danger { color: #F09595; border-color: #E24B4A; }
+        .header-btn.btn-danger:hover { background: rgba(226,75,74,0.12); color: #F09595; }
+
+        /* Modal Styles for Workload View */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(15, 23, 42, 0.6); align-items: center; justify-content: center; backdrop-filter: blur(3px);}
+        .modal.active { display: flex; }
+        .modal-content { background-color: #ffffff; border-radius: 8px; width: 95%; max-width: 1400px; height: 85vh; padding: 25px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); display: flex; flex-direction: column; }
+        .workload-table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; text-align: center; }
+        .workload-table th, .workload-table td { border-bottom: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; padding: 8px 6px; min-width: 45px;}
+        .workload-table th { background: #f1f5f9; position: sticky; top: 0; z-index: 2; color: #334155; font-weight: 600; border-top: 1px solid #cbd5e1;}
+        .workload-table th:first-child { left: 0; z-index: 3; background: #f8fafc; text-align: left; padding-left: 15px; width: 140px; border-left: 1px solid #cbd5e1;}
+        .workload-table td:first-child { position: sticky; left: 0; background: #f8fafc; font-weight: bold; text-align: left; padding-left: 15px; z-index: 1; border-left: 1px solid #cbd5e1;}
+        .cell-ok { background-color: #d1fae5; color: #065f46; font-weight: 500;}
+        .cell-over { background-color: #fee2e2; color: #991b1b; font-weight: 800; }
+        .cell-empty { color: #94a3b8; }
+    </style>
 </head>
-
 <body>
 
-<header>
-<div class="header-top">
-<div class="header-left">
-<span class="brand">Simple Gantt</span>
-<select id="projectSelector" onchange="switchProject()"></select>
-<button class="header-btn" onclick="renameProject()">
-<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-Rename
-</button>
-<button class="header-btn" onclick="deleteProject()">
-<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-Delete
-</button>
-<button class="header-btn btn-danger" onclick="factoryReset()">
-<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-Reset
-</button>
-</div>
-<div style="display:flex; align-items:center;">
-<span id="saveStatus">
-<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-<span id="saveStatusText">Saved</span>
-</span>
-<span id="cloudStatus"></span>
-</div>
-</div>
+    <header>
+        <div class="header-top">
+            <div class="header-left">
+                <span class="brand">Simple Gantt</span>
+                <select id="projectSelector" onchange="switchProject()"></select>
+                <button class="header-btn" onclick="renameProject()">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                    Rename
+                </button>
+                <button class="header-btn" onclick="deleteProject()">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    Delete
+                </button>
+                <button class="header-btn btn-danger" onclick="factoryReset()">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    Reset
+                </button>
+            </div>
+            <div style="display:flex; align-items:center;">
+                <span id="saveStatus">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    <span id="saveStatusText">Saved</span>
+                </span>
+                <span id="cloudStatus"></span>
+            </div>
+        </div>
+        <div class="toolbar">
+            <div class="toolbar-group">
+                <button class="tbtn" onclick="jumpToProjectStart()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
+                    Start
+                </button>
+                <button class="tbtn" onclick="jumpToToday()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    Today
+                </button>
+                <button class="tbtn" onclick="openWorkloadModal()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                    Workload
+                </button>
+            </div>
+            <div class="toolbar-group">
+                <select id="zoomScale" class="tbtn-select" onchange="changeZoom()">
+                    <option value="Day">Zoom: Day</option>
+                    <option value="Week">Zoom: Week</option>
+                    <option value="Month">Zoom: Month</option>
+                </select>
+                <label class="toggle-label"><input type="checkbox" id="skipWeekends" onchange="forceRecalc()"> Weekends off</label>
+                <button class="tbtn" onclick="snapPanes(92)" title="Show grid only">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="2" y="4" width="16" height="16" rx="1.5"></rect><rect x="20" y="4" width="2" height="16" rx="1" opacity="0.35"></rect></svg>
+                    Grid
+                </button>
+                <button class="tbtn" onclick="snapPanes(55)" title="Split view (default)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="2" y="4" width="9" height="16" rx="1.5"></rect><rect x="13" y="4" width="9" height="16" rx="1.5"></rect></svg>
+                    Split
+                </button>
+                <button class="tbtn" onclick="snapPanes(8)" title="Show chart only">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="2" y="4" width="2" height="16" rx="1" opacity="0.35"></rect><rect x="6" y="4" width="16" height="16" rx="1.5"></rect></svg>
+                    Chart
+                </button>
+            </div>
+            <div class="toolbar-group">
+                <button class="tbtn" onclick="addRow()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    Add row
+                </button>
+                <button class="tbtn" onclick="autoFitColumns()" title="Resize columns to fit their content">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 7 5 12 9 17"></polyline><polyline points="15 7 19 12 15 17"></polyline></svg>
+                    Fit columns
+                </button>
+                <label class="tbtn file-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    Import
+                    <input type="file" id="csvFile" accept=".csv" onchange="importCSV(event)">
+                </label>
+                <button class="tbtn" onclick="exportCSV()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Export CSV
+                </button>
+                <button class="tbtn" onclick="exportImage()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                    Export PNG
+                </button>
+            </div>
+            <div class="toolbar-group">
+                <button id="btnDbxSave" class="tbtn tbtn-cloud" onclick="backupToDropbox(false)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 17l4-4 4 4"></path><line x1="12" y1="13" x2="12" y2="21"></line><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"></path></svg>
+                    Back up
+                </button>
+                <button id="btnDbxLoad" class="tbtn tbtn-cloud-outline" onclick="openVersionsModal()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    Versions
+                </button>
+                <button id="btnDbxLogout" class="header-btn" onclick="disconnectDropbox()" style="display:none;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    Disconnect
+                </button>
+            </div>
+        </div>
+    </header>
 
-<div class="toolbar">
-<div class="toolbar-group">
-<button class="tbtn" onclick="jumpToProjectStart()">
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
-Start
-</button>
-<button class="tbtn" onclick="jumpToToday()">
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-Today
-</button>
-<button class="tbtn" onclick="openWorkloadModal()">
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-Workload
-</button>
-</div>
+    <div class="workspace">
+        <div class="grid-panel" id="gridPanel">
+            <div id="spreadsheet"></div>
+        </div>
+        <div class="resizer" id="dragDivider"></div>
+        <div class="chart-panel">
+            <div id="ganttRangeBar" class="gantt-range-bar"></div>
+            <div id="ganttLegend" class="gantt-legend"></div>
+            <div id="gantt"></div>
+        </div>
+    </div>
+    
+    <footer>
+        <span class="version-tag" id="versionTag" title="Simple Gantt version"></span>
+        <a href="https://github.com/adambeltz2/Simple-Gantt" target="_blank" class="gh">
+            <svg height="16" viewBox="0 0 16 16" width="16" fill="currentColor"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
+            GitHub
+        </a>
+        <a href="https://buymeacoffee.com/adambeltz" target="_blank" class="bmc">
+            <svg height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
+            Buy me a coffee
+        </a>
+    </footer>
 
-<div class="toolbar-group">
-<select id="zoomScale" class="tbtn-select" onchange="changeZoom()">
-<option value="Day">Zoom: Day</option>
-<option value="Week">Zoom: Week</option>
-<option value="Month">Zoom: Month</option>
-</select>
-<label class="toggle-label"><input type="checkbox" id="skipWeekends" onchange="forceRecalc()"> Weekends off</label>
-<button class="tbtn" onclick="snapPanes(92)" title="Show grid only">
-<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="2" y="4" width="16" height="16" rx="1.5"></rect><rect x="20" y="4" width="2" height="16" rx="1" opacity="0.35"></rect></svg>
-Grid
-</button>
-<button class="tbtn" onclick="snapPanes(55)" title="Split view (default)">
-<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="2" y="4" width="9" height="16" rx="1.5"></rect><rect x="13" y="4" width="9" height="16" rx="1.5"></rect></svg>
-Split
-</button>
-<button class="tbtn" onclick="snapPanes(8)" title="Show chart only">
-<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="2" y="4" width="2" height="16" rx="1" opacity="0.35"></rect><rect x="6" y="4" width="16" height="16" rx="1.5"></rect></svg>
-Chart
-</button>
-</div>
+    <!-- WORKLOAD MODAL -->
+    <div id="workloadModal" class="modal" onclick="if(event.target===this) closeWorkloadModal()">
+        <div class="modal-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+                <h2 style="margin:0; color:#0f172a; font-size: 20px;">👥 Resource Workload Dashboard</h2>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label style="font-weight: bold; font-size: 13px; color: #475569;">Resolution:</label>
+                    <select id="workloadView" onchange="renderWorkloadTable()" style="padding:6px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none; font-weight: bold; color: #0f172a;">
+                        <option value="Day">Daily</option>
+                        <option value="Week">Weekly</option>
+                        <option value="Month">Monthly</option>
+                    </select>
+                    
+                    <label style="font-weight: bold; font-size: 13px; color: #475569; margin-left: 10px;">Unit:</label>
+                    <select id="workloadUnit" onchange="renderWorkloadTable()" style="padding:6px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none; font-weight: bold; color: #0f172a;">
+                        <option value="percent">Percentage (%)</option>
+                        <option value="hours">Hours (8h/day)</option>
+                    </select>
+                    
+                    <button onclick="exportWorkloadCSV()" style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-left: 10px;">Export CSV</button>
+                    <button onclick="closeWorkloadModal()" style="padding: 6px 15px; background: #ef4444; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-left: 5px;">Close</button>
+                </div>
+            </div>
+            <div id="workloadTableContainer" style="flex: 1; overflow: auto; background: white; border-radius: 4px;"></div>
+        </div>
+    </div>
 
-<div class="toolbar-group">
-<button class="tbtn" onclick="addRow()">
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-Add row
-</button>
-<button class="tbtn" onclick="autoFitColumns()" title="Resize columns to fit their content">
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 7 5 12 9 17"></polyline><polyline points="15 7 19 12 15 17"></polyline></svg>
-Fit columns
-</button>
-<label class="tbtn file-btn">
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-Import
-<input type="file" id="csvFile" accept=".csv" onchange="importCSV(event)">
-</label>
-<button class="tbtn" onclick="exportCSV()">
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-Export CSV
-</button>
-<button class="tbtn" onclick="exportImage()">
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-Export PNG
-</button>
-</div>
+    <div id="resetModal" class="modal" onclick="if(event.target===this) closeResetModal()">
+        <div class="modal-content" style="max-width: 480px; height: auto; padding: 30px;">
+            <div style="display:flex; align-items:center; gap: 12px; margin-bottom: 15px;">
+                <span style="font-size: 28px;">🚨</span>
+                <h2 style="margin:0; color:#0f172a; font-size: 19px;">Reset App</h2>
+            </div>
+            <p style="color:#334155; font-size: 14px; line-height: 1.5;">
+                This permanently deletes <strong id="resetProjectCount">all projects</strong> saved in this browser. It cannot be undone.
+            </p>
+            <p style="color:#334155; font-size: 14px; line-height: 1.5;">
+                Consider using <strong>Export CSV</strong> or <strong>Back up</strong> on any project you want to keep before continuing.
+            </p>
+            <p style="color:#64748b; font-size: 12.5px; line-height: 1.5;">
+                This only clears data saved in this browser. Any Dropbox backups are untouched, and you'll stay logged into Dropbox (use <strong>Disconnect</strong> separately if you want to log out).
+            </p>
+            <p style="color:#475569; font-size: 13px; margin-bottom: 6px;">Type <strong>DELETE</strong> to confirm:</p>
+            <input id="resetConfirmInput" type="text" autocomplete="off" placeholder="DELETE" oninput="onResetInputChange()"
+                style="width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; margin-bottom: 20px;">
+            <div style="display:flex; justify-content:flex-end; gap: 10px;">
+                <button onclick="closeResetModal()" style="padding: 8px 16px; background: #e2e8f0; color: #334155; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Cancel</button>
+                <button id="resetConfirmBtn" onclick="confirmFactoryReset()" disabled
+                    style="padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: not-allowed; opacity: 0.5;">Delete Everything</button>
+            </div>
+        </div>
+    </div>
 
-<div class="toolbar-group">
-<button id="btnDbxSave" class="tbtn tbtn-cloud" onclick="backupToDropbox(false)">
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 17l4-4 4 4"></path><line x1="12" y1="13" x2="12" y2="21"></line><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"></path></svg>
-Back up
-</button>
-<button id="btnDbxLoad" class="tbtn tbtn-cloud-outline" onclick="openVersionsModal()">
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-Versions
-</button>
-<button id="btnDbxLogout" class="header-btn" onclick="disconnectDropbox()" style="display:none;">
-<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-Disconnect
-</button>
-</div>
-</div>
-</header>
+    <div id="versionsModal" class="modal" onclick="if(event.target===this) closeVersionsModal()">
+        <div class="modal-content" style="max-width: 460px; height: auto; max-height: 70vh;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+                <h2 style="margin:0; color:#0f172a; font-size: 18px;">Dropbox versions</h2>
+                <button onclick="closeVersionsModal()" style="padding: 6px 15px; background: #ef4444; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Close</button>
+            </div>
+            <p style="color:#64748b; font-size:12.5px; margin: 0 0 10px;">Automatic backups run about a minute after you stop editing. You can also back up manually any time.</p>
+            <div id="versionsListContainer" style="flex: 1; overflow: auto;"></div>
+            <a href="#" onclick="event.preventDefault(); discoverDropboxProjects(true);" style="display:inline-block; margin-top:12px; font-size:12px; color:#185FA5; text-decoration:none;">Check Dropbox for other projects not in this browser →</a>
+        </div>
+    </div>
 
-<div class="workspace">
-<div class="grid-panel" id="gridPanel">
-<div id="spreadsheet"></div>
-</div>
-<div class="resizer" id="dragDivider"></div>
-<div class="chart-panel">
-<div id="ganttRangeBar" class="gantt-range-bar"></div>
-<div id="ganttLegend" class="gantt-legend"></div>
-<div id="gantt"></div>
-</div>
-</div>
+    <div id="discoveryModal" class="modal" onclick="if(event.target===this) closeDiscoveryModal()">
+        <div class="modal-content" style="max-width: 460px; height: auto; max-height: 70vh;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+                <h2 style="margin:0; color:#0f172a; font-size: 18px;">Projects found in Dropbox</h2>
+            </div>
+            <p style="color:#64748b; font-size:12.5px; margin: 0 0 12px;">These project backups exist in your Dropbox but aren't in this browser. Each will be imported as its own project using its latest backup.</p>
+            <div id="discoveryListContainer" style="flex: 1; overflow: auto; margin-bottom: 16px;"></div>
+            <div style="display:flex; justify-content:flex-end; gap: 10px;">
+                <button onclick="closeDiscoveryModal()" style="padding: 8px 16px; background: #e2e8f0; color: #334155; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Skip</button>
+                <button onclick="importSelectedDiscoveries()" style="padding: 8px 16px; background: #185FA5; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Import Selected</button>
+            </div>
+        </div>
+    </div>
 
-<footer>
-<span class="version-tag" id="versionTag" title="Simple Gantt version"></span>
-<a href="https://github.com/adambeltz2/Simple-Gantt" target="_blank" class="gh">
-<svg height="16" viewBox="0 0 16 16" width="16" fill="currentColor"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
-GitHub
-</a>
-<a href="https://buymeacoffee.com/adambeltz" target="_blank" class="bmc">
-<svg height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
-Buy me a coffee
-</a>
-</footer>
+    <div id="dropboxInfoModal" class="modal" onclick="if(event.target===this) closeDropboxInfoModal()">
+        <div class="modal-content" style="max-width: 480px; height: auto; padding: 30px;">
+            <h2 style="margin:0 0 15px; color:#0f172a; font-size: 19px;">Dropbox is optional</h2>
+            <p style="color:#334155; font-size: 14px; line-height: 1.5; margin: 0 0 14px;">
+                Simple Gantt works fully offline with no account. Here's what changes if you sign in:
+            </p>
+            <div style="display:flex; gap:16px; margin-bottom: 16px;">
+                <div style="flex:1; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px;">
+                    <div style="font-weight:700; font-size:12.5px; color:#64748b; margin-bottom:8px;">WITHOUT DROPBOX</div>
+                    <ul style="margin:0; padding-left:18px; font-size:12.5px; color:#334155; line-height:1.6;">
+                        <li>Data lives only in this browser</li>
+                        <li>No version history — only the current state exists</li>
+                        <li>Clearing browser data loses everything, unless you've manually exported a CSV</li>
+                    </ul>
+                </div>
+                <div style="flex:1; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:12px;">
+                    <div style="font-weight:700; font-size:12.5px; color:#185FA5; margin-bottom:8px;">WITH DROPBOX</div>
+                    <ul style="margin:0; padding-left:18px; font-size:12.5px; color:#334155; line-height:1.6;">
+                        <li>Automatic backups ~1 min after edits stop</li>
+                        <li>Full version history — restore any past backup</li>
+                        <li>Projects can be found and imported on a new device</li>
+                    </ul>
+                </div>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap: 10px;">
+                <button onclick="closeDropboxInfoModal()" style="padding: 8px 16px; background: #e2e8f0; color: #334155; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Maybe later</button>
+                <button onclick="proceedToDropboxLogin()" style="padding: 8px 16px; background: #185FA5; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Continue to Dropbox</button>
+            </div>
+        </div>
+    </div>
 
-<!-- WORKLOAD MODAL -->
-<div id="workloadModal" class="modal" onclick="if(event.target===this) closeWorkloadModal()">
-<div class="modal-content">
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
-<h2 style="margin:0; color:#0f172a; font-size: 20px;">👥 Resource Workload Dashboard</h2>
-<div style="display: flex; gap: 10px; align-items: center;">
-<label style="font-weight: bold; font-size: 13px; color: #475569;">Resolution:</label>
-<select id="workloadView" onchange="renderWorkloadTable()" style="padding:6px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none; font-weight: bold; color: #0f172a;">
-<option value="Day">Daily</option>
-<option value="Week">Weekly</option>
-<option value="Month">Monthly</option>
-</select>
-<label style="font-weight: bold; font-size: 13px; color: #475569; margin-left: 10px;">Unit:</label>
-<select id="workloadUnit" onchange="renderWorkloadTable()" style="padding:6px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none; font-weight: bold; color: #0f172a;">
-<option value="percent">Percentage (%)</option>
-<option value="hours">Hours (8h/day)</option>
-</select>
-<button onclick="exportWorkloadCSV()" style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-left: 10px;">Export CSV</button>
-<button onclick="closeWorkloadModal()" style="padding: 6px 15px; background: #ef4444; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-left: 5px;">Close</button>
-</div>
-</div>
-<div id="workloadTableContainer" style="flex: 1; overflow: auto; background: white; border-radius: 4px;"></div>
-</div>
-</div>
+    <script>
+        function format(d) { 
+            if (!d) return '';
+            if (typeof d === 'string') {
+                // Already a string, validate and return
+                if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+                d = new Date(d);
+            }
+            if (!(d instanceof Date) || isNaN(d.getTime())) return '';
+            // Use local date components to avoid timezone shifts
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
 
-<div id="resetModal" class="modal" onclick="if(event.target===this) closeResetModal()">
-<div class="modal-content" style="max-width: 480px; height: auto; padding: 30px;">
-<div style="display:flex; align-items:center; gap: 12px; margin-bottom: 15px;">
-<span style="font-size: 28px;">🚨</span>
-<h2 style="margin:0; color:#0f172a; font-size: 19px;">Reset App</h2>
-</div>
-<p style="color:#334155; font-size: 14px; line-height: 1.5;">
-This permanently deletes <strong id="resetProjectCount">all projects</strong> saved in this browser. It cannot be undone.
-</p>
-<p style="color:#334155; font-size: 14px; line-height: 1.5;">
-Consider using <strong>Export CSV</strong> or <strong>Back up</strong> on any project you want to keep before continuing.
-</p>
-<p style="color:#64748b; font-size: 12.5px; line-height: 1.5;">
-This only clears data saved in this browser. Any Dropbox backups are untouched, and you'll stay logged into Dropbox (use <strong>Disconnect</strong> separately if you want to log out).
-</p>
-<p style="color:#475569; font-size: 13px; margin-bottom: 6px;">Type <strong>DELETE</strong> to confirm:</p>
-<input id="resetConfirmInput" type="text" autocomplete="off" placeholder="DELETE" oninput="onResetInputChange()"
-style="width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; margin-bottom: 20px;">
-<div style="display:flex; justify-content:flex-end; gap: 10px;">
-<button onclick="closeResetModal()" style="padding: 8px 16px; background: #e2e8f0; color: #334155; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Cancel</button>
-<button id="resetConfirmBtn" onclick="confirmFactoryReset()" disabled
-style="padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: not-allowed; opacity: 0.5;">Delete Everything</button>
-</div>
-</div>
-</div>
+        function showStatus(text, color) {
+            const status = document.getElementById('saveStatus');
+            const clean = text.replace(/^[✓✗⚠]\s*/, '');
+            document.getElementById('saveStatusText').innerText = clean;
+            status.style.color = color;
+            status.style.opacity = 1;
+            const isSuccess = (color === '#10b981' || color === '#639922');
+            if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
+        }
 
-<div id="versionsModal" class="modal" onclick="if(event.target===this) closeVersionsModal()">
-<div class="modal-content" style="max-width: 460px; height: auto; max-height: 70vh;">
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
-<h2 style="margin:0; color:#0f172a; font-size: 18px;">Dropbox versions</h2>
-<button onclick="closeVersionsModal()" style="padding: 6px 15px; background: #ef4444; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Close</button>
-</div>
-<p style="color:#64748b; font-size:12.5px; margin: 0 0 10px;">Automatic backups run about a minute after you stop editing. You can also back up manually any time.</p>
-<div id="versionsListContainer" style="flex: 1; overflow: auto;"></div>
-<a href="#" onclick="event.preventDefault(); discoverDropboxProjects(true);" style="display:inline-block; margin-top:12px; font-size:12px; color:#185FA5; text-decoration:none;">Check Dropbox for other projects not in this browser →</a>
-</div>
-</div>
+        const APP_VERSION = "2.4.4";
+        document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
-<div id="discoveryModal" class="modal" onclick="if(event.target===this) closeDiscoveryModal()">
-<div class="modal-content" style="max-width: 460px; height: auto; max-height: 70vh;">
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
-<h2 style="margin:0; color:#0f172a; font-size: 18px;">Projects found in Dropbox</h2>
-</div>
-<p style="color:#64748b; font-size:12.5px; margin: 0 0 12px;">These project backups exist in your Dropbox but aren't in this browser. Each will be imported as its own project using its latest backup.</p>
-<div id="discoveryListContainer" style="flex: 1; overflow: auto; margin-bottom: 16px;"></div>
-<div style="display:flex; justify-content:flex-end; gap: 10px;">
-<button onclick="closeDiscoveryModal()" style="padding: 8px 16px; background: #e2e8f0; color: #334155; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Skip</button>
-<button onclick="importSelectedDiscoveries()" style="padding: 8px 16px; background: #185FA5; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Import Selected</button>
-</div>
-</div>
-</div>
+        const DB_KEY = "simple_gantt_portfolio_v26"; 
+        
+        const todayObj = new Date();
+        const dateStr1 = format(todayObj);
+        
+        const sampleProjectData = [
+            ['1', '1', 'Website Redesign Phase', '', '', '0', '', '', '', '', ''],
+            ['2', '1.1', 'Discovery & Wireframes', 'Alice 50%, Bob', '100', '100', dateStr1, '3', '', '', '1'],
+            ['3', '1.2', 'UI Design & Assets', 'Bob (50%), Charlie @ 50%', '100', '50', '', '5', '', '2', '1'],
+            ['4', '1.3', 'Frontend Implementation', 'Charlie', '100', '0', '', '7', '', '3', '1'],
+            ['5', '1.4', 'Launch Milestone', '', '', '0', '', '0', '', '4', '1']
+        ];
 
-<div id="dropboxInfoModal" class="modal" onclick="if(event.target===this) closeDropboxInfoModal()">
-<div class="modal-content" style="max-width: 480px; height: auto; padding: 30px;">
-<h2 style="margin:0 0 15px; color:#0f172a; font-size: 19px;">Dropbox is optional</h2>
-<p style="color:#334155; font-size: 14px; line-height: 1.5; margin: 0 0 14px;">
-Simple Gantt works fully offline with no account. Here's what changes if you sign in:
-</p>
-<div style="display:flex; gap:16px; margin-bottom: 16px;">
-<div style="flex:1; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px;">
-<div style="font-weight:700; font-size:12.5px; color:#64748b; margin-bottom:8px;">WITHOUT DROPBOX</div>
-<ul style="margin:0; padding-left:18px; font-size:12.5px; color:#334155; line-height:1.6;">
-<li>Data lives only in this browser</li>
-<li>No version history — only the current state exists</li>
-<li>Clearing browser data loses everything, unless you've manually exported a CSV</li>
-</ul>
-</div>
-<div style="flex:1; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:12px;">
-<div style="font-weight:700; font-size:12.5px; color:#185FA5; margin-bottom:8px;">WITH DROPBOX</div>
-<ul style="margin:0; padding-left:18px; font-size:12.5px; color:#334155; line-height:1.6;">
-<li>Automatic backups ~1 min after edits stop</li>
-<li>Full version history — restore any past backup</li>
-<li>Projects can be found and imported on a new device</li>
-</ul>
-</div>
-</div>
-<div style="display:flex; justify-content:flex-end; gap: 10px;">
-<button onclick="closeDropboxInfoModal()" style="padding: 8px 16px; background: #e2e8f0; color: #334155; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Maybe later</button>
-<button onclick="proceedToDropboxLogin()" style="padding: 8px 16px; background: #185FA5; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Continue to Dropbox</button>
-</div>
-</div>
-</div>
+        let appDB = {
+            activeId: 'proj_1',
+            settings: { skipWeekends: true, zoom: 'Day' },
+            projects: { 'proj_1': { name: 'Example Project', columns: [], data: sampleProjectData } }
+        };
 
-<script>
+        try {
+            let savedDb = localStorage.getItem(DB_KEY) || 
+                          localStorage.getItem("simple_gantt_portfolio_v25") ||
+                          localStorage.getItem("simple_gantt_portfolio_v24") ||
+                          localStorage.getItem("simple_gantt_portfolio_v23") ||
+                          localStorage.getItem("simple_gantt_portfolio_v22") ||
+                          localStorage.getItem("simple_gantt_portfolio_v21") ||
+                          localStorage.getItem("simple_gantt_portfolio_v20") ||
+                          localStorage.getItem("simple_gantt_portfolio_v19") ||
+                          localStorage.getItem("simple_gantt_portfolio_v18") ||
+                          localStorage.getItem("simple_gantt_portfolio_v17");
+            if (savedDb) {
+                appDB = JSON.parse(savedDb);
+                for (let pid in appDB.projects) {
+                    if (!appDB.projects[pid].columns) appDB.projects[pid].columns = [];
+                    appDB.projects[pid].data = normalizeData(appDB.projects[pid].data, appDB.projects[pid].columns.length);
+                }
+            }
+        } catch(e) { console.error("Error loading DB", e); }
 
-// ============================================================================
-// BUBBLE-UP DATE RECALCULATION LOGIC
-// Injected at the start for early availability
-// ============================================================================
+        function normalizeData(data, customColsCount) {
+            let targetLength = 11 + (customColsCount || 0);
+            if (!data || !Array.isArray(data) || data.length === 0) return [['1', '1', '', '', '100', '0', '', '', '', '', ...Array(customColsCount || 0).fill('')]];
+            return data.map(row => {
+                if (row.length === 9) row.splice(7, 0, ''); 
+                if (row.length === 10) row.splice(1, 0, ''); 
+                while (row.length < targetLength) row.push('');
+                return row;
+            });
+        }
 
-function parseDate(dateStr) {
-  if (!dateStr || dateStr === '') return null;
-  const d = new Date(dateStr);
-  return isNaN(d.getTime()) ? null : d;
-}
+        document.getElementById('skipWeekends').checked = appDB.settings.skipWeekends;
+        document.getElementById('zoomScale').value = appDB.settings.zoom || 'Day';
 
-function formatDate(date) {
-  if (!date) return '';
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+        function updateProjectDropdown() {
+            const selector = document.getElementById('projectSelector');
+            if(!selector) return;
+            selector.innerHTML = '';
+            for (let id in appDB.projects) {
+                let opt = document.createElement('option');
+                opt.value = id; opt.innerText = appDB.projects[id].name;
+                if (id === appDB.activeId) opt.selected = true;
+                selector.appendChild(opt);
+            }
+            let newOpt = document.createElement('option');
+            newOpt.value = '__NEW__'; newOpt.innerText = '➕ Create New Project...';
+            selector.appendChild(newOpt);
+        }
 
-function calculateDuration(startDate, endDate) {
-  if (!startDate || !endDate) return 0;
-  const msPerDay = 24 * 60 * 60 * 1000;
-  return Math.floor((endDate - startDate) / msPerDay) + 1;
-}
+        function switchProject() {
+            const val = document.getElementById('projectSelector').value;
+            if (val === '__NEW__') {
+                createNewProject();
+            } else {
+                appDB.activeId = val;
+                renderGrid();
+                syncToGantt(true);
+            }
+        }
 
-function recalculateDatesUpstream(tasks, changedTaskId = null) {
-  const changes = [];
-  const processed = new Set();
-  let maxDepth = 0;
+        function createNewProject() {
+            let name = prompt("Enter new project name:", "New Project");
+            if (!name) { updateProjectDropdown(); return; } 
+            
+            let newId = 'proj_' + Date.now();
+            appDB.projects[newId] = {
+                name: name,
+                columns: [],
+                data: [['1', '1', '', '', '100', '0', '', '', '', '', '']] 
+            };
+            appDB.activeId = newId;
+            updateProjectDropdown();
+            renderGrid();
+            syncToGantt(true);
+        }
 
-  function bubbleUpFrom(taskId, depth = 0) {
-    maxDepth = Math.max(maxDepth, depth);
-    if (processed.has(String(taskId))) return;
-    processed.add(String(taskId));
+        function renameProject() {
+            let currentName = appDB.projects[appDB.activeId].name;
+            let newName = prompt("Rename project:", currentName);
+            if (newName && newName !== currentName) {
+                appDB.projects[appDB.activeId].name = newName;
+                updateProjectDropdown();
+                saveToLocal();
+            }
+        }
 
-    const task = tasks.find(t => String(t[0]) === String(taskId));
-    if (!task) return;
+        function deleteProject() {
+            let ids = Object.keys(appDB.projects);
+            if (ids.length <= 1) { alert("You cannot delete your only project."); return; }
 
-    const parentsOfThisTask = tasks.filter(t => {
-      if (!t[9]) return false;
-      const deps = String(t[9]).split(',').map(d => d.trim()).filter(d => d);
-      return deps.some(dep => String(dep) === String(taskId));
-    });
+            const project = appDB.projects[appDB.activeId];
+            if (!confirm(`Are you sure you want to delete '${project.name}'?`)) return;
 
-    for (const parent of parentsOfThisTask) {
-      const oldStart = parent[6];
-      const oldEnd = parent[7];
+            const dropboxProjectId = project.dropboxProjectId;
 
-      const childIds = String(parent[9]).split(',').map(d => d.trim()).filter(d => d);
-      const children = childIds
-        .map(cid => tasks.find(t => String(t[0]) === String(cid)))
-        .filter(c => c && c[6] && c[7]);
+            delete appDB.projects[appDB.activeId];
+            appDB.activeId = Object.keys(appDB.projects)[0];
+            updateProjectDropdown();
+            renderGrid();
+            syncToGantt(true);
+            saveToLocal();
 
-      if (children.length === 0) continue;
+            if (!dropboxProjectId) return;
 
-      const startDates = children.map(c => parseDate(c[6])).filter(d => d);
-      const endDates = children.map(c => parseDate(c[7])).filter(d => d);
+            if (!dbx) {
+                alert(`Heads up: this project has backups saved in Dropbox that weren't deleted, since you're not currently logged in. If you don't want it reappearing under "Check Dropbox for other projects" later, log into Dropbox and delete its folder manually, or delete it next time you're logged in.`);
+                return;
+            }
 
-      if (startDates.length === 0 || endDates.length === 0) continue;
+            if (confirm(`This project also has backups saved in Dropbox. Delete those too?\n\nIf you keep them, this project may show up again under "Check Dropbox for other projects."`)) {
+                deleteDropboxProjectFolder(dropboxProjectId, project.name);
+            }
+        }
 
-      const minStart = new Date(Math.min(...startDates.map(d => d.getTime())));
-      const maxEnd = new Date(Math.max(...endDates.map(d => d.getTime())));
+        function deleteDropboxProjectFolder(dropboxProjectId, projectName) {
+            const folder = `/Simple Gantt Backups/${dropboxProjectId}`;
+            showStatus("Removing from Dropbox...", "#f59e0b");
+            dbx.filesDeleteV2({ path: folder })
+            .then(() => showStatus("✓ Removed from Dropbox", "#10b981"))
+            .catch(err => {
+                if (handleDropboxAuthError(err)) return;
+                console.error("Dropbox folder delete failed:", err);
+                showStatus("✗ Dropbox cleanup failed", "#ef4444");
+                alert(`Couldn't delete '${projectName}''s backups from Dropbox. You can remove the "${dropboxProjectId}" folder manually from Dropbox's Simple Gantt Backups folder if needed.`);
+            });
+        }
 
-      const newStart = formatDate(minStart);
-      const newEnd = formatDate(maxEnd);
-      const newDuration = String(calculateDuration(minStart, maxEnd));
+        const LEGACY_DB_KEYS = ["simple_gantt_portfolio_v25","simple_gantt_portfolio_v24","simple_gantt_portfolio_v23",
+            "simple_gantt_portfolio_v22","simple_gantt_portfolio_v21","simple_gantt_portfolio_v20",
+            "simple_gantt_portfolio_v19","simple_gantt_portfolio_v18","simple_gantt_portfolio_v17"];
 
-      if (newStart !== oldStart || newEnd !== oldEnd) {
-        parent[6] = newStart;
-        parent[7] = newEnd;
-        parent[8] = newDuration;
+        function factoryReset() {
+            const projectNames = Object.values(appDB.projects).map(p => p.name);
+            const label = projectNames.length === 1
+                ? `all data in "${projectNames[0]}"`
+                : `all ${projectNames.length} projects (${projectNames.join(', ')})`;
+            document.getElementById('resetProjectCount').innerText = label;
+            document.getElementById('resetConfirmInput').value = '';
+            onResetInputChange();
+            document.getElementById('resetModal').classList.add('active');
+        }
 
-        changes.push({
-          taskId: parent[0],
-          oldStart,
-          oldEnd,
-          newStart,
-          newEnd
+        function closeResetModal() {
+            document.getElementById('resetModal').classList.remove('active');
+        }
+
+        function onResetInputChange() {
+            const match = document.getElementById('resetConfirmInput').value.trim() === 'DELETE';
+            const btn = document.getElementById('resetConfirmBtn');
+            btn.disabled = !match;
+            btn.style.cursor = match ? 'pointer' : 'not-allowed';
+            btn.style.opacity = match ? 1 : 0.5;
+        }
+
+        function confirmFactoryReset() {
+            localStorage.removeItem(DB_KEY);
+            LEGACY_DB_KEYS.forEach(k => localStorage.removeItem(k));
+            location.reload();
+        }
+
+        function saveToLocal() {
+            if(!sheet) return;
+            appDB.projects[appDB.activeId].data = sheet.getData();
+            appDB.settings.skipWeekends = document.getElementById('skipWeekends').checked;
+            appDB.settings.zoom = document.getElementById('zoomScale').value;
+            try {
+                localStorage.setItem(DB_KEY, JSON.stringify(appDB));
+                showStatus("✓ Saved", "#10b981");
+                scheduleAutoBackup();
+            } catch (err) {
+                // Most likely QuotaExceededError -- this must never fail silently,
+                // since the alternative is the user believing their work is saved
+                // when it isn't.
+                console.error("localStorage save failed:", err);
+                showStatus("✗ Save failed -- storage may be full", "#ef4444");
+            }
+        }
+
+        // ==========================================
+        // DROPBOX CONFIGURATION
+        // ==========================================
+        const DROPBOX_APP_KEY = '63246m2wldbbmwi';
+        const MAX_BACKUPS_PER_PROJECT = 25;
+        const AUTO_BACKUP_DELAY_MS = 60000;
+        let dbx = null;
+        let dbxAutoBackupTimer = null;
+        let isFreshDropboxLogin = false;
+
+        if (window.location.hash.includes('access_token')) {
+            const params = new URLSearchParams(window.location.hash.substring(1));
+            localStorage.setItem('dropbox_token', params.get('access_token'));
+            window.history.replaceState({}, document.title, window.location.pathname);
+            isFreshDropboxLogin = true;
+        }
+        if (localStorage.getItem('dropbox_token')) {
+            dbx = new Dropbox.Dropbox({ accessToken: localStorage.getItem('dropbox_token') });
+            let dbxLogoutBtn = document.getElementById('btnDbxLogout');
+            if(dbxLogoutBtn) dbxLogoutBtn.style.display = '';
+            if (isFreshDropboxLogin) {
+                discoverDropboxProjects(false);
+            }
+        } else {
+            let dbxBtn = document.getElementById('btnDbxSave');
+            if(dbxBtn) dbxBtn.innerHTML = dbxBtn.innerHTML.replace('Back up', 'Login to Dropbox');
+            let dbxLoadBtn = document.getElementById('btnDbxLoad');
+            if(dbxLoadBtn) dbxLoadBtn.style.display = 'none';
+        }
+
+        function dropboxLogin() {
+            document.getElementById('dropboxInfoModal').classList.add('active');
+        }
+
+        function closeDropboxInfoModal() {
+            document.getElementById('dropboxInfoModal').classList.remove('active');
+        }
+
+        function proceedToDropboxLogin() {
+            const redirectUri = encodeURIComponent(window.location.href.split('#')[0]);
+            window.location.href = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_APP_KEY}&response_type=token&redirect_uri=${redirectUri}`;
+        }
+
+        function disconnectDropbox() {
+            if (!dbx) return;
+            if (!confirm("Disconnect this browser from Dropbox?\n\nYour local projects aren't affected and nothing is deleted from Dropbox -- you can log back in anytime.")) return;
+            if (dbxAutoBackupTimer) { clearTimeout(dbxAutoBackupTimer); dbxAutoBackupTimer = null; }
+            localStorage.removeItem('dropbox_token');
+            location.reload();
+        }
+
+        function handleDropboxAuthError(err) {
+            if (err && err.status === 401) {
+                localStorage.removeItem('dropbox_token');
+                alert("Your Dropbox session expired. Please log in again.");
+                location.reload();
+                return true;
+            }
+            return false;
+        }
+
+        function ensureDropboxProjectId(projectId) {
+            let p = appDB.projects[projectId];
+            if (!p.dropboxProjectId) {
+                p.dropboxProjectId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+                    : 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+                localStorage.setItem(DB_KEY, JSON.stringify(appDB));
+            }
+            return p.dropboxProjectId;
+        }
+
+        function getDropboxFolder(projectId) {
+            const id = ensureDropboxProjectId(projectId);
+            return `/Simple Gantt Backups/${id}`;
+        }
+
+        function timestampForFilename() {
+            const d = new Date();
+            const pad = n => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+        }
+
+        function updateCloudStatus(state) {
+            const el = document.getElementById('cloudStatus');
+            if (!el || !dbx) { if(el) { el.textContent = ''; el.className = ''; } return; }
+            if (state === 'pending') { el.textContent = '· backup pending'; el.className = 'dirty'; }
+            else if (state === 'syncing') { el.textContent = '· backing up…'; el.className = 'syncing'; }
+            else if (state === 'synced') { el.textContent = '· backed up just now'; el.className = 'synced'; }
+            else if (state === 'error') { el.textContent = '· last backup failed'; el.className = 'dirty'; }
+            else { el.textContent = ''; el.className = ''; }
+        }
+
+        function scheduleAutoBackup() {
+            if (!dbx) return;
+            if (dbxAutoBackupTimer) clearTimeout(dbxAutoBackupTimer);
+            updateCloudStatus('pending');
+            dbxAutoBackupTimer = setTimeout(() => backupToDropbox(true), AUTO_BACKUP_DELAY_MS);
+        }
+
+        function backupToDropbox(isAuto) {
+            if (!dbx) { if (!isAuto) dropboxLogin(); return; }
+            if (dbxAutoBackupTimer) { clearTimeout(dbxAutoBackupTimer); dbxAutoBackupTimer = null; }
+            if (!sheet) return;
+
+            const projectId = appDB.activeId;
+            updateCloudStatus('syncing');
+            if (!isAuto) showStatus("Backing up to Dropbox...", "#f59e0b");
+
+            let exportData = [...sheet.getData()];
+            let headers = sheet.options.columns.map(c => c.title);
+            exportData.unshift(headers);
+            const csvString = Papa.unparse(exportData);
+
+            const folder = getDropboxFolder(projectId);
+            const filepath = `${folder}/${timestampForFilename()}.csv`;
+            const metaPath = `${folder}/meta.json`;
+            const metaContents = JSON.stringify({ name: appDB.projects[projectId].name, updatedAt: new Date().toISOString() });
+
+            Promise.all([
+                dbx.filesUpload({ path: filepath, contents: csvString, mode: { '.tag': 'add' }, autorename: true }),
+                dbx.filesUpload({ path: metaPath, contents: metaContents, mode: { '.tag': 'overwrite' } })
+            ])
+            .then(() => {
+                updateCloudStatus('synced');
+                if (!isAuto) showStatus("✓ Backed up to Dropbox", "#10b981");
+                pruneOldBackups(folder);
+            })
+            .catch(err => {
+                if (handleDropboxAuthError(err)) return;
+                updateCloudStatus('error');
+                if (!isAuto) showStatus("✗ Backup failed", "#ef4444");
+                console.error("Dropbox backup error:", err);
+            });
+        }
+
+        function pruneOldBackups(folder) {
+            dbx.filesListFolder({ path: folder })
+            .then(res => {
+                let entries = res.result.entries.filter(e => e['.tag'] === 'file' && e.name.toLowerCase().endsWith('.csv'));
+                if (entries.length <= MAX_BACKUPS_PER_PROJECT) return;
+                entries.sort((a, b) => new Date(b.client_modified) - new Date(a.client_modified));
+                entries.slice(MAX_BACKUPS_PER_PROJECT).forEach(e => {
+                    dbx.filesDeleteV2({ path: e.path_lower }).catch(err => console.error("Prune delete failed:", err));
+                });
+            })
+            .catch(err => console.error("Dropbox prune list failed:", err));
+        }
+
+        function applyImportedCSVData(data) {
+            if (data.length > 0 && (data[0][0] === 'ID' || data[0][1] === 'Outline')) {
+                let headers = data.shift();
+                appDB.projects[appDB.activeId].columns = headers.slice(11);
+            }
+            renderGrid(data);
+            syncToGantt(true);
+        }
+
+        function formatBackupTimestamp(iso) {
+            return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+        }
+
+        function openVersionsModal() {
+            if (!dbx) { dropboxLogin(); return; }
+            document.getElementById('versionsModal').classList.add('active');
+            const container = document.getElementById('versionsListContainer');
+            container.innerHTML = '<p style="color:#94a3b8; font-size:13px;">Loading versions...</p>';
+
+            const folder = getDropboxFolder(appDB.activeId);
+            dbx.filesListFolder({ path: folder })
+            .then(res => {
+                let entries = res.result.entries.filter(e => e['.tag'] === 'file' && e.name.toLowerCase().endsWith('.csv'));
+                entries.sort((a, b) => new Date(b.client_modified) - new Date(a.client_modified));
+                renderVersionsList(entries);
+            })
+            .catch(err => {
+                if (handleDropboxAuthError(err)) return;
+                const summary = (err && err.error && err.error.error_summary) || '';
+                if (summary.indexOf('path/not_found') > -1) {
+                    container.innerHTML = '<p style="color:#94a3b8; font-size:13px;">No backups yet for this project. Click "Back up" to create the first one.</p>';
+                } else {
+                    container.innerHTML = '<p style="color:#ef4444; font-size:13px;">Could not load versions from Dropbox.</p>';
+                    console.error("Dropbox list error:", err);
+                }
+            });
+        }
+
+        function closeVersionsModal() {
+            document.getElementById('versionsModal').classList.remove('active');
+        }
+
+        function renderVersionsList(entries) {
+            const container = document.getElementById('versionsListContainer');
+            if (entries.length === 0) {
+                container.innerHTML = '<p style="color:#94a3b8; font-size:13px;">No backups yet for this project. Click "Back up" to create the first one.</p>';
+                return;
+            }
+            container.innerHTML = entries.map((e, i) => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 4px; border-bottom:1px solid #e2e8f0;">
+                    <div>
+                        <div style="font-weight:600; font-size:13px; color:#0f172a;">${formatBackupTimestamp(e.client_modified)}</div>
+                        ${i === 0 ? '<div style="font-size:11px; color:#10b981; font-weight:600;">Most recent</div>' : ''}
+                    </div>
+                    <button onclick="restoreBackup('${e.path_lower}')" style="padding:6px 14px; background:#185FA5; color:white; border:none; border-radius:4px; font-weight:600; cursor:pointer; font-size:12px;">Restore</button>
+                </div>
+            `).join('');
+        }
+
+        function restoreBackup(path) {
+            const projectName = appDB.projects[appDB.activeId].name;
+            if (!confirm(`Replace the current '${projectName}' data with this backup? This will overwrite what's on screen now.`)) return;
+
+            dbx.filesDownload({ path: path })
+            .then(response => {
+                const reader = new FileReader();
+                reader.onload = function() {
+                    Papa.parse(reader.result, { skipEmptyLines: true, complete: function(results) {
+                        applyImportedCSVData(results.data);
+                        saveToLocal();
+                        closeVersionsModal();
+                        showStatus("✓ Restored from Dropbox", "#10b981");
+                    }});
+                };
+                reader.readAsText(response.result.fileBlob);
+            })
+            .catch(err => {
+                if (handleDropboxAuthError(err)) return;
+                alert("Couldn't restore this backup. Please try again.");
+                console.error("Dropbox restore error:", err);
+            });
+        }
+
+        let _discoveredProjects = [];
+
+        function readMetaJson(folderPathLower) {
+            return dbx.filesDownload({ path: `${folderPathLower}/meta.json` })
+                .then(r => new Promise(resolve => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        try { resolve(JSON.parse(reader.result).name); }
+                        catch(e) { resolve(null); }
+                    };
+                    reader.onerror = () => resolve(null);
+                    reader.readAsText(r.result.fileBlob);
+                }))
+                .catch(() => null);
+        }
+
+        function discoverDropboxProjects(manualTrigger) {
+            if (!dbx) { if (manualTrigger) dropboxLogin(); return; }
+
+            dbx.filesListFolder({ path: '/Simple Gantt Backups' })
+            .then(res => {
+                let folders = res.result.entries.filter(e => e['.tag'] === 'folder');
+                const localIds = new Set(Object.values(appDB.projects).map(p => p.dropboxProjectId).filter(Boolean));
+                const candidates = folders.filter(f => !localIds.has(f.name));
+
+                if (candidates.length === 0) {
+                    if (manualTrigger) alert("No additional Dropbox projects found beyond what's already in this browser.");
+                    return;
+                }
+
+                Promise.all(candidates.map(f =>
+                    readMetaJson(f.path_lower).then(name => ({ id: f.name, pathLower: f.path_lower, name: name || '(unnamed project)' }))
+                )).then(discovered => {
+                    _discoveredProjects = discovered;
+                    openDiscoveryModal(discovered);
+                });
+            })
+            .catch(err => {
+                if (handleDropboxAuthError(err)) return;
+                const summary = (err && err.error && err.error.error_summary) || '';
+                if (summary.indexOf('path/not_found') > -1) {
+                    if (manualTrigger) alert("No Dropbox backups found yet.");
+                } else {
+                    console.error("Dropbox discovery error:", err);
+                }
+            });
+        }
+
+        function openDiscoveryModal(discovered) {
+            const container = document.getElementById('discoveryListContainer');
+            container.innerHTML = discovered.map((d, i) => `
+                <label style="display:flex; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid #e2e8f0; font-size:13px; color:#0f172a;">
+                    <input type="checkbox" class="discoveryCheckbox" value="${i}" checked>
+                    ${escapeHtml(d.name)}
+                </label>
+            `).join('');
+            document.getElementById('discoveryModal').classList.add('active');
+        }
+
+        function closeDiscoveryModal() {
+            document.getElementById('discoveryModal').classList.remove('active');
+        }
+
+        function importSelectedDiscoveries() {
+            const checked = Array.from(document.querySelectorAll('.discoveryCheckbox:checked'))
+                .map(cb => _discoveredProjects[parseInt(cb.value, 10)]);
+            closeDiscoveryModal();
+            if (checked.length === 0) return;
+
+            showStatus("Importing from Dropbox...", "#f59e0b");
+            Promise.all(checked.map(d => importDiscoveredProject(d)))
+            .then(() => {
+                localStorage.setItem(DB_KEY, JSON.stringify(appDB));
+                updateProjectDropdown();
+                showStatus("✓ Imported from Dropbox", "#10b981");
+            });
+        }
+
+        function importDiscoveredProject(discovered) {
+            return dbx.filesListFolder({ path: discovered.pathLower })
+            .then(res => {
+                let files = res.result.entries.filter(e => e['.tag'] === 'file' && e.name.toLowerCase().endsWith('.csv'));
+                if (files.length === 0) return null;
+                files.sort((a, b) => new Date(b.client_modified) - new Date(a.client_modified));
+                return dbx.filesDownload({ path: files[0].path_lower });
+            })
+            .then(response => {
+                if (!response) return;
+                return new Promise(resolve => {
+                    const reader = new FileReader();
+                    reader.onload = function() {
+                        Papa.parse(reader.result, { skipEmptyLines: true, complete: function(results) {
+                            let data = results.data;
+                            let columns = [];
+                            if (data.length > 0 && (data[0][0] === 'ID' || data[0][1] === 'Outline')) {
+                                let headers = data.shift();
+                                columns = headers.slice(11);
+                            }
+                            const newId = 'proj_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+                            appDB.projects[newId] = {
+                                name: discovered.name,
+                                columns: columns,
+                                data: normalizeData(data, columns.length),
+                                dropboxProjectId: discovered.id
+                            };
+                            resolve();
+                        }});
+                    };
+                    reader.readAsText(response.result.fileBlob);
+                });
+            })
+            .catch(err => console.error("Import failed for", discovered.name, err));
+        }
+        function escapeHtml(str) {
+            const d = document.createElement('div');
+            d.innerText = str == null ? '' : String(str);
+            return d.innerHTML;
+        }
+
+        function renderGanttLegend(show) {
+            const legend = document.getElementById('ganttLegend');
+            if (!legend) return;
+            if (!show) { legend.style.display = 'none'; return; }
+
+            const items = [
+                { color: '#94a3b8', label: 'Not started' },
+                { color: '#2563eb', label: 'In progress' },
+                { color: '#059669', label: 'Complete' },
+                { color: '#dc2626', label: 'Overdue' },
+                { color: '#f59e0b', label: 'Milestone', diamond: true },
+                { color: '#334155', label: 'Summary' }
+            ];
+            legend.innerHTML = items.map(i => `
+                <span class="legend-item">
+                    <span class="swatch${i.diamond ? ' diamond' : ''}" style="background:${i.color};"></span>
+                    ${i.label}
+                </span>
+            `).join('');
+            legend.style.display = 'flex';
+        }
+
+        function renderGanttRangeBar(frappeTasks) {
+            const bar = document.getElementById('ganttRangeBar');
+            if (!bar) return;
+
+            if (!frappeTasks || frappeTasks.length === 0) { bar.innerHTML = ''; return; }
+
+            let minStart = null, maxEnd = null;
+            frappeTasks.forEach(t => {
+                const s = new Date(t.start), e = new Date(t.end);
+                if (isNaN(s) || isNaN(e)) return;
+                if (!minStart || s < minStart) minStart = s;
+                if (!maxEnd || e > maxEnd) maxEnd = e;
+            });
+            if (!minStart || !maxEnd) { bar.innerHTML = ''; return; }
+
+            const fmt = d => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+            const days = Math.max(1, Math.round((maxEnd - minStart) / 86400000));
+            let span;
+            if (days < 60) span = `${days} day${days === 1 ? '' : 's'}`;
+            else if (days < 365) span = `${Math.round(days / 30.44 * 10) / 10} months`;
+            else span = `${Math.round(days / 365 * 10) / 10} years`;
+
+            const zoomEl = document.getElementById('zoomScale');
+            const zoom = zoomEl ? zoomEl.value : 'Day';
+
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const todayInRange = today >= minStart && today <= maxEnd;
+            const projectName = appDB.projects[appDB.activeId] ? appDB.projects[appDB.activeId].name : '';
+
+            bar.innerHTML = `
+                <div>
+                    <div style="font-size:10.5px; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px;">${escapeHtml(projectName)}</div>
+                    <span class="range-main">📅 ${fmt(minStart)} &rarr; ${fmt(maxEnd)}</span>
+                </div>
+                <span class="range-sub">${span} &middot; ${zoom} view${todayInRange ? ` &middot; <span class="range-today">Today: ${fmt(today)}</span>` : ''}</span>
+            `;
+        }
+
+        function exportImage() {
+            html2canvas(document.querySelector('.chart-panel'), { scale: 2 }).then(canvas => {
+                const link = document.createElement('a'); link.download = `${appDB.projects[appDB.activeId].name}.png`;
+                link.href = canvas.toDataURL('image/png'); link.click();
+            });
+        }
+        
+        function changeZoom() { 
+            if (ganttChart) ganttChart.change_view_mode(document.getElementById('zoomScale').value); 
+            saveToLocal(); 
+        }
+
+        function jumpToToday() {
+            const todayLine = document.querySelector('.today-highlight');
+            const container = document.querySelector('.gantt-container');
+            if (todayLine && container) container.scrollTo({ left: Math.max(0, todayLine.getAttribute('x') - (container.clientWidth / 2)), behavior: 'smooth' });
+        }
+
+        function jumpToProjectStart() {
+            const container = document.querySelector('.gantt-container');
+            if (!container) return;
+            
+            let minX = Infinity;
+            document.querySelectorAll('.gantt .bar').forEach(bar => {
+                let x = parseFloat(bar.getAttribute('x') || 0);
+                if (x > 0 && x < minX) minX = x;
+            });
+            
+            if (minX !== Infinity) {
+                container.scrollTo({ left: Math.max(0, minX - 50), behavior: 'smooth' });
+            }
+        }
+
+        const divider = document.getElementById('dragDivider');
+        const gridPanel = document.getElementById('gridPanel');
+        let isResizing = false;
+
+        divider.addEventListener('mousedown', function(e) {
+            isResizing = true;
+            document.body.style.cursor = 'col-resize';
+            divider.classList.add('resizing');
+            e.preventDefault();
         });
 
-        bubbleUpFrom(parent[0], depth + 1);
-      }
-    }
-  }
-
-  if (changedTaskId) {
-    bubbleUpFrom(changedTaskId);
-  } else {
-    const parentIds = new Set();
-    tasks.forEach(t => {
-      if (t[9]) {
-        const deps = String(t[9]).split(',').map(d => d.trim()).filter(d => d);
-        deps.forEach(d => parentIds.add(String(d)));
-      }
-    });
-
-    const leafTasks = tasks.filter(t => !parentIds.has(String(t[0])));
-    leafTasks.forEach(t => bubbleUpFrom(t[0]));
-  }
-
-  return {
-    success: true,
-    tasksUpdated: changes,
-    changeCount: changes.length,
-    recursionDepth: maxDepth
-  };
-}
-
-function processImportedTasks(importedData) {
-  // Normalize and recalculate
-  importedData.forEach(task => {
-    if (task[6]) task[6] = task[6].trim();
-    if (task[7]) task[7] = task[7].trim();
-
-    if (!task[8] && task[6] && task[7]) {
-      const start = parseDate(task[6]);
-      const end = parseDate(task[7]);
-      if (start && end) {
-        task[8] = String(calculateDuration(start, end));
-      }
-    }
-  });
-
-  const result = recalculateDatesUpstream(importedData);
-  result.stage = 'post-import';
-  return result;
-}
-
-function processBeforeExport(tasksToExport) {
-  const tasksCopy = JSON.parse(JSON.stringify(tasksToExport));
-  const result = recalculateDatesUpstream(tasksCopy);
-  result.stage = 'pre-export';
-  result.cleanedTasks = tasksCopy;
-  return result;
-}
-
-// ============================================================================
-
-function format(d) {
-if (!d) return '';
-if (typeof d === 'string') {
-if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
-d = new Date(d);
-}
-if (!(d instanceof Date) || isNaN(d.getTime())) return '';
-const year = d.getFullYear();
-const month = String(d.getMonth() + 1).padStart(2, '0');
-const day = String(d.getDate()).padStart(2, '0');
-return `${year}-${month}-${day}`;
-}
-
-function showStatus(text, color) {
-const status = document.getElementById('saveStatus');
-const clean = text.replace(/^[✓✗⚠]\s*/, '');
-document.getElementById('saveStatusText').innerText = clean;
-status.style.color = color;
-status.style.opacity = 1;
-const isSuccess = (color === '#10b981' || color === '#639922');
-if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
-}
-
-const APP_VERSION = "2.4.5";
-document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
-
-const DB_KEY = "simple_gantt_portfolio_v26";
-
-const todayObj = new Date();
-const dateStr1 = format(todayObj);
-
-const sampleProjectData = [
-['1', '1', 'Website Redesign Phase', '', '', '0', '', '', '', '', ''],
-['2', '1.1', 'Discovery & Wireframes', 'Alice 50%, Bob', '100', '100', dateStr1, '3', '', '', '1'],
-['3', '1.2', 'UI Design & Assets', 'Bob (50%), Charlie @ 50%', '100', '50', '', '5', '', '2', '1'],
-['4', '1.3', 'Frontend Implementation', 'Charlie', '100', '0', '', '7', '', '3', '1'],
-['5', '1.4', 'Launch Milestone', '', '', '0', '', '0', '', '4', '1']
-];
-
-let appDB = {
-activeId: 'proj_1',
-settings: { skipWeekends: true, zoom: 'Day' },
-projects: { 'proj_1': { name: 'Example Project', columns: [], data: sampleProjectData } }
-};
-
-try {
-let savedDb = localStorage.getItem(DB_KEY) ||
-localStorage.getItem("simple_gantt_portfolio_v25") ||
-localStorage.getItem("simple_gantt_portfolio_v24") ||
-localStorage.getItem("simple_gantt_portfolio_v23") ||
-localStorage.getItem("simple_gantt_portfolio_v22") ||
-localStorage.getItem("simple_gantt_portfolio_v21") ||
-localStorage.getItem("simple_gantt_portfolio_v20") ||
-localStorage.getItem("simple_gantt_portfolio_v19") ||
-localStorage.getItem("simple_gantt_portfolio_v18") ||
-localStorage.getItem("simple_gantt_portfolio_v17");
-
-if (savedDb) {
-appDB = JSON.parse(savedDb);
-for (let pid in appDB.projects) {
-if (!appDB.projects[pid].columns) appDB.projects[pid].columns = [];
-appDB.projects[pid].data = normalizeData(appDB.projects[pid].data, appDB.projects[pid].columns.length);
-}
-}
-} catch(e) { console.error("Error loading DB", e); }
-
-function normalizeData(data, customColsCount) {
-let targetLength = 11 + (customColsCount || 0);
-if (!data || !Array.isArray(data) || data.length === 0) return [['1', '1', '', '', '100', '0', '', '', '', '', ...Array(customColsCount || 0).fill('')]];
-return data.map(row => {
-if (row.length === 9) row.splice(7, 0, '');
-if (row.length === 10) row.splice(1, 0, '');
-while (row.length < targetLength) row.push('');
-return row;
-});
-}
-
-document.getElementById('skipWeekends').checked = appDB.settings.skipWeekends;
-document.getElementById('zoomScale').value = appDB.settings.zoom || 'Day';
-
-function updateProjectDropdown() {
-const selector = document.getElementById('projectSelector');
-if(!selector) return;
-selector.innerHTML = '';
-for (let id in appDB.projects) {
-let opt = document.createElement('option');
-opt.value = id; opt.innerText = appDB.projects[id].name;
-if (id === appDB.activeId) opt.selected = true;
-selector.appendChild(opt);
-}
-let newOpt = document.createElement('option');
-newOpt.value = '__NEW__'; newOpt.innerText = '➕ Create New Project...';
-selector.appendChild(newOpt);
-}
-
-function switchProject() {
-const val = document.getElementById('projectSelector').value;
-if (val === '__NEW__') {
-createNewProject();
-} else {
-appDB.activeId = val;
-renderGrid();
-syncToGantt(true);
-}
-}
-
-function createNewProject() {
-let name = prompt("Enter new project name:", "New Project");
-if (!name) { updateProjectDropdown(); return; }
-let newId = 'proj_' + Date.now();
-appDB.projects[newId] = {
-name: name,
-columns: [],
-data: [['1', '1', '', '', '100', '0', '', '', '', '', '']]
-};
-appDB.activeId = newId;
-updateProjectDropdown();
-renderGrid();
-syncToGantt(true);
-}
-
-function renameProject() {
-let currentName = appDB.projects[appDB.activeId].name;
-let newName = prompt("Rename project:", currentName);
-if (newName && newName !== currentName) {
-appDB.projects[appDB.activeId].name = newName;
-updateProjectDropdown();
-saveToLocal();
-}
-}
-
-function deleteProject() {
-let ids = Object.keys(appDB.projects);
-if (ids.length <= 1) { alert("You cannot delete your only project."); return; }
-const project = appDB.projects[appDB.activeId];
-if (!confirm(`Are you sure you want to delete '${project.name}'?`)) return;
-const dropboxProjectId = project.dropboxProjectId;
-delete appDB.projects[appDB.activeId];
-appDB.activeId = Object.keys(appDB.projects)[0];
-updateProjectDropdown();
-renderGrid();
-syncToGantt(true);
-saveToLocal();
-if (!dropboxProjectId) return;
-if (!dbx) {
-alert(`Heads up: this project has backups saved in Dropbox that weren't deleted, since you're not currently logged in. If you don't want it reappearing under "Check Dropbox for other projects" later, log into Dropbox and delete its folder manually, or delete it next time you're logged in.`);
-return;
-}
-if (confirm(`This project also has backups saved in Dropbox. Delete those too?\n\nIf you keep them, this project may show up again under "Check Dropbox for other projects."`)) {
-deleteDropboxProjectFolder(dropboxProjectId, project.name);
-}
-}
-
-function deleteDropboxProjectFolder(dropboxProjectId, projectName) {
-const folder = `/Simple Gantt Backups/${dropboxProjectId}`;
-showStatus("Removing from Dropbox...", "#f59e0b");
-dbx.filesDeleteV2({ path: folder })
-.then(() => showStatus("✓ Removed from Dropbox", "#10b981"))
-.catch(err => {
-if (handleDropboxAuthError(err)) return;
-console.error("Dropbox folder delete failed:", err);
-showStatus("✗ Dropbox cleanup failed", "#ef4444");
-alert(`Couldn't delete '${projectName}''s backups from Dropbox. You can remove the "${dropboxProjectId}" folder manually from Dropbox's Simple Gantt Backups folder if needed.`);
-});
-}
-
-const LEGACY_DB_KEYS = ["simple_gantt_portfolio_v25","simple_gantt_portfolio_v24","simple_gantt_portfolio_v23",
-"simple_gantt_portfolio_v22","simple_gantt_portfolio_v21","simple_gantt_portfolio_v20",
-"simple_gantt_portfolio_v19","simple_gantt_portfolio_v18","simple_gantt_portfolio_v17"];
-
-function factoryReset() {
-const projectNames = Object.values(appDB.projects).map(p => p.name);
-const label = projectNames.length === 1
-? `all data in "${projectNames[0]}"`
-: `all ${projectNames.length} projects (${projectNames.join(', ')})`;
-document.getElementById('resetProjectCount').innerText = label;
-document.getElementById('resetConfirmInput').value = '';
-onResetInputChange();
-document.getElementById('resetModal').classList.add('active');
-}
-
-function closeResetModal() {
-document.getElementById('resetModal').classList.remove('active');
-}
-
-function onResetInputChange() {
-const match = document.getElementById('resetConfirmInput').value.trim() === 'DELETE';
-const btn = document.getElementById('resetConfirmBtn');
-btn.disabled = !match;
-btn.style.cursor = match ? 'pointer' : 'not-allowed';
-btn.style.opacity = match ? 1 : 0.5;
-}
-
-function confirmFactoryReset() {
-localStorage.removeItem(DB_KEY);
-LEGACY_DB_KEYS.forEach(k => localStorage.removeItem(k));
-location.reload();
-}
-
-function saveToLocal() {
-if(!sheet) return;
-appDB.projects[appDB.activeId].data = sheet.getData();
-appDB.settings.skipWeekends = document.getElementById('skipWeekends').checked;
-appDB.settings.zoom = document.getElementById('zoomScale').value;
-try {
-localStorage.setItem(DB_KEY, JSON.stringify(appDB));
-showStatus("✓ Saved", "#10b981");
-scheduleAutoBackup();
-} catch (err) {
-console.error("localStorage save failed:", err);
-showStatus("✗ Save failed -- storage may be full", "#ef4444");
-}
-}
-
-// ==========================================
-// DROPBOX CONFIGURATION
-// ==========================================
-
-const DROPBOX_APP_KEY = '63246m2wldbbmwi';
-const MAX_BACKUPS_PER_PROJECT = 25;
-const AUTO_BACKUP_DELAY_MS = 60000;
-
-let dbx = null;
-let dbxAutoBackupTimer = null;
-let isFreshDropboxLogin = false;
-
-if (window.location.hash.includes('access_token')) {
-const params = new URLSearchParams(window.location.hash.substring(1));
-localStorage.setItem('dropbox_token', params.get('access_token'));
-window.history.replaceState({}, document.title, window.location.pathname);
-isFreshDropboxLogin = true;
-}
-
-if (localStorage.getItem('dropbox_token')) {
-dbx = new Dropbox.Dropbox({ accessToken: localStorage.getItem('dropbox_token') });
-let dbxLogoutBtn = document.getElementById('btnDbxLogout');
-if(dbxLogoutBtn) dbxLogoutBtn.style.display = '';
-if (isFreshDropboxLogin) {
-discoverDropboxProjects(false);
-}
-} else {
-let dbxBtn = document.getElementById('btnDbxSave');
-if(dbxBtn) dbxBtn.innerHTML = dbxBtn.innerHTML.replace('Back up', 'Login to Dropbox');
-let dbxLoadBtn = document.getElementById('btnDbxLoad');
-if(dbxLoadBtn) dbxLoadBtn.style.display = 'none';
-}
-
-function dropboxLogin() {
-document.getElementById('dropboxInfoModal').classList.add('active');
-}
-
-function closeDropboxInfoModal() {
-document.getElementById('dropboxInfoModal').classList.remove('active');
-}
-
-function proceedToDropboxLogin() {
-const redirectUri = encodeURIComponent(window.location.href.split('#')[0]);
-window.location.href = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_APP_KEY}&response_type=token&redirect_uri=${redirectUri}`;
-}
-
-function disconnectDropbox() {
-if (!dbx) return;
-if (!confirm("Disconnect this browser from Dropbox?\n\nYour local projects aren't affected and nothing is deleted from Dropbox -- you can log back in anytime.")) return;
-if (dbxAutoBackupTimer) { clearTimeout(dbxAutoBackupTimer); dbxAutoBackupTimer = null; }
-localStorage.removeItem('dropbox_token');
-location.reload();
-}
-
-function handleDropboxAuthError(err) {
-if (err && err.status === 401) {
-localStorage.removeItem('dropbox_token');
-alert("Your Dropbox session expired. Please log in again.");
-location.reload();
-return true;
-}
-return false;
-}
-
-function ensureDropboxProjectId(projectId) {
-let p = appDB.projects[projectId];
-if (!p.dropboxProjectId) {
-p.dropboxProjectId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
-: 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
-localStorage.setItem(DB_KEY, JSON.stringify(appDB));
-}
-return p.dropboxProjectId;
-}
-
-function getDropboxFolder(projectId) {
-const id = ensureDropboxProjectId(projectId);
-return `/Simple Gantt Backups/${id}`;
-}
-
-function timestampForFilename() {
-const d = new Date();
-const pad = n => String(n).padStart(2, '0');
-return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-}
-
-function updateCloudStatus(state) {
-const el = document.getElementById('cloudStatus');
-if (!el || !dbx) { if(el) { el.textContent = ''; el.className = ''; } return; }
-if (state === 'pending') { el.textContent = '· backup pending'; el.className = 'dirty'; }
-else if (state === 'syncing') { el.textContent = '· backing up…'; el.className = 'syncing'; }
-else if (state === 'synced') { el.textContent = '· backed up just now'; el.className = 'synced'; }
-else if (state === 'error') { el.textContent = '· last backup failed'; el.className = 'dirty'; }
-else { el.textContent = ''; el.className = ''; }
-}
-
-function scheduleAutoBackup() {
-if (!dbx) return;
-if (dbxAutoBackupTimer) clearTimeout(dbxAutoBackupTimer);
-updateCloudStatus('pending');
-dbxAutoBackupTimer = setTimeout(() => backupToDropbox(true), AUTO_BACKUP_DELAY_MS);
-}
-
-function backupToDropbox(isAuto) {
-if (!dbx) { if (!isAuto) dropboxLogin(); return; }
-if (dbxAutoBackupTimer) { clearTimeout(dbxAutoBackupTimer); dbxAutoBackupTimer = null; }
-if (!sheet) return;
-
-const projectId = appDB.activeId;
-updateCloudStatus('syncing');
-if (!isAuto) showStatus("Backing up to Dropbox...", "#f59e0b");
-
-// KEY INTEGRATION: Pre-export recalculation before Dropbox backup
-const exportResult = processBeforeExport(sheet.getData());
-let exportData = [...exportResult.cleanedTasks];
-
-let headers = sheet.options.columns.map(c => c.title);
-exportData.unshift(headers);
-
-const csvString = Papa.unparse(exportData);
-
-const folder = getDropboxFolder(projectId);
-const filepath = `${folder}/${timestampForFilename()}.csv`;
-const metaPath = `${folder}/meta.json`;
-
-const metaContents = JSON.stringify({ name: appDB.projects[projectId].name, updatedAt: new Date().toISOString() });
-
-Promise.all([
-dbx.filesUpload({ path: filepath, contents: csvString, mode: { '.tag': 'add' }, autorename: true }),
-dbx.filesUpload({ path: metaPath, contents: metaContents, mode: { '.tag': 'overwrite' } })
-])
-.then(() => {
-updateCloudStatus('synced');
-if (!isAuto) showStatus("✓ Backed up to Dropbox", "#10b981");
-pruneOldBackups(folder);
-})
-.catch(err => {
-if (handleDropboxAuthError(err)) return;
-updateCloudStatus('error');
-if (!isAuto) showStatus("✗ Backup failed", "#ef4444");
-console.error("Dropbox backup error:", err);
-});
-}
-
-function pruneOldBackups(folder) {
-dbx.filesListFolder({ path: folder })
-.then(res => {
-let entries = res.result.entries.filter(e => e['.tag'] === 'file' && e.name.toLowerCase().endsWith('.csv'));
-if (entries.length <= MAX_BACKUPS_PER_PROJECT) return;
-entries.sort((a, b) => new Date(b.client_modified) - new Date(a.client_modified));
-entries.slice(MAX_BACKUPS_PER_PROJECT).forEach(e => {
-dbx.filesDeleteV2({ path: e.path_lower }).catch(err => console.error("Prune delete failed:", err));
-});
-})
-.catch(err => console.error("Dropbox prune list failed:", err));
-}
-
-function applyImportedCSVData(data) {
-// KEY INTEGRATION: Post-import recalculation
-const importResult = processImportedTasks(data);
-const cleanedData = importResult.cleanedTasks || data;
-
-if (cleanedData.length > 0 && (cleanedData[0][0] === 'ID' || cleanedData[0][1] === 'Outline')) {
-let headers = cleanedData.shift();
-appDB.projects[appDB.activeId].columns = headers.slice(11);
-}
-
-if (importResult.changeCount > 0) {
-console.log(`✓ Import: Recalculated ${importResult.changeCount} parent task(s)`);
-}
-
-renderGrid(cleanedData);
-syncToGantt(true);
-}
-
-function formatBackupTimestamp(iso) {
-return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
-}
-
-function openVersionsModal() {
-if (!dbx) { dropboxLogin(); return; }
-document.getElementById('versionsModal').classList.add('active');
-const container = document.getElementById('versionsListContainer');
-container.innerHTML = '<p style="color:#94a3b8; font-size:13px;">Loading versions...</p>';
-const folder = getDropboxFolder(appDB.activeId);
-dbx.filesListFolder({ path: folder })
-.then(res => {
-let entries = res.result.entries.filter(e => e['.tag'] === 'file' && e.name.toLowerCase().endsWith('.csv'));
-entries.sort((a, b) => new Date(b.client_modified) - new Date(a.client_modified));
-renderVersionsList(entries);
-})
-.catch(err => {
-if (handleDropboxAuthError(err)) return;
-const summary = (err && err.error && err.error.error_summary) || '';
-if (summary.indexOf('path/not_found') > -1) {
-container.innerHTML = '<p style="color:#94a3b8; font-size:13px;">No backups yet for this project. Click "Back up" to create the first one.</p>';
-} else {
-container.innerHTML = '<p style="color:#ef4444; font-size:13px;">Could not load versions from Dropbox.</p>';
-console.error("Dropbox list error:", err);
-}
-});
-}
-
-function closeVersionsModal() {
-document.getElementById('versionsModal').classList.remove('active');
-}
-
-function renderVersionsList(entries) {
-const container = document.getElementById('versionsListContainer');
-if (entries.length === 0) {
-container.innerHTML = '<p style="color:#94a3b8; font-size:13px;">No backups yet for this project. Click "Back up" to create the first one.</p>';
-return;
-}
-container.innerHTML = entries.map((e, i) => `
-<div style="display:flex; justify-content:space-between; align-items:center; padding:10px 4px; border-bottom:1px solid #e2e8f0;">
-<div>
-<div style="font-weight:600; font-size:13px; color:#0f172a;">${formatBackupTimestamp(e.client_modified)}</div>
-${i === 0 ? '<div style="font-size:11px; color:#10b981; font-weight:600;">Most recent</div>' : ''}
-</div>
-<button onclick="restoreBackup('${e.path_lower}')" style="padding:6px 14px; background:#185FA5; color:white; border:none; border-radius:4px; font-weight:600; cursor:pointer; font-size:12px;">Restore</button>
-</div>
-`).join('');
-}
-
-function restoreBackup(path) {
-const projectName = appDB.projects[appDB.activeId].name;
-if (!confirm(`Replace the current '${projectName}' data with this backup? This will overwrite what's on screen now.`)) return;
-dbx.filesDownload({ path: path })
-.then(response => {
-const reader = new FileReader();
-reader.onload = function() {
-Papa.parse(reader.result, { skipEmptyLines: true, complete: function(results) {
-applyImportedCSVData(results.data);
-saveToLocal();
-closeVersionsModal();
-showStatus("✓ Restored from Dropbox", "#10b981");
-}});
-};
-reader.readAsText(response.result.fileBlob);
-})
-.catch(err => {
-if (handleDropboxAuthError(err)) return;
-alert("Couldn't restore this backup. Please try again.");
-console.error("Dropbox restore error:", err);
-});
-}
-
-let _discoveredProjects = [];
-
-function readMetaJson(folderPathLower) {
-return dbx.filesDownload({ path: `${folderPathLower}/meta.json` })
-.then(r => new Promise(resolve => {
-const reader = new FileReader();
-reader.onload = () => {
-try { resolve(JSON.parse(reader.result).name); }
-catch(e) { resolve(null); }
-};
-reader.onerror = () => resolve(null);
-reader.readAsText(r.result.fileBlob);
-}))
-.catch(() => null);
-}
-
-function discoverDropboxProjects(manualTrigger) {
-if (!dbx) { if (manualTrigger) dropboxLogin(); return; }
-dbx.filesListFolder({ path: '/Simple Gantt Backups' })
-.then(res => {
-let folders = res.result.entries.filter(e => e['.tag'] === 'folder');
-const localIds = new Set(Object.values(appDB.projects).map(p => p.dropboxProjectId).filter(Boolean));
-const candidates = folders.filter(f => !localIds.has(f.name));
-if (candidates.length === 0) {
-if (manualTrigger) alert("No additional Dropbox projects found beyond what's already in this browser.");
-return;
-}
-Promise.all(candidates.map(f =>
-readMetaJson(f.path_lower).then(name => ({ id: f.name, pathLower: f.path_lower, name: name || '(unnamed project)' }))
-)).then(discovered => {
-_discoveredProjects = discovered;
-openDiscoveryModal(discovered);
-});
-})
-.catch(err => {
-if (handleDropboxAuthError(err)) return;
-const summary = (err && err.error && err.error.error_summary) || '';
-if (summary.indexOf('path/not_found') > -1) {
-if (manualTrigger) alert("No Dropbox backups found yet.");
-} else {
-console.error("Dropbox discovery error:", err);
-}
-});
-}
-
-function openDiscoveryModal(discovered) {
-const container = document.getElementById('discoveryListContainer');
-container.innerHTML = discovered.map((d, i) => `
-<label style="display:flex; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid #e2e8f0; font-size:13px; color:#0f172a;">
-<input type="checkbox" class="discoveryCheckbox" value="${i}" checked>
-${escapeHtml(d.name)}
-</label>
-`).join('');
-document.getElementById('discoveryModal').classList.add('active');
-}
-
-function closeDiscoveryModal() {
-document.getElementById('discoveryModal').classList.remove('active');
-}
-
-function importSelectedDiscoveries() {
-const checked = Array.from(document.querySelectorAll('.discoveryCheckbox:checked'))
-.map(cb => _discoveredProjects[parseInt(cb.value, 10)]);
-closeDiscoveryModal();
-if (checked.length === 0) return;
-showStatus("Importing from Dropbox...", "#f59e0b");
-Promise.all(checked.map(d => importDiscoveredProject(d)))
-.then(() => {
-localStorage.setItem(DB_KEY, JSON.stringify(appDB));
-updateProjectDropdown();
-showStatus("✓ Imported from Dropbox", "#10b981");
-});
-}
-
-function importDiscoveredProject(discovered) {
-return dbx.filesListFolder({ path: discovered.pathLower })
-.then(res => {
-let files = res.result.entries.filter(e => e['.tag'] === 'file' && e.name.toLowerCase().endsWith('.csv'));
-if (files.length === 0) return null;
-files.sort((a, b) => new Date(b.client_modified) - new Date(a.client_modified));
-return dbx.filesDownload({ path: files[0].path_lower });
-})
-.then(response => {
-if (!response) return;
-return new Promise(resolve => {
-const reader = new FileReader();
-reader.onload = function() {
-Papa.parse(reader.result, { skipEmptyLines: true, complete: function(results) {
-let data = results.data;
-let columns = [];
-if (data.length > 0 && (data[0][0] === 'ID' || data[0][1] === 'Outline')) {
-let headers = data.shift();
-columns = headers.slice(11);
-}
-const newId = 'proj_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-appDB.projects[newId] = {
-name: discovered.name,
-columns: columns,
-data: normalizeData(data, columns.length),
-dropboxProjectId: discovered.id
-};
-resolve();
-}});
-};
-reader.readAsText(response.result.fileBlob);
-});
-})
-.catch(err => console.error("Import failed for", discovered.name, err));
-}
-
-function escapeHtml(str) {
-const d = document.createElement('div');
-d.innerText = str == null ? '' : String(str);
-return d.innerHTML;
-}
-
-function renderGanttLegend(show) {
-const legend = document.getElementById('ganttLegend');
-if (!legend) return;
-if (!show) { legend.style.display = 'none'; return; }
-const items = [
-{ color: '#94a3b8', label: 'Not started' },
-{ color: '#2563eb', label: 'In progress' },
-{ color: '#059669', label: 'Complete' },
-{ color: '#dc2626', label: 'Overdue' },
-{ color: '#f59e0b', label: 'Milestone', diamond: true },
-{ color: '#334155', label: 'Summary' }
-];
-legend.innerHTML = items.map(i => `
-<span class="legend-item">
-<span class="swatch${i.diamond ? ' diamond' : ''}" style="background:${i.color};"></span>
-${i.label}
-</span>
-`).join('');
-legend.style.display = 'flex';
-}
-
-function renderGanttRangeBar(frappeTasks) {
-const bar = document.getElementById('ganttRangeBar');
-if (!bar) return;
-if (!frappeTasks || frappeTasks.length === 0) { bar.innerHTML = ''; return; }
-let minStart = null, maxEnd = null;
-frappeTasks.forEach(t => {
-const s = new Date(t.start), e = new Date(t.end);
-if (isNaN(s) || isNaN(e)) return;
-if (!minStart || s < minStart) minStart = s;
-if (!maxEnd || e > maxEnd) maxEnd = e;
-});
-if (!minStart || !maxEnd) { bar.innerHTML = ''; return; }
-const fmt = d => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-const days = Math.max(1, Math.round((maxEnd - minStart) / 86400000));
-let span;
-if (days < 60) span = `${days} day${days === 1 ? '' : 's'}`;
-else if (days < 365) span = `${Math.round(days / 30.44 * 10) / 10} months`;
-else span = `${Math.round(days / 365 * 10) / 10} years`;
-const zoomEl = document.getElementById('zoomScale');
-const zoom = zoomEl ? zoomEl.value : 'Day';
-const today = new Date(); today.setHours(0, 0, 0, 0);
-const todayInRange = today >= minStart && today <= maxEnd;
-const projectName = appDB.projects[appDB.activeId] ? appDB.projects[appDB.activeId].name : '';
-bar.innerHTML = `
-<div>
-<div style="font-size:10.5px; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px;">${escapeHtml(projectName)}</div>
-<span class="range-main">📅 ${fmt(minStart)} &rarr; ${fmt(maxEnd)}</span>
-</div>
-<span class="range-sub">${span} &middot; ${zoom} view${todayInRange ? ` &middot; <span class="range-today">Today: ${fmt(today)}</span>` : ''}</span>
-`;
-}
-
-function exportImage() {
-html2canvas(document.querySelector('.chart-panel'), { scale: 2 }).then(canvas => {
-const link = document.createElement('a'); link.download = `${appDB.projects[appDB.activeId].name}.png`;
-link.href = canvas.toDataURL('image/png'); link.click();
-});
-}
-
-let sheet;
-
-const columnHeaders = [
-  { title: 'ID', width: 60, readOnly: true },
-  { title: 'Outline', width: 80, readOnly: true },
-  { title: 'Task Name', width: 220 },
-  { title: 'Resource', width: 140 },
-  { title: 'Def. Alloc', width: 100 },
-  { title: '% Done', width: 80 },
-  { title: 'Start', width: 110, mask: '9999-99-99', tooltip: 'YYYY-MM-DD' },
-  { title: 'Dur.', width: 60 },
-  { title: 'End', width: 110, mask: '9999-99-99', tooltip: 'YYYY-MM-DD' },
-  { title: 'Depends', width: 120, tooltip: 'Comma-separated IDs' },
-  { title: 'Parent', width: 60, readOnly: true }
-];
-
-function renderGrid(initialData) {
-const spreadsheet = document.getElementById('spreadsheet');
-if (!spreadsheet) return;
-spreadsheet.innerHTML = '';
-
-const columns = columnHeaders.concat((appDB.projects[appDB.activeId].columns || []).map((col, i) => ({
-title: col,
-width: 80
-})));
-
-const data = initialData || appDB.projects[appDB.activeId].data;
-
-sheet = jexcel(spreadsheet, {
-data: data,
-columns: columns,
-colHeaders: columns.map((_, i) => i),
-minDimensions: [11 + (appDB.projects[appDB.activeId].columns || []).length, 20],
-stretchH: 'none',
-columnSorting: false,
-columnDrag: true,
-rowDrag: true,
-contextMenu: function(obj, x, y, e) {
-let items = [];
-if (obj.type === 'col') {
-items.push({
-title: '➕ Add column',
-onclick: function() { addColumn(); }
-});
-items.push({
-title: '❌ Delete column',
-onclick: function() { deleteColumn(obj.x); }
-});
-} else if (obj.type === 'row') {
-items.push({
-title: '➕ Add row',
-onclick: function() { addRow(); }
-});
-items.push({
-title: '❌ Delete row',
-onclick: function() { deleteRow(obj.y); }
-});
-}
-return items;
-},
-onchange: function(instance, cell, x, y, value) {
-saveToLocal();
-syncToGantt(false);
-},
-onscroll: function(instance, left) { syncToGantt(false); }
-});
-
-updateProjectDropdown();
-}
-
-function addRow() {
-if (!sheet) return;
-const data = sheet.getData();
-const newId = Math.max(...data.map(r => parseInt(r[0]) || 0)) + 1;
-const newRow = [String(newId), '', '', '', '100', '0', '', '', '', '', ''];
-sheet.insertRow(newRow);
-saveToLocal();
-}
-
-function deleteRow(y) {
-if (!sheet || !confirm('Delete this row?')) return;
-sheet.deleteRow(y);
-saveToLocal();
-}
-
-function addColumn() {
-const colName = prompt('Column name:');
-if (!colName) return;
-appDB.projects[appDB.activeId].columns.push(colName);
-renderGrid();
-saveToLocal();
-}
-
-function deleteColumn(x) {
-if (x < 11 || !confirm('Delete this column?')) return;
-const colIdx = x - 11;
-appDB.projects[appDB.activeId].columns.splice(colIdx, 1);
-appDB.projects[appDB.activeId].data.forEach(row => row.splice(x, 1));
-renderGrid();
-saveToLocal();
-}
-
-function autoFitColumns() {
-if (!sheet) return;
-const cells = document.querySelectorAll('.jexcel td');
-const colWidths = {};
-cells.forEach(cell => {
-const colIndex = parseInt(cell.getAttribute('data-x')) || 0;
-if (!colWidths[colIndex]) colWidths[colIndex] = 0;
-const textWidth = cell.innerText.length * 7 + 20;
-colWidths[colIndex] = Math.max(colWidths[colIndex], textWidth);
-});
-Object.keys(colWidths).forEach(colIdx => {
-sheet.setWidth(colIdx, Math.min(Math.max(colWidths[colIdx], 60), 400));
-});
-}
-
-let resizeObserver, gantt;
-
-function syncToGantt(scrollToStart) {
-if (!sheet) return;
-
-const data = sheet.getData();
-const frappeTasks = [];
-const skipWeekends = document.getElementById('skipWeekends').checked;
-
-data.forEach(row => {
-if (!row[0]) return;
-const id = String(row[0]);
-const name = row[2] || `Task ${id}`;
-const start = row[6];
-const end = row[7];
-const depends = row[9] ? String(row[9]).split(',').map(s => String(s.trim())).filter(s => s) : [];
-const percentDone = Math.max(0, Math.min(100, parseInt(row[5]) || 0));
-
-if (!start || !end) return;
-
-const parent = row[10] ? String(row[10]) : null;
-
-const isParent = data.some(d => d[10] === id);
-const isMilestone = parseInt(row[8]) === 0;
-
-let classes = [];
-if (isParent) classes.push('is-parent');
-if (isMilestone) classes.push('is-milestone');
-
-if (percentDone === 0 && !isMilestone) classes.push('is-not-started');
-else if (percentDone < 100 && !isMilestone) classes.push('is-inprogress');
-else if (percentDone === 100 && !isMilestone) classes.push('is-complete');
-
-const endDate = new Date(end);
-const today = new Date();
-today.setHours(23, 59, 59, 999);
-if (endDate < today && percentDone < 100 && !isMilestone) classes.push('is-overdue');
-
-frappeTasks.push({
-id: id,
-name: name,
-start: start,
-end: end,
-duration: parseInt(row[8]) || 1,
-progress: percentDone,
-dependencies: depends.length > 0 ? depends[0] : null,
-custom_class: classes.join(' '),
-parent: parent || undefined
-});
-});
-
-const ganttEl = document.getElementById('gantt');
-if (!ganttEl) return;
-
-ganttEl.innerHTML = '';
-
-if (gantt) {
-gantt.destroy();
-gantt = null;
-}
-
-if (frappeTasks.length === 0) return;
-
-renderGanttRangeBar(frappeTasks);
-renderGanttLegend(true);
-
-try {
-gantt = new Gantt(ganttEl, frappeTasks, {
-view_mode: (document.getElementById('zoomScale').value || 'Day'),
-on_click: {},
-on_date_change: {},
-on_progress_change: {},
-on_view_change: {}
-});
-} catch (e) {
-console.error('Frappe Gantt error:', e);
-}
-
-if (scrollToStart) {
-const cp = document.querySelector('.chart-panel');
-if (cp) cp.scrollLeft = 0;
-}
-}
-
-function jumpToProjectStart() {
-const cp = document.querySelector('.chart-panel');
-if (cp) cp.scrollLeft = 0;
-}
-
-function jumpToToday() {
-const ganttSvg = document.querySelector('.gantt svg');
-if (!ganttSvg) return;
-
-const todayLine = ganttSvg.querySelector('line[x1][x2][stroke="red"]') ||
-ganttSvg.querySelector('line[stroke="red"]');
-
-if (todayLine) {
-const x = parseFloat(todayLine.getAttribute('x1')) || 0;
-const cp = document.querySelector('.chart-panel');
-if (cp) cp.scrollLeft = Math.max(0, x - 100);
-}
-}
-
-function changeZoom() {
-appDB.settings.zoom = document.getElementById('zoomScale').value;
-saveToLocal();
-syncToGantt(false);
-}
-
-function forceRecalc() {
-saveToLocal();
-syncToGantt(false);
-}
-
-function snapPanes(gridWidth) {
-const gp = document.getElementById('gridPanel');
-if (gp) gp.style.width = gridWidth + '%';
-forceRecalc();
-}
-
-function importCSV(event) {
-const file = event.target.files[0];
-if (!file) return;
-const reader = new FileReader();
-reader.onload = function(e) {
-try {
-Papa.parse(e.target.result, {
-skipEmptyLines: true,
-complete: function(results) {
-applyImportedCSVData(results.data);
-saveToLocal();
-showStatus("✓ Imported CSV", "#10b981");
-}
-});
-} catch (err) {
-showStatus("✗ Import failed", "#ef4444");
-console.error("CSV parse error:", err);
-}
-event.target.value = '';
-};
-reader.readAsText(file);
-}
-
-function exportCSV() {
-if (!sheet) return;
-
-// KEY INTEGRATION: Pre-export recalculation
-const exportResult = processBeforeExport(sheet.getData());
-const cleanedData = exportResult.cleanedTasks || sheet.getData();
-
-if (exportResult.changeCount > 0) {
-console.log(`✓ Export: Recalculated ${exportResult.changeCount} parent task(s) before export`);
-}
-
-let csv = [sheet.options.columns.map(c => c.title)];
-csv = csv.concat(cleanedData);
-const csvString = Papa.unparse(csv);
-
-const link = document.createElement('a');
-link.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvString);
-link.download = `${appDB.projects[appDB.activeId].name}.csv`;
-link.click();
-
-showStatus("✓ Exported CSV", "#10b981");
-}
-
-function openWorkloadModal() {
-document.getElementById('workloadModal').classList.add('active');
-renderWorkloadTable();
-}
-
-function closeWorkloadModal() {
-document.getElementById('workloadModal').classList.remove('active');
-}
-
-function renderWorkloadTable() {
-if (!sheet) return;
-
-const view = document.getElementById('workloadView').value || 'Day';
-const unit = document.getElementById('workloadUnit').value || 'percent';
-
-const data = sheet.getData();
-const resources = new Set();
-const dateRanges = {};
-
-data.forEach(row => {
-const resourceStr = row[3] || '';
-const start = row[6];
-const end = row[7];
-if (!start || !end) return;
-
-resourceStr.split(',').forEach(r => {
-const trimmed = r.trim();
-if (trimmed) resources.add(trimmed);
-});
-
-const sd = new Date(start), ed = new Date(end);
-if (isNaN(sd) || isNaN(ed)) return;
-
-for (let d = new Date(sd); d <= ed; d.setDate(d.getDate() + 1)) {
-const key = format(d);
-if (!dateRanges[key]) dateRanges[key] = {};
-}
-});
-
-const resourceArray = Array.from(resources).sort();
-const dateArray = Object.keys(dateRanges).sort();
-
-let html = '<table class="workload-table"><thead><tr><th>Resource</th>';
-dateArray.forEach(d => {
-const date = new Date(d);
-let label;
-if (view === 'Week') {
-const week = Math.ceil((date.getDate()) / 7);
-label = `W${week}`;
-} else if (view === 'Month') {
-label = date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
-} else {
-label = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-html += `<th>${label}</th>`;
-});
-html += '</tr></thead><tbody>';
-
-resourceArray.forEach(resource => {
-html += `<tr><td>${escapeHtml(resource)}</td>`;
-dateArray.forEach(d => {
-let allocation = 0;
-data.forEach(row => {
-if (!(row[3] || '').includes(resource)) return;
-const start = row[6], end = row[7];
-if (!start || !end) return;
-const taskDate = new Date(d);
-const sd = new Date(start), ed = new Date(end);
-if (taskDate >= sd && taskDate <= ed) {
-allocation += (parseInt(row[4]) || 0) / 100;
-}
-});
-
-let cellClass = 'cell-empty';
-let cellText = '-';
-if (allocation > 0) {
-if (unit === 'percent') {
-const pct = Math.round(allocation * 100);
-cellClass = pct > 100 ? 'cell-over' : 'cell-ok';
-cellText = `${pct}%`;
-} else {
-const hours = Math.round(allocation * 8 * 10) / 10;
-cellClass = hours > 8 ? 'cell-over' : 'cell-ok';
-cellText = `${hours}h`;
-}
-}
-html += `<td class="${cellClass}">${cellText}</td>`;
-});
-html += '</tr>';
-});
-
-html += '</tbody></table>';
-document.getElementById('workloadTableContainer').innerHTML = html;
-}
-
-function exportWorkloadCSV() {
-const view = document.getElementById('workloadView').value || 'Day';
-const unit = document.getElementById('workloadUnit').value || 'percent';
-
-const data = sheet.getData();
-const resources = new Set();
-const dateRanges = {};
-
-data.forEach(row => {
-const resourceStr = row[3] || '';
-const start = row[6];
-const end = row[7];
-if (!start || !end) return;
-
-resourceStr.split(',').forEach(r => {
-const trimmed = r.trim();
-if (trimmed) resources.add(trimmed);
-});
-
-const sd = new Date(start), ed = new Date(end);
-if (isNaN(sd) || isNaN(ed)) return;
-
-for (let d = new Date(sd); d <= ed; d.setDate(d.getDate() + 1)) {
-const key = format(d);
-if (!dateRanges[key]) dateRanges[key] = {};
-}
-});
-
-const resourceArray = Array.from(resources).sort();
-const dateArray = Object.keys(dateRanges).sort();
-
-let csv = [['Resource', ...dateArray]];
-
-resourceArray.forEach(resource => {
-let row = [resource];
-dateArray.forEach(d => {
-let allocation = 0;
-data.forEach(r => {
-if (!(r[3] || '').includes(resource)) return;
-const start = r[6], end = r[7];
-if (!start || !end) return;
-const taskDate = new Date(d);
-const sd = new Date(start), ed = new Date(end);
-if (taskDate >= sd && taskDate <= ed) {
-allocation += (parseInt(r[4]) || 0) / 100;
-}
-});
-
-if (unit === 'percent') {
-row.push(Math.round(allocation * 100) + '%');
-} else {
-row.push(Math.round(allocation * 8 * 10) / 10 + 'h');
-}
-});
-csv.push(row);
-});
-
-const csvString = Papa.unparse(csv);
-const link = document.createElement('a');
-link.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvString);
-link.download = 'workload.csv';
-link.click();
-}
-
-// Resizer
-const resizer = document.getElementById('dragDivider');
-if (resizer) {
-resizer.addEventListener('mousedown', function() {
-document.addEventListener('mousemove', resize);
-document.addEventListener('mouseup', () => document.removeEventListener('mousemove', resize));
-resizer.classList.add('resizing');
-});
-
-function resize(e) {
-const gp = document.getElementById('gridPanel');
-if (!gp) return;
-const container = document.querySelector('.workspace');
-const newWidth = (e.clientX / container.clientWidth) * 100;
-if (newWidth > 10 && newWidth < 90) {
-gp.style.width = newWidth + '%';
-syncToGantt(false);
-}
-}
-
-resizer.addEventListener('mouseup', () => resizer.classList.remove('resizing'));
-}
-
-// Initialize
-renderGrid();
-syncToGantt(true);
-
-</script>
-
+        document.addEventListener('mousemove', function(e) {
+            if (!isResizing) return;
+            let newWidth = (e.clientX / window.innerWidth) * 100;
+            if (newWidth > 15 && newWidth < 85) {
+                gridPanel.style.width = newWidth + '%';
+            }
+        });
+
+        document.addEventListener('mouseup', function(e) {
+            if (isResizing) {
+                isResizing = false;
+                document.body.style.cursor = 'default';
+                divider.classList.remove('resizing');
+                localStorage.setItem('simple_gantt_pane_width', gridPanel.style.width);
+            }
+        });
+
+        function snapPanes(gridPercent) {
+            gridPanel.style.width = gridPercent + '%';
+            localStorage.setItem('simple_gantt_pane_width', gridPercent + '%');
+        }
+
+        const savedPaneWidth = localStorage.getItem('simple_gantt_pane_width');
+        if (savedPaneWidth) gridPanel.style.width = savedPaneWidth;
+
+        // ==========================================
+        // RESOURCE WORKLOAD DASHBOARD
+        // ==========================================
+        function openWorkloadModal() {
+            document.getElementById('workloadModal').classList.add('active');
+            renderWorkloadTable();
+        }
+        function closeWorkloadModal() {
+            document.getElementById('workloadModal').classList.remove('active');
+        }
+
+        function parseAssignments(resStr, defAlloc) {
+            if (!resStr) return [];
+            let assignments = [];
+            let fallback = parseInt(defAlloc);
+            if (isNaN(fallback)) fallback = 100;
+
+            resStr.split(',').forEach(p => {
+                let s = p.trim();
+                if (!s) return;
+                
+                let alloc = fallback;
+                let name = s;
+                
+                let match = s.match(/(.*?)(?:[\(\:\@]\s*(\d+)\s*\%?\)?|\s+(\d+)\%)$/);
+                if (match) {
+                    name = match[1].trim();
+                    alloc = parseInt(match[2] || match[3], 10);
+                }
+                assignments.push({ name: name, alloc: alloc });
+            });
+            return assignments;
+        }
+
+        function renderWorkloadTable() {
+            const viewMode = document.getElementById('workloadView').value;
+            const unit = document.getElementById('workloadUnit').value;
+            const skipWeekends = shouldSkipWeekends();
+            let rawData = sheet.getData();
+            
+            let resources = {}; 
+            let minDate = null;
+            let maxDate = null;
+
+            let workingTasks = rawData.map(r => {
+                let dur = parseInt(r[COL.DUR]) || 0;
+                let rawAlloc = r[COL.ALLOC] !== "" ? parseInt(r[COL.ALLOC]) : 100;
+                let assigns = parseAssignments(r[COL.RESOURCE], rawAlloc);
+                let start = r[COL.START];
+                let isParent = rawData.some(row => row[COL.PARENT] == r[COL.ID] && row[COL.ID] !== "");
+                
+                return { isParent, assigns, start, dur };
+            }).filter(t => !t.isParent && t.assigns.length > 0 && t.start && t.dur > 0);
+
+            if(workingTasks.length === 0) {
+                document.getElementById('workloadTableContainer').innerHTML = 
+                    "<div style='padding: 30px; color: #64748b; text-align: center; font-size: 16px; margin-top: 100px;'>No assigned tasks with durations found. Add resources and durations to tasks to view workload.</div>";
+                return;
+            }
+
+            workingTasks.forEach(task => {
+                let d = new Date(task.start);
+                if (isNaN(d.getTime())) return; // malformed start date on this task -- skip it rather than crash the whole workload view
+                let daysAdded = 0;
+                
+                while(daysAdded < task.dur) {
+                    if (skipWeekends && (d.getDay() === 0 || d.getDay() === 6)) { } else {
+                        let dateStr = format(d);
+                        task.assigns.forEach(assign => {
+                            if (!resources[assign.name]) resources[assign.name] = {};
+                            resources[assign.name][dateStr] = (resources[assign.name][dateStr] || 0) + assign.alloc;
+                        });
+                        daysAdded++;
+                        if (!minDate || d < minDate) minDate = new Date(d);
+                        if (!maxDate || d > maxDate) maxDate = new Date(d);
+                    }
+                    d.setDate(d.getDate() + 1);
+                }
+            });
+
+            if (!minDate || !maxDate) return;
+
+            let dateIterator = new Date(minDate.getTime());
+            let dates = [];
+            while (dateIterator <= maxDate) {
+                dates.push(new Date(dateIterator));
+                dateIterator.setDate(dateIterator.getDate() + 1);
+            }
+
+            let html = '<table class="workload-table"><thead><tr><th>Resource Name</th>';
+            let cols = [];
+
+            if (viewMode === 'Day') {
+                dates.forEach(d => {
+                    if (skipWeekends && (d.getDay() === 0 || d.getDay() === 6)) return;
+                    let dStr = format(d);
+                    cols.push({ keys: [dStr] });
+                    html += `<th><span style="font-size:11px; color:#64748b; font-weight:normal;">${d.toLocaleDateString(undefined, {weekday:'short'})}</span><br/>${d.toLocaleDateString(undefined, {month:'short', day:'numeric'})}</th>`;
+                });
+            } else if (viewMode === 'Week') {
+                let currentWeekKeys = [];
+                let weekLabel = "";
+                
+                dates.forEach(d => {
+                    if (skipWeekends && (d.getDay() === 0 || d.getDay() === 6)) return;
+                    if (currentWeekKeys.length === 0 || d.getDay() === 1) {
+                        if (currentWeekKeys.length > 0) {
+                            cols.push({ label: weekLabel, keys: currentWeekKeys });
+                            html += `<th>${weekLabel}</th>`;
+                            currentWeekKeys = [];
+                        }
+                        weekLabel = "Wk of " + d.toLocaleDateString(undefined, {month:'short', day:'numeric'});
+                    }
+                    currentWeekKeys.push(format(d));
+                });
+                
+                if (currentWeekKeys.length > 0) {
+                    cols.push({ label: weekLabel, keys: currentWeekKeys });
+                    html += `<th>${weekLabel}</th>`;
+                }
+            } else if (viewMode === 'Month') {
+                let currentMonthKeys = [];
+                let monthLabel = "";
+                
+                dates.forEach(d => {
+                    if (skipWeekends && (d.getDay() === 0 || d.getDay() === 6)) return;
+                    let newLabel = d.toLocaleDateString(undefined, {month:'short', year:'numeric'});
+                    if (currentMonthKeys.length === 0 || monthLabel !== newLabel) {
+                        if (currentMonthKeys.length > 0) {
+                            cols.push({ label: monthLabel, keys: currentMonthKeys });
+                            html += `<th>${monthLabel}</th>`;
+                            currentMonthKeys = [];
+                        }
+                        monthLabel = newLabel;
+                    }
+                    currentMonthKeys.push(format(d));
+                });
+                
+                if (currentMonthKeys.length > 0) {
+                    cols.push({ label: monthLabel, keys: currentMonthKeys });
+                    html += `<th>${monthLabel}</th>`;
+                }
+            }
+            
+            html += '</tr></thead><tbody>';
+
+            let resourceNames = Object.keys(resources).sort();
+            resourceNames.forEach(res => {
+                html += `<tr><td>${escapeHtml(res)}</td>`;
+                cols.forEach(col => {
+                    let maxVal = 0; let sumVal = 0;
+                    col.keys.forEach(k => {
+                         let val = resources[res][k] || 0;
+                         if (val > maxVal) maxVal = val;
+                         sumVal += val;
+                    });
+                    
+                    let isOver = false; let text = "-";
+
+                    if (viewMode === 'Week' || viewMode === 'Month') {
+                        if (unit === 'hours') {
+                            let totalHrs = (sumVal / 100) * 8;
+                            isOver = totalHrs > (col.keys.length * 8); 
+                            if (totalHrs > 0) text = Number.isInteger(totalHrs) ? totalHrs + 'h' : totalHrs.toFixed(1) + 'h';
+                        } else {
+                            isOver = maxVal > 100;
+                            if (maxVal > 0) text = maxVal + '%';
+                        }
+                    } else {
+                        let dailyVal = sumVal; 
+                        if (unit === 'hours') {
+                            let hrs = (dailyVal / 100) * 8;
+                            isOver = hrs > 8;
+                            if (hrs > 0) text = Number.isInteger(hrs) ? hrs + 'h' : hrs.toFixed(1) + 'h';
+                        } else {
+                            isOver = dailyVal > 100;
+                            if (dailyVal > 0) text = dailyVal + '%';
+                        }
+                    }
+
+                    if (text === "-") html += `<td class="cell-empty">-</td>`;
+                    else if (isOver) html += `<td class="cell-over">${text}</td>`;
+                    else html += `<td class="cell-ok">${text}</td>`;
+                });
+                html += `</tr>`;
+            });
+            html += '</tbody></table>';
+            document.getElementById('workloadTableContainer').innerHTML = html;
+        }
+
+        function exportWorkloadCSV() {
+            const table = document.querySelector('.workload-table');
+            if (!table) {
+                alert("No workload data available to export.");
+                return;
+            }
+            
+            let rows = [];
+            for (let i = 0; i < table.rows.length; i++) {
+                let row = table.rows[i];
+                let rowData = [];
+                for (let j = 0; j < row.cells.length; j++) {
+                    let cell = row.cells[j];
+                    let text = cell.innerText.replace(/\n/g, ' - ');
+                    rowData.push(text);
+                }
+                rows.push(rowData);
+            }
+            
+            const csv = Papa.unparse(rows);
+            const viewMode = document.getElementById('workloadView').value;
+            const unit = document.getElementById('workloadUnit').value;
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `${appDB.projects[appDB.activeId].name.replace(/ /g, '_')}_workload_${viewMode.toLowerCase()}_${unit}.csv`;
+            link.click();
+        }
+
+        // ==========================================
+        // CORE GANTT ENGINE & DYNAMIC COLUMNS
+        // ==========================================
+        const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10 };
+        let ganttChart; let isSyncing = false; let sheet;
+
+        function shouldSkipWeekends() { return document.getElementById('skipWeekends').checked; }
+
+        function calculateEndDate(startDate, durationDays) {
+            if (!startDate) return '';
+            if (durationDays === 0) return startDate; 
+            let d = new Date(startDate);
+            if (isNaN(d.getTime())) return ''; // malformed start date -- don't let this throw and abort the whole sync
+            let added = 0; let visualDaysToMove = durationDays - 1;
+            if (shouldSkipWeekends()) {
+                while (added < visualDaysToMove) {
+                    d.setDate(d.getDate() + 1); if (d.getDay() !== 0 && d.getDay() !== 6) added++;
+                }
+            } else { d.setDate(d.getDate() + visualDaysToMove); }
+            d.setDate(d.getDate() + 1); return format(d);
+        }
+
+        function calculateWorkingDays(startDate, endDate) {
+            let s = new Date(startDate); let e = new Date(endDate);
+            if (isNaN(s.getTime()) || isNaN(e.getTime())) return 0; // malformed dates -- degrade gracefully instead of propagating NaN
+            e.setDate(e.getDate() - 1); 
+            if (!shouldSkipWeekends()) return Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
+            let days = 0; let temp = new Date(s);
+            while (temp <= e) {
+                if (temp.getDay() !== 0 && temp.getDay() !== 6) days++; temp.setDate(temp.getDate() + 1);
+            }
+            return days;
+        }
+
+        function formatCells(instance, cell, col, row, val, label, cellName) {
+            try {
+                if (!instance || !instance.jexcel) return;
+                let rowData = instance.jexcel.getRowData(row);
+                if (!rowData) return;
+
+                let rowID = (rowData[COL.ID] != null) ? rowData[COL.ID].toString().trim() : ''; 
+                let parentID = (rowData[COL.PARENT] != null) ? rowData[COL.PARENT].toString().trim() : '';
+                let hasDependency = (rowData[COL.DEP] != null) && rowData[COL.DEP].toString().trim() !== "";
+                
+                let allData = instance.jexcel.options.data || [];
+                let isParent = false;
+                
+                for(let i = 0; i < allData.length; i++) {
+                    if (allData[i] && allData[i][COL.PARENT] == rowID && rowID !== "") {
+                        isParent = true; break;
+                    }
+                }
+
+                let depth = 0;
+                let currentParent = parentID;
+                let loopProtect = 0; 
+                while (currentParent !== "" && loopProtect < 15) {
+                    depth++;
+                    let pMatch = allData.find(r => r[COL.ID] == currentParent);
+                    currentParent = (pMatch && pMatch[COL.PARENT] != null) ? pMatch[COL.PARENT].toString().trim() : "";
+                    loopProtect++;
+                }
+                
+                cell.classList.remove('readonly-cell', 'readonly'); 
+                if (col == COL.ID || col == COL.OUTLINE || col == COL.END) cell.classList.add('readonly-cell', 'readonly');
+                
+                if (col == COL.NAME) {
+                    cell.style.textAlign = 'left';
+                    if (depth > 0) {
+                        cell.style.paddingLeft = (8 + (depth * 20)) + 'px'; 
+                        cell.style.borderLeft = '3px solid #cbd5e1'; 
+                    } else {
+                        cell.style.paddingLeft = '8px'; 
+                        cell.style.borderLeft = 'none';
+                        cell.style.fontWeight = isParent ? 'bold' : 'normal';
+                    }
+                }
+                
+                if (isParent && [COL.START, COL.DUR, COL.END, COL.PCT, COL.ALLOC].includes(parseInt(col))) {
+                    cell.classList.add('readonly-cell', 'readonly');
+                } else if (hasDependency && col == COL.START) {
+                    cell.classList.add('readonly-cell', 'readonly');
+                }
+            } catch (err) {}
+        }
+
+        function syncColumnsToDB() {
+            if(!sheet) return;
+            let headers = sheet.options.columns.map(c => c.title);
+            appDB.projects[appDB.activeId].columns = headers.slice(11);
+            saveToLocal();
+        }
+
+        function autoFitColumns() {
+            if (!sheet) return;
+            try {
+                const numCols = sheet.options.columns.length;
+                const skipCols = new Set([COL.DEP, COL.PARENT]);
+
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                ctx.font = '13px -apple-system, sans-serif';
+
+                const data = sheet.getData();
+
+                for (let col = 0; col < numCols; col++) {
+                    if (skipCols.has(col)) continue;
+
+                    const headerTitle = sheet.options.columns[col].title || '';
+                    let maxWidth = ctx.measureText(headerTitle).width;
+
+                    data.forEach(row => {
+                        const text = row[col] != null ? String(row[col]) : '';
+                        if (!text) return;
+                        const w = ctx.measureText(text).width;
+                        if (w > maxWidth) maxWidth = w;
+                    });
+
+                    let newWidth = Math.ceil(maxWidth) + 26;
+                    newWidth = Math.max(45, Math.min(newWidth, 320)); 
+                    sheet.setWidth(col, newWidth);
+                }
+            } catch (e) {
+                console.error("Auto-fit columns failed:", e);
+            }
+        }
+
+        function renderGrid(overrideData = null) {
+            let spreadsheetDiv = document.getElementById('spreadsheet');
+            if(sheet) jspreadsheet.destroy(spreadsheetDiv);
+            
+            let activeProj = appDB.projects[appDB.activeId];
+            let dataToLoad = overrideData || activeProj.data;
+            
+            let cols = [
+                { type: 'text', title: 'Task ID', width: 55, readOnly: true, align: 'center' },
+                { type: 'text', title: 'Outline', width: 55, readOnly: true, align: 'left' },
+                { type: 'text', title: 'Task Name', width: 160, align: 'left' },
+                { type: 'text', title: 'Resource', width: 100, align: 'left' },
+                { type: 'numeric', title: 'Def. Alloc', width: 65, align: 'center' },
+                { type: 'numeric', title: '% Done', width: 50, align: 'center' },
+                { type: 'calendar', title: 'Start', width: 85, options: { format: 'YYYY-MM-DD' }, align: 'center' },
+                { type: 'numeric', title: 'Dur.', width: 40, align: 'center' },
+                { type: 'calendar', title: 'End', width: 85, readOnly: true, options: { format: 'YYYY-MM-DD' }, align: 'center' },
+                { type: 'dropdown', title: 'Depends', width: 70, source: [], autocomplete: true, multiple: true, align: 'left' },
+                { type: 'dropdown', title: 'Parent', width: 60, source: [], autocomplete: true, align: 'left' }
+            ];
+
+            if (activeProj.columns) {
+                activeProj.columns.forEach(c => cols.push({ type: 'text', title: c, width: 100, align: 'left' }));
+            }
+
+            let initialSourceList = dataToLoad.map(r => ({ id: r[COL.ID], name: `${r[COL.ID]} - ${r[COL.NAME] || ''}` })).filter(r => r.id);
+            cols[COL.DEP].source = initialSourceList;
+            cols[COL.PARENT].source = initialSourceList;
+
+            const sheetOptions = {
+                data: dataToLoad,
+                columns: cols,
+                rowDrag: true,
+                columnSorting: false,
+                allowInsertColumn: true,
+                allowDeleteColumn: true,
+                updateTable: formatCells,
+                onchange: triggerSync,
+                onmoverow: triggerSync,
+                oninsertcolumn: syncColumnsToDB,
+                ondeletecolumn: syncColumnsToDB,
+                oninsertrow: function(instance, rowNumber) {
+                    setTimeout(() => {
+                        let data = sheet.getData();
+                        let maxId = Math.max(0, ...data.map(r => parseInt(r[COL.ID]) || 0));
+                        sheet.setValueFromCoords(COL.ID, rowNumber, (maxId + 1).toString(), true);
+                        sheet.setValueFromCoords(COL.ALLOC, rowNumber, '100', true);
+                        triggerSync();
+                    }, 0);
+                },
+                ondeleterow: function() {
+                    let data = sheet.getData();
+                    if (!data || data.length === 0) {
+                        let emptyRow = ['1', '1', '', '', '100', '0', '', '', '', '', ...Array(appDB.projects[appDB.activeId].columns.length).fill('')];
+                        sheet.setData([emptyRow]);
+                    }
+                    triggerSync();
+                },
+                contextMenu: function(obj, x, y, e) {
+                    var items = [];
+                    if (y === null) { 
+                        if (x >= 10) { 
+                            items.push({
+                                title: '➕ Insert Column Right',
+                                onclick: function() {
+                                    sheet.insertColumn(1, parseInt(x), false);
+                                    let newColIdx = parseInt(x) + 1;
+                                    sheet.setHeader(newColIdx, 'Custom ' + (newColIdx - 10));
+                                    syncColumnsToDB();
+                                }
+                            });
+                        }
+                        if (x >= 11) {
+                            items.push({
+                                title: '✏️ Rename Column',
+                                onclick: function() {
+                                    let currentTitle = sheet.options.columns[x].title;
+                                    let newName = prompt("Enter new column name:", currentTitle);
+                                    if(newName) {
+                                        sheet.setHeader(x, newName);
+                                        syncColumnsToDB();
+                                    }
+                                }
+                            });
+                            items.push({
+                                title: '🗑️ Delete Column',
+                                onclick: function() {
+                                    if(confirm("Delete this column?")) {
+                                        sheet.deleteColumn(parseInt(x), 1);
+                                        syncColumnsToDB();
+                                    }
+                                }
+                            });
+                        }
+                        if (items.length === 0) {
+                            items.push({ title: '🔒 Core columns cannot be modified.', type: 'line' });
+                        }
+                    } else {
+                        let rowIdx = parseInt(y);
+                        let rowCount = sheet.getData().length;
+                        items.push({ title: '⬆️ Move row up', disabled: rowIdx === 0, onclick: () => moveRow(rowIdx, -1) });
+                        items.push({ title: '⬇️ Move row down', disabled: rowIdx === rowCount - 1, onclick: () => moveRow(rowIdx, 1) });
+                        items.push({ title: 'Insert row above', onclick: () => sheet.insertRow(1, parseInt(y), 1) });
+                        items.push({ title: 'Insert row below', onclick: () => sheet.insertRow(1, parseInt(y), 0) });
+                        items.push({ title: 'Delete row', onclick: () => sheet.deleteRow(parseInt(y), 1) });
+                    }
+                    return items;
+                }
+            };
+
+            sheet = jspreadsheet(spreadsheetDiv, sheetOptions);
+            setTimeout(autoFitColumns, 0);
+            
+            spreadsheetDiv.onkeydown = function(e) {
+                if (e.key === 'Tab' && sheet && sheet.selectedCell) {
+                    let col = parseInt(sheet.selectedCell[0]);
+                    let row = parseInt(sheet.selectedCell[1]);
+                    let totalCols = sheet.options.columns.length;
+                    let totalRows = sheet.options.data.length;
+
+                    if (col === totalCols - 1 && row === totalRows - 1) {
+                        e.preventDefault(); 
+                        setTimeout(() => {
+                            sheet.insertRow();
+                            let newRowIndex = sheet.options.data.length - 1;
+                            sheet.setSelectedCell(COL.NAME, newRowIndex);
+                        }, 50);
+                    }
+                }
+            };
+        }
+
+        function forceRecalc() { syncToGantt(true); }
+        function triggerSync() { if (!isSyncing) syncToGantt(); }
+
+        function moveRow(rowIndex, direction) {
+            if (!sheet) return;
+            let data = sheet.getData();
+            let targetIndex = rowIndex + direction;
+            if (targetIndex < 0 || targetIndex >= data.length) return;
+
+            let temp = data[rowIndex];
+            data[rowIndex] = data[targetIndex];
+            data[targetIndex] = temp;
+
+            appDB.projects[appDB.activeId].data = data;
+            renderGrid(data);
+            syncToGantt(true);
+            saveToLocal();
+        }
+
+        function syncToGantt(forceRecalculateDates = false) {
+            isSyncing = true; 
+            try {
+                let rawData = sheet.getData();
+                if(!rawData || rawData.length === 0) return; 
+                
+                let wbsMap = {};
+                let siblingCounts = {};
+                
+                rawData.forEach((row, index) => {
+                    let id = (row[COL.ID] != null) ? row[COL.ID].toString().trim() : '';
+                    if (!id) return;
+                    
+                    let parentId = (row[COL.PARENT] != null) ? row[COL.PARENT].toString().trim() : '';
+                    let effectiveParent = wbsMap[parentId] ? parentId : ""; 
+                    
+                    if (!siblingCounts[effectiveParent]) siblingCounts[effectiveParent] = 0;
+                    siblingCounts[effectiveParent]++;
+                    
+                    let currentNum = siblingCounts[effectiveParent];
+                    let wbsStr = (effectiveParent === "") ? currentNum.toString() : wbsMap[effectiveParent] + "." + currentNum.toString();
+                    
+                    wbsMap[id] = wbsStr;
+
+                    if (row[COL.OUTLINE] !== wbsStr) {
+                        sheet.setValueFromCoords(COL.OUTLINE, index, wbsStr, true);
+                        row[COL.OUTLINE] = wbsStr; 
+                    }
+                });
+
+                let sourceList = rawData.map(r => ({ id: r[COL.ID], name: `${r[COL.ID]} - ${r[COL.NAME] || ''}` })).filter(r => r.id);
+                sheet.options.columns[COL.DEP].source = sourceList;
+                sheet.options.columns[COL.PARENT].source = sourceList;
+
+                let tasksMap = {};
+                let parentIDs = [...new Set(rawData.map(r => (r[COL.PARENT] !== r[COL.ID] ? r[COL.PARENT] : "")).filter(p => p !== ""))];
+                let selfRefFound = false;
+
+                rawData.forEach((row, index) => {
+                    let id = row[COL.ID]; if (!id) return;
+                    let rawDepArray = (row[COL.DEP] ? row[COL.DEP].toString() : "").split(';').map(d => d.trim()).filter(d => d !== "");
+                    // A task depending on (or being parented to) itself is invalid --
+                    // strip it out here so it can never create a self-referential
+                    // scheduling loop, regardless of how it got into the cell (dropdown,
+                    // paste, or CSV import).
+                    let depArray = rawDepArray.filter(depId => depId !== id);
+                    if (depArray.length !== rawDepArray.length) {
+                        sheet.setValueFromCoords(COL.DEP, index, depArray.join(';'), true);
+                        selfRefFound = true;
+                    }
+
+                    let parentId = row[COL.PARENT];
+                    if (parentId === id) {
+                        sheet.setValueFromCoords(COL.PARENT, index, '', true);
+                        parentId = '';
+                        selfRefFound = true;
+                    }
+
+                    let rawAlloc = row[COL.ALLOC] !== "" ? parseInt(row[COL.ALLOC]) : 100;
+                    
+                    let assignments = parseAssignments(row[COL.RESOURCE], rawAlloc);
+
+                    tasksMap[id] = {
+                        id: id, name: row[COL.NAME], resource: row[COL.RESOURCE], alloc: rawAlloc, 
+                        assignments: assignments, pct: parseInt(row[COL.PCT]) || 0,
+                        start: row[COL.START], dur: parseInt(row[COL.DUR]) || 0, end: row[COL.END], 
+                        dependenciesArray: depArray, frappeDependencies: depArray.join(', '), 
+                        parentId: parentId, rowIndex: index, isParent: parentIDs.includes(id)
+                    };
+                });
+
+                if (selfRefFound) {
+                    showStatus("⚠ Removed a self-reference (task can't depend on or be parented to itself)", "#f59e0b");
+                }
+
+                let loopLimit = 100; let changed = true;
+                while (changed && loopLimit > 0) {
+                    changed = false; loopLimit--;
+                    for (let id in tasksMap) {
+                        let t = tasksMap[id]; if (t.isParent) continue;
+                        try {
+                        if (t.dependenciesArray.length > 0) {
+                            let maxDepEnd = null;
+                            
+                            // -------------------------------------------------------------
+                            // BUG FIX: Prevent empty rows (Duration 0, missing Start date)
+                            // from evaluating to "Invalid Date" and fatally crashing the 
+                            // script's formatting function further down.
+                            // -------------------------------------------------------------
+                            t.dependenciesArray.forEach(depId => {
+                                let dep = tasksMap[depId];
+                                if (dep) {
+                                    let dateStr = dep.end || dep.start;
+                                    if (dateStr) {
+                                        let dEnd = new Date(dateStr);
+                                        if (!isNaN(dEnd) && (!maxDepEnd || dEnd > maxDepEnd)) {
+                                            maxDepEnd = dEnd;
+                                        }
+                                    }
+                                }
+                            });
+                            // -------------------------------------------------------------
+                            
+                            if (maxDepEnd) {
+                                let calculatedStart = format(maxDepEnd);
+                                if (shouldSkipWeekends()) {
+                                    let checkDate = new Date(calculatedStart);
+                                    if (checkDate.getDay() === 6) checkDate.setDate(checkDate.getDate() + 2);
+                                    if (checkDate.getDay() === 0) checkDate.setDate(checkDate.getDate() + 1);
+                                    calculatedStart = format(checkDate);
+                                }
+                                if (t.start !== calculatedStart || forceRecalculateDates) {
+                                    t.start = calculatedStart; sheet.setValueFromCoords(COL.START, t.rowIndex, t.start, true); changed = true;
+                                }
+                            }
+                        }
+                        if (t.start && t.dur >= 0) {
+                            let calcEnd = (t.dur === 0) ? t.start : calculateEndDate(t.start, t.dur);
+                            if (calcEnd && (t.end !== calcEnd || forceRecalculateDates)) { 
+                                t.end = calcEnd; 
+                                sheet.setValueFromCoords(COL.END, t.rowIndex, t.end, true);
+                                changed = true; 
+                            }
+                        }
+                        } catch (taskErr) {
+                            // A malformed date on this specific task should never take down
+                            // date calculation for every other row -- log it and move on.
+                            console.error(`Date calculation failed for task ${id} (${t.name}):`, taskErr);
+                        }
+                    }
+                    forceRecalculateDates = false;
+                }
+
+                parentIDs.forEach(parentId => {
+                    let pTask = tasksMap[parentId];
+                    let children = Object.values(tasksMap).filter(t => t.parentId === parentId && t.start && (t.end || t.dur === 0));
+                    if (children.length > 0 && pTask) {
+                        try {
+                        let minStart = new Date(Math.min(...children.map(c => new Date(c.start))));
+                        let maxEnd = new Date(Math.max(...children.map(c => new Date(c.end || c.start))));
+                        if (isNaN(minStart.getTime()) || isNaN(maxEnd.getTime())) return; // a child has a malformed date -- skip this parent's rollup rather than crash
+
+                        pTask.start = format(minStart); pTask.end = format(maxEnd);
+                        pTask.dur = calculateWorkingDays(pTask.start, pTask.end);
+                        
+                        let totalDur = 0; let totalWeightedPct = 0;
+                        children.forEach(c => { totalDur += c.dur; totalWeightedPct += (c.dur * c.pct); });
+                        pTask.pct = totalDur > 0 ? Math.round(totalWeightedPct / totalDur) : 0;
+                        
+                        sheet.setValueFromCoords(COL.START, pTask.rowIndex, pTask.start, true);
+                        sheet.setValueFromCoords(COL.DUR, pTask.rowIndex, pTask.dur, true);
+                        sheet.setValueFromCoords(COL.END, pTask.rowIndex, pTask.end, true);
+                        sheet.setValueFromCoords(COL.PCT, pTask.rowIndex, pTask.pct, true);
+                        sheet.setValueFromCoords(COL.ALLOC, pTask.rowIndex, '', true); 
+                        } catch (parentErr) {
+                            console.error(`Parent rollup failed for task ${parentId}:`, parentErr);
+                        }
+                    }
+                });
+
+                let today = new Date(); today.setHours(0,0,0,0);
+
+                const frappeTasks = Object.values(tasksMap).filter(t => t.start && (t.end || t.dur === 0)).map(t => {
+                    let displayName = t.name;
+                    if (t.assignments.length > 0) {
+                        let resStrings = t.assignments.map(a => `${a.name} (${a.alloc}%)`);
+                        displayName += ` [${resStrings.join(', ')}]`;
+                    }
+                    
+                    let fEnd = t.end; let customClass = t.isParent ? 'is-parent' : '';
+
+                    if (t.dur === 0) {
+                        customClass = 'is-milestone';
+                        let d = new Date(t.start);
+                        if (!isNaN(d.getTime())) { d.setDate(d.getDate() + 1); fEnd = format(d); }
+                    } else if (!t.isParent) {
+                        let taskEndDate = new Date(t.end);
+                        if (t.pct === 100) { customClass = 'is-complete'; }
+                        else if (taskEndDate < today) { customClass = 'is-overdue'; }
+                        else if (t.pct === 0) { customClass = 'is-not-started'; }
+                        else { customClass = 'is-inprogress'; }
+                    }
+
+                    return {
+                        id: t.id, name: displayName, start: t.start, end: fEnd, progress: t.pct,
+                        dependencies: t.frappeDependencies, custom_class: customClass,
+                        _rawName: t.name, _assignments: t.assignments
+                    };
+                });
+
+                const chartContainer = document.getElementById('gantt');
+                renderGanttRangeBar(frappeTasks);
+                renderGanttLegend(frappeTasks.length > 0);
+                if (frappeTasks.length === 0) {
+                    chartContainer.innerHTML = '<div style="color:#94a3b8; margin-top: 20px;">Add Durations to render the chart.</div>';
+                } else {
+                    chartContainer.innerHTML = ''; 
+                    ganttChart = new Gantt('#gantt', frappeTasks, {
+                        view_mode: document.getElementById('zoomScale').value || 'Day',
+                        on_date_change: (task, start, end) => { syncToGrid(task, start, end, 'date'); },
+                        on_progress_change: (task, progress) => { syncToGrid(task, null, null, 'progress', progress); },
+                        custom_popup_html: function(task) {
+                            let statusIcon = task.progress === 100 ? '✅' : '⏳';
+                            let resText = task._assignments && task._assignments.length > 0 
+                                ? task._assignments.map(a => `👤 ${escapeHtml(a.name)} (${a.alloc}%)`).join('<br/>') 
+                                : `👤 Unassigned`;
+                            return `
+                                <div style="padding: 12px; background: #0f172a; color: #f8fafc; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-family: sans-serif; min-width: 180px;">
+                                    <div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid #334155; padding-bottom: 4px;">${escapeHtml(task._rawName)}</div>
+                                    <div style="font-size: 12px; margin-bottom: 4px;">📅 ${task.start} ➝ ${task.end}</div>
+                                    <div style="font-size: 12px; margin-bottom: 4px; line-height: 1.4;">${resText}</div>
+                                    <div style="font-size: 12px; margin-top: 6px; font-weight: bold; color: #38bdf8;">${statusIcon} ${task.progress}% Complete</div>
+                                </div>
+                            `;
+                        }
+                    });
+                }
+                
+                if (document.getElementById('workloadModal').classList.contains('active')) {
+                    renderWorkloadTable();
+                }
+
+            } catch (err) {
+                console.error("Gantt Rendering Error:", err);
+            } finally {
+                isSyncing = false; 
+                saveToLocal();
+            }
+        }
+
+        function syncToGrid(task, start, end, mode, progress) {
+            isSyncing = true;
+            let rawData = sheet.getData();
+            let rowIndex = rawData.findIndex(row => row[COL.ID] === task.id);
+            if (rowIndex > -1) {
+                if (mode === 'date') {
+                    if (parseInt(rawData[rowIndex][COL.DUR]) === 0) { isSyncing = false; return; }
+                    let startStr = format(start); let newDur = calculateWorkingDays(start, end);
+                    let hasDep = rawData[rowIndex][COL.DEP] && rawData[rowIndex][COL.DEP].toString().trim() !== "";
+                    if (!hasDep) sheet.setValueFromCoords(COL.START, rowIndex, startStr, true);
+                    sheet.setValueFromCoords(COL.DUR, rowIndex, newDur, true);
+                } else if (mode === 'progress') {
+                    sheet.setValueFromCoords(COL.PCT, rowIndex, progress, true);
+                }
+            }
+            isSyncing = false;
+            syncToGantt(); 
+        }
+
+        function addRow() { 
+            try { sheet.insertRow(); } catch(e) { console.error(e); }
+        }
+        
+        function exportCSV() { 
+            let exportData = [...sheet.getData()];
+            let headers = sheet.options.columns.map(c => c.title);
+            
+            // Find date columns (START and END)
+            const startIdx = headers.indexOf('Start');
+            const endIdx = headers.indexOf('End');
+            
+            // Format dates properly to avoid timezone issues
+            exportData = exportData.map(row => {
+                const newRow = [...row];
+                // Ensure Start date is in YYYY-MM-DD format
+                if (startIdx >= 0 && newRow[startIdx]) {
+                    newRow[startIdx] = formatDateForCSV(newRow[startIdx]);
+                }
+                // Ensure End date is in YYYY-MM-DD format
+                if (endIdx >= 0 && newRow[endIdx]) {
+                    newRow[endIdx] = formatDateForCSV(newRow[endIdx]);
+                }
+                return newRow;
+            });
+            
+            exportData.unshift(headers);
+            
+            const csv = Papa.unparse(exportData);
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `${appDB.projects[appDB.activeId].name.replace(/ /g, '_')}.csv`;
+            link.click();
+        }
+        
+        function formatDateForCSV(dateValue) {
+            if (!dateValue) return '';
+            // If already a proper YYYY-MM-DD string, return as-is
+            if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+                return dateValue;
+            }
+            // If it's a Date object, extract YYYY-MM-DD only
+            if (dateValue instanceof Date) {
+                const year = dateValue.getFullYear();
+                const month = String(dateValue.getMonth() + 1).padStart(2, '0');
+                const day = String(dateValue.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+            // Try parsing as string
+            const d = new Date(dateValue);
+            if (!isNaN(d.getTime())) {
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+            return '';
+        }
+        
+        function importCSV(event) {
+            const file = event.target.files[0]; if(!file) return;
+            Papa.parse(file, { skipEmptyLines: true, complete: function(results) {
+                // Sanitize imported data before applying
+                const sanitizedData = results.data.map((row, idx) => {
+                    if (idx === 0) return row; // Keep headers unchanged
+                    return row.map((cell, colIdx) => sanitizeImportedCell(cell, colIdx, results.data[0]));
+                });
+                applyImportedCSVData(sanitizedData);
+                event.target.value = '';
+            }});
+        }
+        
+        function sanitizeImportedCell(cellValue, colIdx, headers) {
+            if (!cellValue) return cellValue;
+            const header = headers[colIdx] || '';
+            // Sanitize date columns
+            if (header === 'Start' || header === 'End') {
+                return parseCSVDate(cellValue);
+            }
+            return cellValue;
+        }
+        
+        function parseCSVDate(dateString) {
+            if (!dateString) return '';
+            const trimmed = String(dateString).trim();
+            // Validate YYYY-MM-DD format
+            if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+                return trimmed; // Already good format
+            }
+            // Try to parse and reformat
+            const d = new Date(trimmed);
+            if (!isNaN(d.getTime())) {
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+            // If parsing fails, return empty
+            console.warn(`Could not parse date: "${trimmed}"`);
+            return '';
+        }
+
+        updateProjectDropdown();
+        renderGrid();
+        syncToGantt();
+        
+        setTimeout(jumpToProjectStart, 500);
+    </script>
 </body>
 </html>

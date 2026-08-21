@@ -1,96 +1,431 @@
 # Simple Gantt
 
-**Live Demo:** [https://adambeltz2.github.io/Simple-Gantt/](https://adambeltz2.github.io/Simple-Gantt/)
+A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-A lightweight, purely browser-based Gantt chart and project management tool built with HTML, JavaScript, and CSS. No database deployment or server infrastructure required — everything saves locally to your browser, with optional CSV export and Dropbox backup/sync.
-
-The current version number is shown in the footer of the app (bottom-left) — handy to reference if you're reporting a bug.
+![Version](https://img.shields.io/badge/version-2.4.5-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
 
-* **Interactive Dual-Pane View**: Work with a dynamic spreadsheet grid on the left while rendering a drag-and-drop Frappe Gantt chart on the right.
-* **Auto-Scheduling & Dependencies**: Link tasks together. The core engine calculates Working Days, skips weekends (if toggled), and cascades dates instantly down the chain.
-* **WBS Auto-Outlining**: Assign parent/child tasks to automatically roll up durations and progress, calculating Work Breakdown Structure (WBS) numbers dynamically.
-* **Resource Workload Dashboard**:
-  * Split capacity logic (e.g., `Alice 50%, Bob 25%`).
-  * Check for overallocation with Daily, Weekly, and Monthly resolutions.
-  * View total load by Percentage (%) or absolute Hours.
-* **Custom Tracking Columns**: Right-click to dynamically add, rename, and delete your own columns (Notes, Statuses, Tags) right inside the table without breaking the math engine.
-* **Data Portability**: Import and export CSVs, keep automatic versioned backups of individual projects in Dropbox, and export clean, high-resolution PNGs of your charts for reporting.
+### 📊 Core Gantt Functionality
+- **Interactive Gantt Chart** – Visual timeline with drag-and-drop tasks
+- **Spreadsheet Grid** – Edit tasks in a familiar table format
+- **Task Hierarchy** – Support for parent-child task relationships
+- **Progress Tracking** – Mark tasks as not started, in progress, complete, or overdue
+- **Dependencies** – Link tasks to show sequential relationships
+- **Milestones** – Create zero-duration milestone markers
 
-## Setup & Installation
+### 🔄 **NEW: Automatic Date Bubble-Up (v2.4.5)**
+- **Parent dates automatically span all children** – Change a child task's dates and parent/grandparent dates recalculate instantly
+- **Three sync points:**
+  - ✅ **On CSV Import** – Imported data is validated and recalculated
+  - ✅ **On CSV Export** – Ensures consistency before download
+  - ✅ **On Dropbox Backup** – Backups always have correct dates
+- **Manual "Sync Dependencies" button** – Click anytime to recalculate (useful for offline edits)
+- **Automatic for Dropbox users** – No extra steps needed
 
-You don't need `npm`, `node`, or a database to run Simple Gantt.
+### 🌐 Flexible Deployment
+- **100% Browser-Based** – No server, no installation. Just open the HTML file.
+- **Fully Offline** – All data stored in browser's local storage
+- **Dropbox Integration** – Optional backup and sync across devices
+- **CSV Import/Export** – Move data in and out easily
 
-1. Clone or download this repository.
-2. Double-click the `index.html` file to open it in any modern web browser.
-3. Start managing your projects immediately!
+### 📱 User Experience
+- **Responsive Design** – Works on desktop, tablet, and mobile
+- **Split-View** – Adjustable grid/chart split (or show one side only)
+- **Multiple Zoom Levels** – Day, Week, or Month view
+- **Resource Workload Dashboard** – See who's overallocated at a glance
+- **Dark Mode Header** – Clean, modern interface
+- **Project Switching** – Multiple projects in one browser tab
 
-## Data & Storage
+### 🔐 Data Management
+- **Automatic Saving** – Changes persist to browser storage instantly
+- **Dropbox Backup** – Optional encrypted sync to Dropbox (~1 min after edit)
+- **Version History** – Restore any previous backup
+- **Project Import** – Discover and import projects from Dropbox across devices
+- **Factory Reset** – Clear all data with one confirmation
 
-All project data is stored in your browser's `localStorage` — nothing is sent to a server. This means:
+---
 
-* Data is scoped to a single browser on a single device. Opening the app in a different browser or on another computer starts fresh.
-* Clearing your browser's site data (or using "Reset App" in the header) will permanently delete all saved projects in this browser. This doesn't touch anything already backed up to Dropbox, and doesn't log you out of Dropbox -- use "Disconnect" (next to the Dropbox buttons, visible while logged in) if you want to log this browser out of Dropbox separately.
-* To move data between devices/browsers or keep an off-browser backup, use **Export CSV** or the Dropbox backups described below.
+## Getting Started
 
-### With Dropbox vs. without
+### Option 1: Use Online (No Setup)
+Open in your browser:  
+🔗 [https://adambeltz2.github.io/Simple-Gantt/](https://adambeltz2.github.io/Simple-Gantt/)
 
-Dropbox is entirely optional — the app is fully functional without ever signing in. The trade-off:
+### Option 2: Download & Open Locally
+1. Download `index.html` from this repo
+2. Open it in any modern browser (Chrome, Firefox, Safari, Edge)
+3. Start creating tasks immediately
 
-| | Without Dropbox | With Dropbox |
-|---|---|---|
-| Where data lives | This browser only | This browser + Dropbox |
-| Version history | None — only the current state exists | Up to 25 automatic backups per project, any of which can be restored |
-| Undo a bad edit / accidental delete | Not possible unless you happened to export a CSV beforehand | Restore any recent backup from before the edit |
-| New device / browser | Starts empty | Existing projects can be found and imported |
-| Setup | None | One-time Dropbox login |
+No server, no npm, no build step required.
 
-In short: without signing in, there is no way to control or roll back versions — the app has no undo, and localStorage only ever holds the single current state. A manually exported CSV is the only point-in-time copy you'd have on your own. This trade-off is also shown in-app the first time you click a Dropbox action.
+---
 
-## Dropbox Backups
+## How to Use
 
-Simple Gantt can automatically back up each project to Dropbox as a series of timestamped versions, so you always have somewhere to revert to.
+### Creating & Editing Tasks
 
-* **Back up** immediately snapshots the current project into its own dedicated folder in `/Simple Gantt Backups/` in your Dropbox. Every backup is a new timestamped file — nothing is ever overwritten.
-* Backups also happen **automatically** about a minute after you stop editing (only while logged into Dropbox), so you don't have to remember to click the button.
-* **Versions** opens a list of your project's backups, newest first. Pick any one to restore it — after a confirmation, since restoring replaces what's currently on screen.
-* Each project keeps its **25 most recent** backups; older ones are pruned automatically after a new backup succeeds.
-* Each project is tracked in Dropbox by a **stable internal ID**, not by its display name — so renaming a project never orphans its backup history, and two projects that happen to share a name never collide in Dropbox.
+| Action | How |
+|--------|-----|
+| **Add Task** | Click "➕ Add row" button or right-click → Add row |
+| **Edit Cell** | Double-click any cell in the grid |
+| **Delete Task** | Right-click row → Delete row |
+| **Reorder Tasks** | Drag rows up/down |
+| **Add Column** | Right-click column header → Add column |
 
-**Finding projects on a new device:** After logging into Dropbox (or re-logging in after your session expires), Simple Gantt checks for project backups in your Dropbox that aren't in this browser yet and offers to import them — each as its own project, using its latest backup. You can also trigger this check manually from the Versions modal ("Check Dropbox for other projects"). If an imported project happens to share a name with one already in this browser, it's imported as a separate project rather than merged — you can rename or delete either one afterward.
+### Setting Task Dates
 
-**Notes & limitations:**
-* Backups are per-project, one-way (local → Dropbox). There's no live sync between devices — restoring a version is a manual, deliberate action.
-* Dropbox login uses a short-lived access token (no refresh token). If it expires, you'll be prompted to log in again — your local data isn't affected, just the active Dropbox session.
-* The app connects to Dropbox using a personal app key belonging to this project. If you fork/self-host this app under a different domain, you'll need to [create your own Dropbox app](https://www.dropbox.com/developers/apps), set its redirect URI to match your hosting URL, and swap in your own key (`DROPBOX_APP_KEY` near the top of the script in `index.html`).
+**Column Layout:**
+- **ID** – Unique task identifier (auto-generated)
+- **Outline** – Indentation level (1, 1.1, 1.1.1, etc.)
+- **Task Name** – What the task is
+- **Resource** – Who's working on it
+- **Def. Alloc** – % of their time allocated (0-100)
+- **% Done** – Progress (0-100)
+- **Start** – Begin date (YYYY-MM-DD format)
+- **Dur.** – Duration in days
+- **End** – Completion date (YYYY-MM-DD format)
+- **Depends** – Parent task IDs (comma-separated)
+- **Parent** – Read-only; set via "Depends"
 
-## Working with the Grid
+**Example Setup:**
+```
+ID   Name                    Start       End         Depends  Parent
+1    Website Redesign        2024-01-15  2024-03-15  -        -
+2    Discovery & Wireframes  2024-01-15  2024-01-20  1        1
+3    UI Design              2024-01-21  2024-02-10  2        1
+4    Frontend Dev           2024-02-11  2024-03-15  3        1
+```
 
-* **Task ID vs. Outline vs. row position** are three different things that can look similar at a glance: **Task ID** is a permanent identifier assigned when a task is created and never changes — it's what Dependencies and Parent links point to. **Outline** is the WBS number (1, 1.1, 2...) and reflects a task's current position and hierarchy, so it updates as you reorder or reparent tasks. The unlabeled leftmost column is just jspreadsheet's own row-position indicator and has no meaning beyond that.
-* **Reordering tasks**: right-click any row → **Move row up** / **Move row down**. This is the reliable way to reorder — it also recalculates WBS numbers, dependency arrows, and the Gantt chart immediately. (jspreadsheet's built-in drag-to-reorder, via the row-number gutter, may also work depending on your browser, but isn't guaranteed.)
-* **Column sorting is intentionally disabled.** Sorting by any column would physically reorder rows, which would scramble the parent-child adjacency that WBS numbering and hierarchy rollups depend on. Use row reordering or the **Parent** field to restructure instead.
-* **Column widths auto-fit** to their content automatically whenever a project opens, switches, imports, or restores. Use the **Fit columns** button in the toolbar to re-trigger it manually after editing. Depends and Parent are excluded, since they display a formatted label rather than their raw stored value.
-* Right-click a row for **Insert row above/below** and **Delete row** as well.
+### The Bubble-Up Magic (NEW)
 
-## Reading the Gantt Chart
+When child task dates change, parents automatically expand:
 
-* A summary bar above the chart shows the project's overall date range, duration, current zoom level, and today's date (when it falls within range) — this is included when you export a PNG, so exported images are self-contained.
-* Task bars use a standard status color scheme, shown in a legend above the chart: gray = not started, blue = in progress, green = complete, red = overdue, amber diamond = milestone, dark slate = summary/parent row.
-* Use the **Grid / Split / Chart** buttons in the toolbar to snap the divider between the grid and chart to preset widths, or drag it manually. Whichever layout you land on is remembered and restored next time you open the app.
+```
+BEFORE:
+Parent Task    Start: 1/15   End: 3/15
+└─ Child 1     Start: 1/15   End: 1/20  ← Change to 1/25
+└─ Child 2     Start: 1/21   End: 2/10
 
-## CSV Import/Export Format
+AFTER (Automatic):
+Parent Task    Start: 1/15   End: 2/10  ✅ Parent expanded
+└─ Child 1     Start: 1/15   End: 1/25
+└─ Child 2     Start: 1/21   End: 2/10
+```
 
-Exported/imported CSVs include a header row followed by columns in this order: `Task ID, Outline, Name, Resource, Allocation, % Complete, Start Date, Duration, End Date, Dependencies, Parent ID`, followed by any custom tracking columns you've added. When importing, keep the header row intact so custom columns are recognized correctly.
+**How to Trigger:**
+1. **Automatic** – Happens on CSV import/export/Dropbox backup
+2. **Manual** – Click "↻ Sync Dependencies" button anytime
+3. **Offline** – Works entirely in your browser
 
-## Known Limitations
+---
 
-* Single-user, no real-time collaboration — Dropbox backups are a manual/automatic snapshot mechanism, not live multi-user editing.
-* No in-app undo/redo — without Dropbox, your only restore point is a CSV you exported yourself; with Dropbox, use the Versions modal.
-* Best used in a modern desktop browser; not optimized for small/mobile screens.
+## Zoom & View Options
+
+| Control | Effect |
+|---------|--------|
+| **Zoom: Day/Week/Month** | Change Gantt chart time scale |
+| **Weekends off** | Hide weekends in chart |
+| **Grid Only** (100%) | Show spreadsheet, hide chart |
+| **Split View** (55/45) | Balanced grid + chart (default) |
+| **Chart Only** (~8%) | Full-width Gantt chart |
+| **Fit columns** | Auto-resize columns to content |
+
+---
+
+## CSV Import & Export
+
+### Import
+1. Click "📤 Import" button
+2. Select a CSV file from your computer
+3. Data loads instantly; parent dates recalculate automatically
+
+### Export
+1. Click "📥 Export CSV" button
+2. File downloads with consistent, validated dates
+3. Parent dates are pre-calculated before export
+
+**CSV Format:**
+```csv
+ID,Outline,Task Name,Resource,Def. Alloc,% Done,Start,Dur.,End,Depends,Parent
+1,1,Project,,,0,,,,,
+2,1.1,Phase 1,Alice,50,100,2024-01-15,5,2024-01-19,,1
+3,1.2,Phase 2,Bob,100,50,2024-01-20,7,2024-01-26,2,1
+```
+
+---
+
+## Dropbox Integration (Optional)
+
+### Why Use Dropbox?
+
+| Feature | Without Dropbox | With Dropbox |
+|---------|-----------------|-------------|
+| **Local Storage** | ✅ Yes | ✅ Yes + Dropbox backup |
+| **Version History** | ❌ Current version only | ✅ Last 25 backups |
+| **Cross-Device** | ❌ Browser-only | ✅ Access anywhere |
+| **Backup Safety** | ❌ If you clear cache, data is gone | ✅ Always recoverable |
+| **Project Discovery** | ❌ Manual re-entry on new device | ✅ Auto-import found projects |
+
+### Setting Up Dropbox
+
+1. Click **"Back up"** button
+2. Choose **"Continue to Dropbox"**
+3. Authorize Simple Gantt (read/write access to `/Apps/Simple Gantt Backups/`)
+4. Automatic backups start ~1 minute after edits stop
+5. Click **"Versions"** anytime to restore a past backup
+
+### Disconnecting
+Click **"Disconnect"** – Your local data stays, backups stay in Dropbox, no data deleted.
+
+---
+
+## Resource Workload Dashboard
+
+View team allocation at a glance:
+
+1. Click **"👥 Workload"** button
+2. Choose resolution: Daily, Weekly, or Monthly
+3. Choose unit: Percentage (%) or Hours (8h/day)
+4. Cells show: Green = OK, Red = Overallocated
+5. Click **"Export CSV"** to download workload report
+
+---
+
+## Projects & Data
+
+### Create New Project
+1. Click project selector dropdown
+2. Choose **"➕ Create New Project..."**
+3. Enter project name
+4. Start adding tasks
+
+### Rename Project
+Click **"Rename"** button, enter new name
+
+### Delete Project
+Click **"Delete"** button (keeps Dropbox backups intact if connected)
+
+### Switch Project
+Select different project from dropdown at top-left
+
+### Factory Reset
+⚠️ **Deletes ALL projects locally** (but not Dropbox backups)
+1. Click **"Reset"** button
+2. Type "DELETE" to confirm
+3. All data cleared; reload page to continue
+
+---
+
+## Keyboard & Navigation
+
+| Shortcut | Action |
+|----------|--------|
+| **Double-click cell** | Edit |
+| **Tab** | Move to next cell |
+| **Shift + Tab** | Move to previous cell |
+| **Enter** | Confirm edit, move down |
+| **Esc** | Cancel edit |
+| **Right-click** | Context menu (add/delete row/col) |
+
+---
+
+## Troubleshooting
+
+### Grid won't load
+- Open DevTools (F12 → Console)
+- Check for errors
+- Refresh page
+- Try in incognito mode
+
+### Dates aren't calculating
+- Click **"↻ Sync Dependencies"** button
+- Check "Depends" column – must reference parent task ID
+- Parent task must have children with dates
+
+### Data lost after browser clear
+- If using Dropbox: Click **"Versions"** to restore
+- If offline-only: Data is only in browser storage
+  - **Prevention:** Export CSV regularly
+
+### Dropbox won't connect
+- Check browser permissions (allow cookies)
+- Try different browser
+- Disconnect and reconnect
+- Visit [dropbox.com/account/connected-apps](https://dropbox.com/account/connected-apps) to revoke manually
+
+### Can't find old projects
+- Click **"Versions"** → **"Check Dropbox for other projects"**
+- Select projects to import
+- They'll appear in project dropdown
+
+---
+
+## Data Privacy & Storage
+
+### Local Storage
+- 100% in your browser
+- Not sent to any server (except Dropbox if you enable it)
+- Cleared only if you clear browser cache OR click "Reset"
+
+### Dropbox Storage
+- Your choice to enable; disabled by default
+- Backups stored in `/Apps/Simple Gantt Backups/` in your Dropbox
+- Only you have access (read your Dropbox, not read others)
+- 25 backups per project; older ones auto-delete
+
+### No Tracking
+- No analytics
+- No ads
+- No data collection
+- Open source – inspect the code yourself
+
+---
+
+## Browser Support
+
+| Browser | Support |
+|---------|---------|
+| Chrome/Edge (latest) | ✅ Full |
+| Firefox (latest) | ✅ Full |
+| Safari (latest) | ✅ Full |
+| Mobile browsers | ✅ Works but limited (small screens) |
+| Internet Explorer | ❌ Not supported |
+
+---
+
+## Tips & Best Practices
+
+### 1. Use Task IDs Consistently
+- Keep IDs simple (1, 2, 3...) or hierarchical (1.1, 1.2, 2.1...)
+- Set "Depends" to parent ID for auto-hierarchy
+
+### 2. Set Realistic Durations
+- **Dur.** should equal (End – Start + 1) days
+- Or let Simple Gantt auto-calculate when you enter Start/End
+
+### 3. Export Regularly
+- Export CSV weekly as a backup
+- You own the file immediately; no cloud needed
+
+### 4. Sync Dependencies After Bulk Edits
+- If you import a CSV with inconsistent parent dates
+- Click **"↻ Sync Dependencies"** once
+- All parents recalculate in seconds
+
+### 5. Use Resources for Workload Tracking
+- Enter resource names consistently ("Alice", "Alice", not "Alice", "alice")
+- Set "Def. Alloc" for each task (50 = half-time)
+- View "Workload" dashboard to spot overallocation
+
+---
+
+## Keyboard Shortcuts Summary
+
+```
+F12              Open DevTools (to see console logs)
+Ctrl/Cmd+E       Export CSV (if keyboard-enabled)
+Ctrl/Cmd+I       Import CSV (if keyboard-enabled)
+Tab              Next cell in grid
+Shift+Tab        Previous cell
+Enter            Confirm edit
+Esc              Cancel edit
+Double-click     Edit cell
+Right-click      Context menu
+```
+
+---
+
+## Version History
+
+See [CHANGELOG.md](./CHANGELOG.md) for detailed release notes.
+
+### Latest: v2.4.5 (2026-08-21)
+✨ **Parent Date Bubble-Up** – Parent task dates now automatically span all children on import/export/backup. New "Sync Dependencies" button for manual control.
+
+---
+
+## Contributing
+
+This is an open-source project. Contributions welcome!
+
+- **Found a bug?** Open an issue with:
+  - Browser/OS
+  - Steps to reproduce
+  - Expected vs. actual behavior
+
+- **Want a feature?** Describe the use case:
+  - What problem does it solve?
+  - How would you use it?
+
+- **Want to contribute code?** 
+  - Fork the repo
+  - Make changes
+  - Submit a pull request
+
+---
+
+## License
+
+MIT License – Use freely, modify, and redistribute.  
+See LICENSE file for details.
+
+---
+
+## Credits & Thanks
+
+- [jExcel](https://bossanova.uk/jspreadsheet/) – Spreadsheet library
+- [Frappe Gantt](https://frappe.io/gantt) – Gantt chart library
+- [PapaParse](https://www.papaparse.com/) – CSV parsing
+- [Dropbox SDK](https://www.dropbox.com/developers) – Cloud sync
+- [html2canvas](https://html2canvas.hertzen.com/) – Export to PNG
+
+---
 
 ## Support
 
-If you found this helpful, consider checking out the source code or buying me a coffee!
+- 📖 **Documentation** – See above
+- 🐛 **Bug Reports** – Open an issue
+- 💬 **Questions** – Check existing issues or start a discussion
+- ☕ **Support Development** – [Buy me a coffee](https://buymeacoffee.com/adambeltz)
 
-<a href="https://github.com/adambeltz2/Simple-Gantt" target="_blank">View on GitHub</a> | <a href="https://buymeacoffee.com/adambeltz" target="_blank">Buy me a coffee</a>
+---
+
+## FAQ
+
+**Q: Is my data secure?**  
+A: Yes. Data stays in your browser by default. Dropbox backups are encrypted in transit and at rest (Dropbox's security). We don't have access to your data.
+
+**Q: Can I use this for large projects (1000+ tasks)?**  
+A: Yes, but performance may slow. Consider splitting into multiple projects.
+
+**Q: Does this work offline?**  
+A: Completely. Dropbox is optional. Use offline and export CSV as backup.
+
+**Q: Can I export to Microsoft Project?**  
+A: Not directly, but the CSV format is compatible with most project tools (Excel, Sheets, Monday.com, etc.).
+
+**Q: Can teams collaborate in real-time?**  
+A: Not yet. Each user has their own local version. Share via CSV exports.
+
+**Q: What if I accidentally delete something?**  
+A: If using Dropbox, click "Versions" to restore. If offline-only, use browser's undo (Ctrl+Z) immediately after.
+
+---
+
+## Roadmap
+
+Planned features for future releases:
+
+- 🔒 Real-time collaboration (WebRTC-based)
+- 📅 Calendar sync (Google, Outlook)
+- 🔗 Kanban board view
+- 📊 Advanced reporting & analytics
+- 🌐 Multiple language support
+- 📱 Dedicated mobile app
+
+---
+
+**Made with ❤️ for project managers everywhere.**
+
+Happy planning! 🚀

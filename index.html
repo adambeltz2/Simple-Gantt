@@ -190,6 +190,10 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 7 5 12 9 17"></polyline><polyline points="15 7 19 12 15 17"></polyline></svg>
                     Fit columns
                 </button>
+                <button class="tbtn" onclick="syncDependencies()" title="Recalculate parent dates to span children">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36M20.49 15a9 9 0 0 1-14.85 3.36"></path></svg>
+                    Sync Dependencies
+                </button>
                 <label class="tbtn file-btn">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                     Import
@@ -356,6 +360,136 @@
     </div>
 
     <script>
+        // ============================================================================
+        // BUBBLE-UP DATE RECALCULATION LOGIC - Injected for parent date synchronization
+        // ============================================================================
+
+        function parseDate(dateStr) {
+          if (!dateStr || dateStr === '') return null;
+          const d = new Date(dateStr);
+          return isNaN(d.getTime()) ? null : d;
+        }
+
+        function calculateDuration(startDate, endDate) {
+          if (!startDate || !endDate) return 0;
+          const msPerDay = 24 * 60 * 60 * 1000;
+          return Math.floor((endDate - startDate) / msPerDay) + 1;
+        }
+
+        function recalculateDatesUpstream(tasks, changedTaskId = null) {
+          const changes = [];
+          const processed = new Set();
+          let maxDepth = 0;
+
+          function bubbleUpFrom(taskId, depth = 0) {
+            maxDepth = Math.max(maxDepth, depth);
+            if (processed.has(String(taskId))) return;
+            processed.add(String(taskId));
+
+            const task = tasks.find(t => String(t[0]) === String(taskId));
+            if (!task) return;
+
+            const parentsOfThisTask = tasks.filter(t => {
+              if (!t[9]) return false;
+              const deps = String(t[9]).split(',').map(d => d.trim()).filter(d => d);
+              return deps.some(dep => String(dep) === String(taskId));
+            });
+
+            for (const parent of parentsOfThisTask) {
+              const oldStart = parent[6];
+              const oldEnd = parent[7];
+
+              const childIds = String(parent[9]).split(',').map(d => d.trim()).filter(d => d);
+              const children = childIds
+                .map(cid => tasks.find(t => String(t[0]) === String(cid)))
+                .filter(c => c && c[6] && c[7]);
+
+              if (children.length === 0) continue;
+
+              const startDates = children.map(c => parseDate(c[6])).filter(d => d);
+              const endDates = children.map(c => parseDate(c[7])).filter(d => d);
+
+              if (startDates.length === 0 || endDates.length === 0) continue;
+
+              const minStart = new Date(Math.min(...startDates.map(d => d.getTime())));
+              const maxEnd = new Date(Math.max(...endDates.map(d => d.getTime())));
+
+              const newStart = format(minStart);
+              const newEnd = format(maxEnd);
+              const newDuration = String(calculateDuration(minStart, maxEnd));
+
+              if (newStart !== oldStart || newEnd !== oldEnd) {
+                parent[6] = newStart;
+                parent[7] = newEnd;
+                parent[8] = newDuration;
+
+                changes.push({
+                  taskId: parent[0],
+                  oldStart,
+                  oldEnd,
+                  newStart,
+                  newEnd
+                });
+
+                bubbleUpFrom(parent[0], depth + 1);
+              }
+            }
+          }
+
+          if (changedTaskId) {
+            bubbleUpFrom(changedTaskId);
+          } else {
+            const parentIds = new Set();
+            tasks.forEach(t => {
+              if (t[9]) {
+                const deps = String(t[9]).split(',').map(d => d.trim()).filter(d => d);
+                deps.forEach(d => parentIds.add(String(d)));
+              }
+            });
+
+            const leafTasks = tasks.filter(t => !parentIds.has(String(t[0])));
+            leafTasks.forEach(t => bubbleUpFrom(t[0]));
+          }
+
+          return {
+            success: true,
+            tasksUpdated: changes,
+            changeCount: changes.length,
+            recursionDepth: maxDepth
+          };
+        }
+
+        function processImportedTasks(importedData) {
+          // Normalize dates and recalculate
+          importedData.forEach(task => {
+            if (task[6]) task[6] = task[6].trim();
+            if (task[7]) task[7] = task[7].trim();
+
+            if (!task[8] && task[6] && task[7]) {
+              const start = parseDate(task[6]);
+              const end = parseDate(task[7]);
+              if (start && end) {
+                task[8] = String(calculateDuration(start, end));
+              }
+            }
+          });
+
+          const result = recalculateDatesUpstream(importedData);
+          result.stage = 'post-import';
+          result.cleanedTasks = importedData;
+          return result;
+        }
+
+        function processBeforeExport(tasksToExport) {
+          const tasksCopy = JSON.parse(JSON.stringify(tasksToExport));
+          const result = recalculateDatesUpstream(tasksCopy);
+          result.stage = 'pre-export';
+          result.cleanedTasks = tasksCopy;
+          return result;
+        }
+
+        // ============================================================================
+
         function format(d) { 
             if (!d) return '';
             if (typeof d === 'string') {
@@ -689,10 +823,16 @@
             updateCloudStatus('syncing');
             if (!isAuto) showStatus("Backing up to Dropbox...", "#f59e0b");
 
-            let exportData = [...sheet.getData()];
+            // KEY INTEGRATION: Pre-backup date recalculation
+            const exportResult = processBeforeExport(sheet.getData());
+            let exportData = [...exportResult.cleanedTasks];
             let headers = sheet.options.columns.map(c => c.title);
             exportData.unshift(headers);
             const csvString = Papa.unparse(exportData);
+            
+            if (exportResult.changeCount > 0) {
+                console.log(`✓ Backup: Recalculated ${exportResult.changeCount} parent task(s)`);
+            }
 
             const folder = getDropboxFolder(projectId);
             const filepath = `${folder}/${timestampForFilename()}.csv`;
@@ -730,11 +870,23 @@
         }
 
         function applyImportedCSVData(data) {
-            if (data.length > 0 && (data[0][0] === 'ID' || data[0][1] === 'Outline')) {
-                let headers = data.shift();
+            // KEY INTEGRATION: Post-import date recalculation
+            const importResult = processImportedTasks(data);
+            const cleanedData = importResult.cleanedTasks || data;
+
+            if (cleanedData.length > 0 && (cleanedData[0][0] === 'ID' || cleanedData[0][1] === 'Outline')) {
+                let headers = cleanedData.shift();
                 appDB.projects[appDB.activeId].columns = headers.slice(11);
             }
-            renderGrid(data);
+            
+            // Store cleaned data in appDB before rendering
+            appDB.projects[appDB.activeId].data = cleanedData;
+            
+            if (importResult.changeCount > 0) {
+                console.log(`✓ Import: Recalculated ${importResult.changeCount} parent task(s)`);
+            }
+            
+            renderGrid(cleanedData);
             syncToGantt(true);
         }
 
@@ -1406,6 +1558,33 @@
             }
         }
 
+        function syncDependencies() {
+            if (!sheet) return;
+            
+            const data = sheet.getData();
+            if (!data || data.length === 0) {
+                showStatus("⚠ No tasks to sync", "#f59e0b");
+                return;
+            }
+            
+            console.log('Starting dependency sync...');
+            const result = recalculateDatesUpstream(data);
+            
+            if (result.changeCount === 0) {
+                showStatus("✓ All dependencies already synced", "#10b981");
+            } else {
+                showStatus(`✓ Synced ${result.changeCount} parent task(s)`, "#10b981");
+                console.log('Updated tasks:', result.tasksUpdated);
+                
+                // Update the sheet with recalculated data
+                sheet.setData(data);
+                
+                // Persist to local storage and refresh gantt
+                saveToLocal();
+                syncToGantt(false);
+            }
+        }
+
         function renderGrid(overrideData = null) {
             let spreadsheetDiv = document.getElementById('spreadsheet');
             if(sheet) jspreadsheet.destroy(spreadsheetDiv);
@@ -1811,8 +1990,14 @@
         }
         
         function exportCSV() { 
-            let exportData = [...sheet.getData()];
+            // KEY INTEGRATION: Pre-export date recalculation
+            const exportResult = processBeforeExport(sheet.getData());
+            let exportData = [...exportResult.cleanedTasks];
             let headers = sheet.options.columns.map(c => c.title);
+            
+            if (exportResult.changeCount > 0) {
+                console.log(`✓ Export: Recalculated ${exportResult.changeCount} parent task(s) before export`);
+            }
             
             // Find date columns (START and END)
             const startIdx = headers.indexOf('Start');

@@ -361,7 +361,7 @@
 
     <script>
         // ============================================================================
-        // BUBBLE-UP DATE RECALCULATION LOGIC - Injected for parent date synchronization
+        // BUBBLE-UP DATE RECALCULATION LOGIC
         // ============================================================================
 
         function parseDate(dateStr) {
@@ -460,7 +460,6 @@
         }
 
         function processImportedTasks(importedData) {
-          // Normalize dates and recalculate
           importedData.forEach(task => {
             if (task[6]) task[6] = task[6].trim();
             if (task[7]) task[7] = task[7].trim();
@@ -515,7 +514,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.4.6";
+        const APP_VERSION = "2.4.6.1";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -823,24 +822,19 @@
             updateCloudStatus('syncing');
             if (!isAuto) showStatus("Backing up to Dropbox...", "#f59e0b");
 
-            // Get current data
             let exportData = [...sheet.getData()];
             let headers = sheet.options.columns.map(c => c.title);
             exportData.unshift(headers);
             const csvString = Papa.unparse(exportData);
 
-            // Convert to Blob for Dropbox upload
-            const csvBlob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-
             const folder = getDropboxFolder(projectId);
             const filepath = `${folder}/${timestampForFilename()}.csv`;
             const metaPath = `${folder}/meta.json`;
             const metaContents = JSON.stringify({ name: appDB.projects[projectId].name, updatedAt: new Date().toISOString() });
-            const metaBlob = new Blob([metaContents], { type: 'application/json;charset=utf-8;' });
 
             Promise.all([
-                dbx.filesUpload({ path: filepath, contents: csvBlob, mode: { '.tag': 'add' }, autorename: true }),
-                dbx.filesUpload({ path: metaPath, contents: metaBlob, mode: { '.tag': 'overwrite' } })
+                dbx.filesUpload({ path: filepath, contents: csvString, mode: { '.tag': 'add' }, autorename: true }),
+                dbx.filesUpload({ path: metaPath, contents: metaContents, mode: { '.tag': 'overwrite' } })
             ])
             .then(() => {
                 updateCloudStatus('synced');
@@ -869,7 +863,7 @@
         }
 
         function applyImportedCSVData(data) {
-            // KEY INTEGRATION: Post-import date recalculation
+            // Apply recalculation to imported data
             const importResult = processImportedTasks(data);
             const cleanedData = importResult.cleanedTasks || data;
 
@@ -877,9 +871,6 @@
                 let headers = cleanedData.shift();
                 appDB.projects[appDB.activeId].columns = headers.slice(11);
             }
-            
-            // Store cleaned data in appDB before rendering
-            appDB.projects[appDB.activeId].data = cleanedData;
             
             if (importResult.changeCount > 0) {
                 console.log(`✓ Import: Recalculated ${importResult.changeCount} parent task(s)`);
@@ -1989,13 +1980,13 @@
         }
         
         function exportCSV() { 
-            // KEY INTEGRATION: Pre-export date recalculation
+            // Recalculate parent dates before export
             const exportResult = processBeforeExport(sheet.getData());
             let exportData = [...exportResult.cleanedTasks];
             let headers = sheet.options.columns.map(c => c.title);
             
             if (exportResult.changeCount > 0) {
-                console.log(`✓ Export: Recalculated ${exportResult.changeCount} parent task(s) before export`);
+                console.log(`✓ Export: Recalculated ${exportResult.changeCount} parent task(s)`);
             }
             
             // Find date columns (START and END)

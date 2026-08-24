@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.10.1] - 2026-08-24
+
+### 🧪 Testing
+
+- Added `tests/csv-roundtrip.spec.js`: exported CSV headers match the live columns (core + custom, in order), exported dates/parent-rollup values match the live engine's own computed state, a full export → re-import cycle reproduces the same data, the "Notes" column's raw content survives the round trip, and importing a CSV with no header row doesn't crash.
+- Added `tests/workload-dashboard.spec.js`: single- and multi-resource daily allocation, overallocation flagging, parent/summary rows correctly excluded, the Hours-vs-Percentage unit toggle, multiple comma-separated resources on one task, Weekly-view aggregation, the dashboard's own CSV export, and the empty-state message when nothing is assigned.
+- No functional changes -- this closes the last tech-debt item from the original repo review (CSV round-tripping and the Workload dashboard were the only two areas without coverage). Full suite: 11 spec files, 67 tests, all pass.
+
+---
+
 ## [2.10.0] - 2026-08-24
 
 ### ✨ Added

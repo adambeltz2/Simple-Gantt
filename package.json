@@ -1,0 +1,11 @@
+{
+  "name": "simple-gantt",
+  "private": true,
+  "description": "Dev-only tooling for Simple Gantt. The app itself ships as a single static index.html with no build step -- this package.json exists solely to run the Playwright UI test suite in tests/.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.0"
+  }
+}

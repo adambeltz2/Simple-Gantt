@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.4.5-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-2.5.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
 
@@ -10,6 +10,7 @@ A lightweight, browser-based Gantt chart and task management tool. No server req
 - **Interactive Gantt Chart** – Visual timeline with drag-and-drop tasks
 - **Spreadsheet Grid** – Edit tasks in a familiar table format
 - **Task Hierarchy** – Support for parent-child task relationships
+- **Collapse/Expand** – Fold a parent's children out of view in both the grid and chart, with "Expand All"/"Collapse All" toolbar controls; purely visual, your data is never touched
 - **Progress Tracking** – Mark tasks as not started, in progress, complete, or overdue
 - **Dependencies** – Link tasks to show sequential relationships
 - **Milestones** – Create zero-duration milestone markers
@@ -340,8 +341,21 @@ Right-click      Context menu
 
 See [CHANGELOG.md](./CHANGELOG.md) for detailed release notes.
 
-### Latest: v2.4.5 (2026-08-21)
-✨ **Parent Date Bubble-Up** – Parent task dates now automatically span all children on import/export/backup. New "Sync Dependencies" button for manual control.
+### Latest: v2.5.0 (2026-08-24)
+✨ **Collapse/Expand Parent Tasks** – Fold a parent's children out of view via a toggle on its row (or "Expand All"/"Collapse All" in the toolbar). View-only: your task data is never modified, and the collapsed/expanded state is remembered per project.
+🔒 **CDN Integrity** – The pinned-version libraries (PapaParse, Frappe Gantt, html2canvas, Dropbox SDK) now load with Subresource Integrity hashes, so a compromised or altered CDN file can no longer execute silently.
+
+---
+
+## Development & Testing
+
+Simple Gantt still ships as a single static `index.html` with no build step. A small `package.json` exists only to run the Playwright UI test suite under `tests/`:
+
+```bash
+npm install
+npx playwright install chromium   # first time only
+npm test
+```
 
 ---
 

@@ -6,16 +6,21 @@
     <title>Simple Gantt</title>
     
     <!-- MATCHING V4 LIBRARIES: Guaranteed stable initialization -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js" integrity="sha384-D/t0ZMqQW31H3az8ktEiNb39wyKnS82iFY52QPACM+IjKW3jDUhyIgh2PApRqJZs" crossorigin="anonymous"></script>
+    <!-- TODO(security): jsuites.js / jexcel.js are loaded unpinned (no version, no SRI) --
+         the live "/v4/" URLs auto-track whatever patch release the vendor currently ships,
+         and there's no way to verify from outside which exact build is live right now.
+         Pinning a version here requires confirming the currently-deployed build first
+         (see repo review notes) so this doesn't silently change app behavior. -->
     <script src="https://jsuites.net/v4/jsuites.js"></script>
     <link rel="stylesheet" href="https://jsuites.net/v4/jsuites.css" type="text/css" />
     <script src="https://bossanova.uk/jspreadsheet/v4/jexcel.js"></script>
     <link rel="stylesheet" href="https://bossanova.uk/jspreadsheet/v4/jexcel.css" type="text/css" />
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/frappe-gantt/0.6.1/frappe-gantt.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/frappe-gantt/0.6.1/frappe-gantt.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dropbox.js/10.34.0/Dropbox-sdk.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js" integrity="sha384-vIVXvmnGMKcWl9tl8Erv6xZ+73fWqZSOY0D31kkKw/VZocq7VAG3zqYhuOn0Yzlq" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css" integrity="sha384-7m7QARZ+I5i/e3zNLmxAeO3v1vOgtpJBC/b0Aev34b6oIOxdjl7lSXlILQgb8b3Z" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dropbox@10.34.0/dist/Dropbox-sdk.min.js" integrity="sha384-YWkd65tkMrhoUmJnjCxyrQASvTgA80dRkNv1iltGzS5KgwXnxYEhNC0hO7jjWkZe" crossorigin="anonymous"></script>
 
     <style>
         body, html { margin: 0; padding: 0; height: 100vh; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; overflow: hidden; background: #fff;}
@@ -159,6 +164,14 @@
                 <button class="tbtn" onclick="openWorkloadModal()">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                     Workload
+                </button>
+                <button class="tbtn" onclick="expandAllTasks()" title="Expand all parent tasks">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"></polyline><polyline points="7 6 12 11 17 6"></polyline></svg>
+                    Expand All
+                </button>
+                <button class="tbtn" onclick="collapseAllTasks()" title="Collapse all parent tasks">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 11 12 6 7 11"></polyline><polyline points="17 18 12 13 7 18"></polyline></svg>
+                    Collapse All
                 </button>
             </div>
             <div class="toolbar-group">
@@ -465,7 +478,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.4.6.1";
+        const APP_VERSION = "2.5.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -484,11 +497,11 @@
         let appDB = {
             activeId: 'proj_1',
             settings: { skipWeekends: true, zoom: 'Day' },
-            projects: { 'proj_1': { name: 'Example Project', columns: [], data: sampleProjectData } }
+            projects: { 'proj_1': { name: 'Example Project', columns: [], data: sampleProjectData, collapsed: [] } }
         };
 
         try {
-            let savedDb = localStorage.getItem(DB_KEY) || 
+            let savedDb = localStorage.getItem(DB_KEY) ||
                           localStorage.getItem("simple_gantt_portfolio_v25") ||
                           localStorage.getItem("simple_gantt_portfolio_v24") ||
                           localStorage.getItem("simple_gantt_portfolio_v23") ||
@@ -502,6 +515,7 @@
                 appDB = JSON.parse(savedDb);
                 for (let pid in appDB.projects) {
                     if (!appDB.projects[pid].columns) appDB.projects[pid].columns = [];
+                    if (!appDB.projects[pid].collapsed) appDB.projects[pid].collapsed = [];
                     appDB.projects[pid].data = normalizeData(appDB.projects[pid].data, appDB.projects[pid].columns.length);
                 }
             }
@@ -555,7 +569,8 @@
             appDB.projects[newId] = {
                 name: name,
                 columns: [],
-                data: [['1', '1', '', '', '100', '0', '', '', '', '', '']] 
+                data: [['1', '1', '', '', '100', '0', '', '', '', '', '']],
+                collapsed: []
             };
             appDB.activeId = newId;
             updateProjectDropdown();
@@ -999,7 +1014,8 @@
                                 name: discovered.name,
                                 columns: columns,
                                 data: normalizeData(data, columns.length),
-                                dropboxProjectId: discovered.id
+                                dropboxProjectId: discovered.id,
+                                collapsed: []
                             };
                             resolve();
                         }});
@@ -1432,12 +1448,29 @@
                 if (col == COL.NAME) {
                     cell.style.textAlign = 'left';
                     if (depth > 0) {
-                        cell.style.paddingLeft = (8 + (depth * 20)) + 'px'; 
-                        cell.style.borderLeft = '3px solid #cbd5e1'; 
+                        cell.style.paddingLeft = (8 + (depth * 20)) + 'px';
+                        cell.style.borderLeft = '3px solid #cbd5e1';
                     } else {
-                        cell.style.paddingLeft = '8px'; 
+                        cell.style.paddingLeft = '8px';
                         cell.style.borderLeft = 'none';
                         cell.style.fontWeight = isParent ? 'bold' : 'normal';
+                    }
+
+                    if (isParent && rowID !== '') {
+                        let collapsed = isCollapsed(rowID);
+                        cell.innerHTML = '';
+                        let toggle = document.createElement('span');
+                        toggle.textContent = collapsed ? '▶' : '▼';
+                        toggle.title = collapsed ? 'Expand' : 'Collapse';
+                        toggle.className = 'row-collapse-toggle';
+                        toggle.style.cssText = 'display:inline-block; width:13px; margin-right:4px; cursor:pointer; user-select:none; color:#64748b; font-size:9px; vertical-align:middle;';
+                        // Stop at mousedown so jexcel's own cell-selection/edit handling
+                        // (bound at the document level) never sees this click -- otherwise
+                        // toggling collapse would also select/open-edit the Name cell.
+                        toggle.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+                        toggle.addEventListener('click', function(e) { e.stopPropagation(); toggleCollapse(rowID); });
+                        cell.appendChild(toggle);
+                        cell.appendChild(document.createTextNode(val != null ? val : ''));
                     }
                 }
                 
@@ -1488,6 +1521,79 @@
             } catch (e) {
                 console.error("Auto-fit columns failed:", e);
             }
+        }
+
+        // ==========================================
+        // ROW COLLAPSE / EXPAND (view-only -- never mutates task data)
+        // ==========================================
+        function getCollapsedIds() {
+            let proj = appDB.projects[appDB.activeId];
+            if (!proj.collapsed) proj.collapsed = [];
+            return proj.collapsed;
+        }
+
+        function isCollapsed(taskId) {
+            return getCollapsedIds().includes(String(taskId));
+        }
+
+        function toggleCollapse(taskId) {
+            let collapsed = getCollapsedIds();
+            let key = String(taskId);
+            let idx = collapsed.indexOf(key);
+            if (idx > -1) collapsed.splice(idx, 1); else collapsed.push(key);
+            saveToLocal();
+            if (sheet) sheet.updateTable();
+            applyRowVisibility();
+            syncToGantt(false);
+        }
+
+        function expandAllTasks() {
+            appDB.projects[appDB.activeId].collapsed = [];
+            saveToLocal();
+            if (sheet) sheet.updateTable();
+            applyRowVisibility();
+            syncToGantt(false);
+        }
+
+        function collapseAllTasks() {
+            if (!sheet) return;
+            let data = sheet.getData();
+            let parentIds = new Set();
+            data.forEach(row => {
+                let pid = (row[COL.PARENT] != null) ? row[COL.PARENT].toString().trim() : '';
+                if (pid) parentIds.add(pid);
+            });
+            appDB.projects[appDB.activeId].collapsed = Array.from(parentIds);
+            saveToLocal();
+            sheet.updateTable();
+            applyRowVisibility();
+            syncToGantt(false);
+        }
+
+        // Hides/shows grid rows (via jexcel's own hideRow/showRow) for any task with
+        // a collapsed ancestor. Purely a display concern -- sheet.getData() and appDB
+        // still contain every row regardless of what's currently hidden.
+        function applyRowVisibility() {
+            if (!sheet || typeof sheet.hideRow !== 'function') return;
+            const data = sheet.getData();
+            const collapsedSet = new Set(getCollapsedIds());
+            const parentOf = {};
+            data.forEach(row => {
+                const id = (row[COL.ID] != null) ? row[COL.ID].toString().trim() : '';
+                if (id) parentOf[id] = (row[COL.PARENT] != null) ? row[COL.PARENT].toString().trim() : '';
+            });
+            data.forEach((row, index) => {
+                const id = (row[COL.ID] != null) ? row[COL.ID].toString().trim() : '';
+                let hidden = false;
+                let ancestor = parentOf[id] || '';
+                let guard = 0;
+                while (ancestor && guard < 30) {
+                    if (collapsedSet.has(ancestor)) { hidden = true; break; }
+                    ancestor = parentOf[ancestor] || '';
+                    guard++;
+                }
+                if (hidden) sheet.hideRow(index); else sheet.showRow(index);
+            });
         }
 
         function syncDependencies() {
@@ -1851,14 +1957,37 @@
                     };
                 });
 
+                // Collapsing hides a task's descendants from the chart (never from
+                // tasksMap/sheet data). A task counts as hidden if ANY ancestor,
+                // at any depth, is collapsed.
+                const collapsedSet = new Set(getCollapsedIds());
+                function hasCollapsedAncestor(task) {
+                    let pid = task ? task.parentId : '';
+                    let guard = 0;
+                    while (pid && guard < 30) {
+                        if (collapsedSet.has(String(pid))) return true;
+                        const parentTask = tasksMap[pid];
+                        pid = parentTask ? parentTask.parentId : '';
+                        guard++;
+                    }
+                    return false;
+                }
+                const visibleFrappeTasks = frappeTasks.filter(t => !hasCollapsedAncestor(tasksMap[t.id]));
+                const visibleIds = new Set(visibleFrappeTasks.map(t => String(t.id)));
+                visibleFrappeTasks.forEach(t => {
+                    if (t.dependencies) {
+                        t.dependencies = t.dependencies.split(',').map(s => s.trim()).filter(d => d && visibleIds.has(d)).join(', ');
+                    }
+                });
+
                 const chartContainer = document.getElementById('gantt');
                 renderGanttRangeBar(frappeTasks);
                 renderGanttLegend(frappeTasks.length > 0);
-                if (frappeTasks.length === 0) {
+                if (visibleFrappeTasks.length === 0) {
                     chartContainer.innerHTML = '<div style="color:#94a3b8; margin-top: 20px;">Add Durations to render the chart.</div>';
                 } else {
-                    chartContainer.innerHTML = ''; 
-                    ganttChart = new Gantt('#gantt', frappeTasks, {
+                    chartContainer.innerHTML = '';
+                    ganttChart = new Gantt('#gantt', visibleFrappeTasks, {
                         view_mode: document.getElementById('zoomScale').value || 'Day',
                         on_date_change: (task, start, end) => { syncToGrid(task, start, end, 'date'); },
                         on_progress_change: (task, progress) => { syncToGrid(task, null, null, 'progress', progress); },
@@ -1883,10 +2012,12 @@
                     renderWorkloadTable();
                 }
 
+                applyRowVisibility();
+
             } catch (err) {
                 console.error("Gantt Rendering Error:", err);
             } finally {
-                isSyncing = false; 
+                isSyncing = false;
                 saveToLocal();
             }
         }

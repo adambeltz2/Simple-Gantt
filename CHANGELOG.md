@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.9.1] - 2026-08-24
+
+### 🐛 Fixed
+
+#### Critical: End dates could land before Start dates (real bug report)
+- Found via a follow-up bug report right after 2.9.0 shipped: a 1-day task starting 2026-08-20 was showing End=2026-08-19 -- one day *before* its own Start.
+- Root cause: `new Date("YYYY-MM-DD")` is parsed as **UTC midnight** per the ECMAScript spec. In any timezone behind UTC (most of the Americas), reading that Date back with local getters (`getDate()`, `getDay()`, etc.) silently rolls the calendar date back by one day. This bug predates every other change in this release -- it's been in the codebase since the beginning.
+- It was invisible until now because the old **exclusive** End convention (fixed in 2.9.0, one day *after* the last day of work) happened to add back exactly the one day this bug subtracts, for 1-day tasks, in behind-UTC timezones. Two independent bugs were canceling each other out. Fixing the first (2.9.0) unmasked the second.
+- It was also invisible in this project's own automated tests, because the test sandbox's default timezone is UTC, where this bug class cannot manifest at all -- `new Date("YYYY-MM-DD")` in UTC needs no correction.
+- Fixed by adding `parseLocalDate()`, a timezone-safe replacement for `new Date(str)` used everywhere this app parses its own YYYY-MM-DD strings back into `Date` objects: `calculateEndDate`, `calculateWorkingDays`, dependency scheduling, parent rollup, the Late indicator, the workload dashboard, the Gantt date-range banner, and the chart's milestone/overdue logic.
+- **`playwright.config.js` now pins the test browser to `timezoneId: 'America/New_York'`** (a real, behind-UTC timezone) instead of the host machine's default, so this entire class of bug is caught automatically going forward instead of depending on where CI happens to run.
+- If you saw End dates before Start dates after updating to 2.9.0, click "↻ Sync Dependencies" once to fix it -- same as any other date recalculation.
+
+### 🧪 Testing
+- Added `tests/timezone-safety.spec.js`: a sanity check that the test browser is genuinely running in a non-UTC, behind-UTC timezone (so these tests can't silently stop testing anything), an exact reproduction of the reported regression, an invariant check that End is never before Start across a range of durations and weekend settings, direct verification of `parseLocalDate()` against several calendar dates, and a full reproduction of the production bug's exact data shape.
+- Full suite: 8 spec files, 45 tests, all pass under the new non-UTC timezone default.
+
+---
+
 ## [2.9.0] - 2026-08-24
 
 ### ✨ Added

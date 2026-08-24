@@ -4,7 +4,7 @@ Planned features and known follow-ups, evaluated one at a time before being buil
 
 ## Features
 
-_(nothing queued yet -- add ideas here as they come up)_
+- Add critical path highlighting: visually mark the chain of dependent tasks that determines the project's overall end date (in both the grid and the Gantt chart).
 
 ## Tech debt / follow-ups from the repo review
 

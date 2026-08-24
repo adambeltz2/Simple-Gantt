@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.10.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-2.10.1-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
 
@@ -336,7 +336,10 @@ Right-click      Context menu
 
 See [CHANGELOG.md](./CHANGELOG.md) for detailed release notes.
 
-### Latest: v2.10.0 (2026-08-24)
+### Latest: v2.10.1 (2026-08-24)
+🧪 **Test coverage expanded to CSV round-tripping and the Workload dashboard** – no functional changes; closes the last tech-debt item from the original repo review.
+
+### v2.10.0 (2026-08-24)
 ✨ **Notes Field** – Add a custom column literally named "Notes" (case-insensitive) and it becomes click-to-expand: each cell shows a small flag instead of raw text, opening a modal that renders a self-contained Markdown subset (bold, italic, links, bullet/numbered lists) with an Edit toggle. No new CDN dependency -- the renderer is a small inline subset, not a full library. Still a plain-text cell underneath (readOnly at the grid level so editing only happens through the modal), so it round-trips through CSV import/export exactly like any other custom column.
 
 ### v2.9.1 (2026-08-24)

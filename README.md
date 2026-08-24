@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.5.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-2.6.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
 
@@ -11,6 +11,7 @@ A lightweight, browser-based Gantt chart and task management tool. No server req
 - **Spreadsheet Grid** – Edit tasks in a familiar table format
 - **Task Hierarchy** – Support for parent-child task relationships
 - **Collapse/Expand** – Fold a parent's children out of view in both the grid and chart, with "Expand All"/"Collapse All" toolbar controls; purely visual, your data is never touched
+- **Manual "In Progress" Flag** – Click the marker next to any Task ID to tint that grid row purple for your own ad-hoc tracking; grid-only, never touches the Gantt chart or CSV export
 - **Progress Tracking** – Mark tasks as not started, in progress, complete, or overdue
 - **Dependencies** – Link tasks to show sequential relationships
 - **Milestones** – Create zero-duration milestone markers
@@ -341,7 +342,10 @@ Right-click      Context menu
 
 See [CHANGELOG.md](./CHANGELOG.md) for detailed release notes.
 
-### Latest: v2.5.0 (2026-08-24)
+### Latest: v2.6.0 (2026-08-24)
+✨ **Manual "In Progress" Flag** – Click the marker next to any Task ID to tint that row purple for your own ad-hoc tracking. Grid-only: never touches the Gantt chart, and has zero effect on CSV export or Dropbox backups.
+
+### v2.5.0 (2026-08-24)
 ✨ **Collapse/Expand Parent Tasks** – Fold a parent's children out of view via a toggle on its row (or "Expand All"/"Collapse All" in the toolbar). View-only: your task data is never modified, and the collapsed/expanded state is remembered per project.
 🔒 **CDN Integrity** – The pinned-version libraries (PapaParse, Frappe Gantt, html2canvas, Dropbox SDK) now load with Subresource Integrity hashes, so a compromised or altered CDN file can no longer execute silently.
 

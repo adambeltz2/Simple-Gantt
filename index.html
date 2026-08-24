@@ -478,7 +478,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.5.0";
+        const APP_VERSION = "2.6.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -497,7 +497,7 @@
         let appDB = {
             activeId: 'proj_1',
             settings: { skipWeekends: true, zoom: 'Day' },
-            projects: { 'proj_1': { name: 'Example Project', columns: [], data: sampleProjectData, collapsed: [] } }
+            projects: { 'proj_1': { name: 'Example Project', columns: [], data: sampleProjectData, collapsed: [], flagged: [] } }
         };
 
         try {
@@ -516,6 +516,7 @@
                 for (let pid in appDB.projects) {
                     if (!appDB.projects[pid].columns) appDB.projects[pid].columns = [];
                     if (!appDB.projects[pid].collapsed) appDB.projects[pid].collapsed = [];
+                    if (!appDB.projects[pid].flagged) appDB.projects[pid].flagged = [];
                     appDB.projects[pid].data = normalizeData(appDB.projects[pid].data, appDB.projects[pid].columns.length);
                 }
             }
@@ -570,7 +571,8 @@
                 name: name,
                 columns: [],
                 data: [['1', '1', '', '', '100', '0', '', '', '', '', '']],
-                collapsed: []
+                collapsed: [],
+                flagged: []
             };
             appDB.activeId = newId;
             updateProjectDropdown();
@@ -1015,7 +1017,8 @@
                                 columns: columns,
                                 data: normalizeData(data, columns.length),
                                 dropboxProjectId: discovered.id,
-                                collapsed: []
+                                collapsed: [],
+                                flagged: []
                             };
                             resolve();
                         }});
@@ -1442,9 +1445,25 @@
                     loopProtect++;
                 }
                 
-                cell.classList.remove('readonly-cell', 'readonly'); 
+                cell.classList.remove('readonly-cell', 'readonly');
                 if (col == COL.ID || col == COL.OUTLINE || col == COL.END) cell.classList.add('readonly-cell', 'readonly');
-                
+
+                if (col == COL.ID && rowID !== '') {
+                    let flagged = isFlagged(rowID);
+                    cell.innerHTML = '';
+                    let dot = document.createElement('span');
+                    dot.textContent = flagged ? '●' : '○';
+                    dot.title = flagged ? 'Marked in progress (click to clear)' : 'Mark in progress';
+                    dot.className = 'row-flag-toggle';
+                    dot.style.cssText = 'cursor:pointer; user-select:none; font-size:11px; margin-right:3px; color:' + (flagged ? '#9333ea' : '#cbd5e1') + ';';
+                    // Same stopPropagation-on-mousedown trick as the collapse toggle,
+                    // so this doesn't also trigger jexcel's cell selection/edit.
+                    dot.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+                    dot.addEventListener('click', function(e) { e.stopPropagation(); toggleFlag(rowID); });
+                    cell.appendChild(dot);
+                    cell.appendChild(document.createTextNode(val != null ? val : ''));
+                }
+
                 if (col == COL.NAME) {
                     cell.style.textAlign = 'left';
                     if (depth > 0) {
@@ -1593,6 +1612,43 @@
                     guard++;
                 }
                 if (hidden) sheet.hideRow(index); else sheet.showRow(index);
+            });
+        }
+
+        // ==========================================
+        // MANUAL "IN PROGRESS" FLAG (view-only -- never mutates task data or CSV export)
+        // ==========================================
+        function getFlaggedIds() {
+            let proj = appDB.projects[appDB.activeId];
+            if (!proj.flagged) proj.flagged = [];
+            return proj.flagged;
+        }
+
+        function isFlagged(taskId) {
+            return getFlaggedIds().includes(String(taskId));
+        }
+
+        function toggleFlag(taskId) {
+            let flagged = getFlaggedIds();
+            let key = String(taskId);
+            let idx = flagged.indexOf(key);
+            if (idx > -1) flagged.splice(idx, 1); else flagged.push(key);
+            saveToLocal();
+            if (sheet) sheet.updateTable();
+            applyRowFlagStyling();
+        }
+
+        // Tints flagged rows purple in the grid only -- no effect on the Gantt
+        // chart, sheet.getData(), or anything that gets exported/backed up.
+        function applyRowFlagStyling() {
+            if (!sheet || !sheet.rows) return;
+            const data = sheet.getData();
+            const flaggedSet = new Set(getFlaggedIds());
+            data.forEach((row, index) => {
+                const id = (row[COL.ID] != null) ? row[COL.ID].toString().trim() : '';
+                if (sheet.rows[index]) {
+                    sheet.rows[index].style.backgroundColor = flaggedSet.has(id) ? '#f3e8ff' : '';
+                }
             });
         }
 
@@ -2013,6 +2069,7 @@
                 }
 
                 applyRowVisibility();
+                applyRowFlagStyling();
 
             } catch (err) {
                 console.error("Gantt Rendering Error:", err);

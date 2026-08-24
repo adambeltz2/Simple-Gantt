@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.6.0] - 2026-08-24
+
+### ✨ Added
+
+#### Manual "In Progress" Flag
+- Click the ● marker next to any Task ID to tint that grid row purple -- a manual, ad-hoc tracking aid independent of the computed status coloring
+- Applies to every row, including milestones and parent/summary rows
+- Grid-only by design: never changes the Gantt chart's bar colors, and the flag itself is never written to CSV export or Dropbox backups -- it's stored per project alongside the collapse/expand state, not as part of the task data
+- State persists per project across reloads
+
+#### Testing
+- Added `tests/flag-in-progress.spec.js` covering the toggle, purple tint, data-integrity (grid data and column count unchanged), zero effect on the Gantt chart, CSV-export unaffected, and reload persistence
+
+---
+
 ## [2.5.0] - 2026-08-24
 
 ### ✨ Added

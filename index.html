@@ -398,7 +398,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.7.0";
+        const APP_VERSION = "2.8.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -750,12 +750,17 @@
             .catch(err => console.error("Dropbox prune list failed:", err));
         }
 
+        // Every CSV ingestion path (manual Import, Dropbox restore, Dropbox
+        // project discovery) funnels through here or through
+        // sanitizeImportedRows() directly, so this is the one place that
+        // needs to sanitize -- callers can't forget to.
         function applyImportedCSVData(data) {
+            let headers = [];
             if (data.length > 0 && (data[0][0] === 'ID' || data[0][1] === 'Outline')) {
-                let headers = data.shift();
+                headers = data.shift();
                 appDB.projects[appDB.activeId].columns = headers.slice(11);
             }
-            renderGrid(data);
+            renderGrid(sanitizeImportedRows(data, headers));
             syncToGantt(true);
         }
 
@@ -927,10 +932,12 @@
                         Papa.parse(reader.result, { skipEmptyLines: true, complete: function(results) {
                             let data = results.data;
                             let columns = [];
+                            let headers = [];
                             if (data.length > 0 && (data[0][0] === 'ID' || data[0][1] === 'Outline')) {
-                                let headers = data.shift();
+                                headers = data.shift();
                                 columns = headers.slice(11);
                             }
+                            data = sanitizeImportedRows(data, headers);
                             const newId = 'proj_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
                             appDB.projects[newId] = {
                                 name: discovered.name,
@@ -2080,24 +2087,29 @@
         function importCSV(event) {
             const file = event.target.files[0]; if(!file) return;
             Papa.parse(file, { skipEmptyLines: true, complete: function(results) {
-                // Sanitize imported data before applying
-                const sanitizedData = results.data.map((row, idx) => {
-                    if (idx === 0) return row; // Keep headers unchanged
-                    return row.map((cell, colIdx) => sanitizeImportedCell(cell, colIdx, results.data[0]));
-                });
-                applyImportedCSVData(sanitizedData);
+                applyImportedCSVData(results.data);
                 event.target.value = '';
             }});
         }
-        
+
+        // Applied to every row of every imported/restored CSV, regardless of
+        // source. Start/End get parsed into a strict YYYY-MM-DD or dropped;
+        // every other text field has HTML-significant characters stripped,
+        // since these are free-text fields (Task Name, Resource, custom
+        // columns) that only ever need to render as plain text -- this is
+        // the actual defense, not just a hope that every render site
+        // remembers to escape.
+        function sanitizeImportedRows(rows, headers) {
+            return rows.map((row) => row.map((cell, colIdx) => sanitizeImportedCell(cell, colIdx, headers)));
+        }
+
         function sanitizeImportedCell(cellValue, colIdx, headers) {
             if (!cellValue) return cellValue;
-            const header = headers[colIdx] || '';
-            // Sanitize date columns
+            const header = (headers && headers[colIdx]) || '';
             if (header === 'Start' || header === 'End') {
                 return parseCSVDate(cellValue);
             }
-            return cellValue;
+            return typeof cellValue === 'string' ? cellValue.replace(/[<>]/g, '') : cellValue;
         }
         
         function parseCSVDate(dateString) {

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.8.0] - 2026-08-24
+
+### 🔒 Security
+
+#### CSV import sanitization, closed for every ingestion path
+- Previously, only the manual "Import" button sanitized anything, and even then only the Start/End date columns -- Task Name, Resource, and custom columns passed through raw. The other two CSV ingestion paths (Dropbox backup restore via `restoreBackup()`, and Dropbox project discovery via `importDiscoveredProject()`) didn't sanitize at all.
+- Centralized sanitization into `applyImportedCSVData()` (used by the Import button and Dropbox restore) and a new shared `sanitizeImportedRows()` helper (also called directly by `importDiscoveredProject()`, which builds its project object without going through `applyImportedCSVData()`). Every path now sanitizes by construction instead of relying on each caller to remember to.
+- `sanitizeImportedCell()` now strips `<`/`>` from any text field, not just dates -- these are free-text fields that only ever need to render as plain text, so this removes the actual ability to inject markup rather than relying solely on every render site remembering to escape.
+
+### 🧪 Testing
+- Added `tests/csv-sanitization.spec.js`: verifies sanitization on the `restoreBackup()`/`applyImportedCSVData()` path, on `sanitizeImportedRows()` directly for arbitrary custom columns, that date parsing still works correctly alongside it, that legitimate text (parentheses, `%`, `@`) is left untouched, and an end-to-end test importing a crafted CSV through the actual file input.
+
+---
+
 ## [2.7.0] - 2026-08-24
 
 ### 🐛 Fixed

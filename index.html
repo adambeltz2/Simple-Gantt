@@ -372,6 +372,21 @@
         </div>
     </div>
 
+    <div id="notesModal" class="modal" onclick="if(event.target===this) closeNotesModal()">
+        <div class="modal-content" style="max-width: 560px; height: 65vh; padding: 25px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+                <h2 id="notesModalTitle" style="margin:0; color:#0f172a; font-size: 17px;">Notes</h2>
+                <button onclick="closeNotesModal()" style="padding: 6px 15px; background: #ef4444; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Close</button>
+            </div>
+            <div id="notesBody" style="flex:1; overflow:auto; font-size: 14px; color:#1e293b; line-height:1.5;"></div>
+            <div style="display:flex; justify-content:flex-end; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #e2e8f0;">
+                <button id="notesCancelBtn" onclick="cancelNotesEdit()" style="display:none; padding: 8px 16px; background: #e2e8f0; color: #334155; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Cancel</button>
+                <button id="notesEditBtn" onclick="enterNotesEditMode()" style="padding: 8px 16px; background: #185FA5; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Edit</button>
+                <button id="notesSaveBtn" onclick="saveNotesEdit()" style="display:none; padding: 8px 16px; background: #10b981; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Save</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         function format(d) {
             if (!d) return '';
@@ -415,7 +430,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.9.1";
+        const APP_VERSION = "2.10.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -978,6 +993,110 @@
             return d.innerHTML;
         }
 
+        // ==========================================
+        // NOTES (Markdown, behind a click-to-expand modal)
+        // ==========================================
+        // A small, self-contained Markdown subset -- bold, italic, links,
+        // and bullet/numbered lists -- deliberately not a full CommonMark
+        // library, so this doesn't add another CDN dependency to pin/hash.
+        // Always escapes first, so user text can never inject real HTML;
+        // only the tags this function inserts itself ever reach the DOM.
+        function renderNotesMarkdown(text) {
+            if (!text || !text.trim()) return '';
+            // Split into lines BEFORE escaping: escapeHtml() round-trips
+            // through element.innerText/innerHTML, and the browser silently
+            // turns embedded newlines into <br> during that round-trip --
+            // escaping the whole multi-line block first would destroy the
+            // very newlines this function needs to detect list items.
+            const lines = text.split('\n').map(line => {
+                let html = escapeHtml(line);
+                html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+                html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+                html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+                html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+                html = html.replace(/(^|[^\w])_([^_]+)_(?=$|[^\w])/g, '$1<em>$2</em>');
+                return html;
+            });
+            let out = ''; let listType = null;
+            const closeList = () => { if (listType) { out += listType === 'ul' ? '</ul>' : '</ol>'; listType = null; } };
+
+            lines.forEach(line => {
+                const bullet = /^\s*[-*]\s+(.*)$/.exec(line);
+                const numbered = /^\s*\d+\.\s+(.*)$/.exec(line);
+                if (bullet) {
+                    if (listType !== 'ul') { closeList(); out += '<ul style="margin:4px 0; padding-left:20px;">'; listType = 'ul'; }
+                    out += `<li>${bullet[1]}</li>`;
+                } else if (numbered) {
+                    if (listType !== 'ol') { closeList(); out += '<ol style="margin:4px 0; padding-left:20px;">'; listType = 'ol'; }
+                    out += `<li>${numbered[1]}</li>`;
+                } else {
+                    closeList();
+                    out += line.trim() === '' ? '<br>' : `<p style="margin:4px 0;">${line}</p>`;
+                }
+            });
+            closeList();
+            return out;
+        }
+
+        let notesModalContext = null;
+
+        function openNotesModal(row, col) {
+            notesModalContext = { row, col };
+            const data = sheet.getData();
+            const taskName = data[row][COL.NAME] || '(untitled task)';
+            document.getElementById('notesModalTitle').innerText = `Notes — ${taskName}`;
+            renderNotesView(data[row][col] || '');
+            document.getElementById('notesModal').classList.add('active');
+        }
+
+        function closeNotesModal() {
+            document.getElementById('notesModal').classList.remove('active');
+            notesModalContext = null;
+        }
+
+        function renderNotesView(text) {
+            const body = document.getElementById('notesBody');
+            const rendered = renderNotesMarkdown(text);
+            body.innerHTML = rendered || '<p style="color:#94a3b8;">No notes yet. Click Edit to add some.</p>';
+            document.getElementById('notesEditBtn').style.display = '';
+            document.getElementById('notesSaveBtn').style.display = 'none';
+            document.getElementById('notesCancelBtn').style.display = 'none';
+        }
+
+        function enterNotesEditMode() {
+            if (!notesModalContext) return;
+            const { row, col } = notesModalContext;
+            const val = sheet.getData()[row][col] || '';
+            const body = document.getElementById('notesBody');
+            body.innerHTML = '';
+            const textarea = document.createElement('textarea');
+            textarea.id = 'notesEditTextarea';
+            textarea.value = val;
+            textarea.placeholder = 'Markdown supported: **bold**, *italic*, [link](https://...), - bullets, 1. numbered lists';
+            textarea.style.cssText = 'width:100%; height:100%; min-height:260px; box-sizing:border-box; font-family:ui-monospace,monospace; font-size:13px; padding:10px; border:1px solid #cbd5e1; border-radius:4px; resize:vertical;';
+            body.appendChild(textarea);
+            document.getElementById('notesEditBtn').style.display = 'none';
+            document.getElementById('notesSaveBtn').style.display = '';
+            document.getElementById('notesCancelBtn').style.display = '';
+            textarea.focus();
+        }
+
+        function saveNotesEdit() {
+            if (!notesModalContext) return;
+            const { row, col } = notesModalContext;
+            const textarea = document.getElementById('notesEditTextarea');
+            const newVal = textarea ? textarea.value : '';
+            sheet.setValueFromCoords(col, row, newVal, true);
+            saveToLocal();
+            renderNotesView(newVal);
+        }
+
+        function cancelNotesEdit() {
+            if (!notesModalContext) return;
+            const { row, col } = notesModalContext;
+            renderNotesView(sheet.getData()[row][col] || '');
+        }
+
         function renderGanttLegend(show) {
             const legend = document.getElementById('ganttLegend');
             if (!legend) return;
@@ -1429,6 +1548,23 @@
                     }
                 }
 
+                if (col >= 11) {
+                    const colDef = instance.jexcel.options.columns[col];
+                    const colTitle = colDef && colDef.title ? colDef.title.trim().toLowerCase() : '';
+                    if (colTitle === 'notes') {
+                        const hasContent = val != null && String(val).trim() !== '';
+                        cell.innerHTML = '';
+                        const icon = document.createElement('span');
+                        icon.textContent = hasContent ? '📝' : '+';
+                        icon.title = hasContent ? 'View/edit notes' : 'Add notes';
+                        icon.className = 'notes-flag';
+                        icon.style.cssText = 'cursor:pointer; user-select:none; font-size:' + (hasContent ? '14px' : '13px') + '; color:' + (hasContent ? 'inherit' : '#cbd5e1') + ';';
+                        icon.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+                        icon.addEventListener('click', function(e) { e.stopPropagation(); openNotesModal(row, col); });
+                        cell.appendChild(icon);
+                    }
+                }
+
                 if (col == COL.ID && rowID !== '') {
                     let flagged = isFlagged(rowID);
                     cell.innerHTML = '';
@@ -1674,7 +1810,14 @@
             ];
 
             if (activeProj.columns) {
-                activeProj.columns.forEach(c => cols.push({ type: 'text', title: c, width: 100, align: 'left' }));
+                activeProj.columns.forEach(c => {
+                    // A custom column literally named "Notes" gets Markdown
+                    // rendering behind a click-to-expand modal instead of
+                    // raw inline editing -- readOnly here so the only way
+                    // to change it is through that modal.
+                    const isNotes = c.trim().toLowerCase() === 'notes';
+                    cols.push({ type: 'text', title: c, width: isNotes ? 70 : 100, align: isNotes ? 'center' : 'left', readOnly: isNotes });
+                });
             }
 
             let initialSourceList = dataToLoad.map(r => ({ id: r[COL.ID], name: `${r[COL.ID]} - ${r[COL.NAME] || ''}` })).filter(r => r.id);
@@ -1733,6 +1876,9 @@
                                     if(newName) {
                                         sheet.setHeader(x, newName);
                                         syncColumnsToDB();
+                                        // Rebuild so a rename to/from "Notes" picks up (or
+                                        // drops) the readOnly + Markdown-modal treatment.
+                                        renderGrid(sheet.getData());
                                     }
                                 }
                             });

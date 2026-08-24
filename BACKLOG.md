@@ -4,7 +4,10 @@ Planned features and known follow-ups, evaluated one at a time before being buil
 
 ## Features
 
-_(nothing queued yet -- add ideas here as they come up)_
+- Add critical path highlighting: visually mark the chain of dependent tasks that determines the project's overall end date (in both the grid and the Gantt chart).
+- Add grid search/filter: quickly jump to or filter rows by task name/resource, useful once a project gets past ~50 rows.
+- Add PDF export: a proper paginated print/PDF view of the Gantt chart, for status reports and stakeholder sharing (currently only PNG export exists).
+- Add explicit dependency cycle detection: the app currently only guards against a task depending on/parenting itself directly. A longer cycle (A depends on B depends on A) isn't detected or warned about -- worth an explicit check with a clear error message.
 
 ## Tech debt / follow-ups from the repo review
 

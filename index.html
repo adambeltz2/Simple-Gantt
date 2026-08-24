@@ -175,6 +175,17 @@
                 </button>
             </div>
             <div class="toolbar-group">
+                <div style="position:relative; display:flex; align-items:center;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute; left:8px; pointer-events:none;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <input id="gridSearchInput" type="text" placeholder="Search name or resource..." oninput="onGridSearchInput(this.value)"
+                        style="background:#1e293b; color:#e2e8f0; border:0.5px solid #334155; border-radius:6px; padding:6px 26px 6px 26px; font-size:12.5px; outline:none; width:180px;">
+                    <button id="gridSearchClear" onclick="clearGridSearch()" title="Clear search"
+                        style="display:none; position:absolute; right:5px; background:none; border:none; color:#94a3b8; cursor:pointer; padding:2px; line-height:0;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="toolbar-group">
                 <select id="zoomScale" class="tbtn-select" onchange="changeZoom()">
                     <option value="Day">Zoom: Day</option>
                     <option value="Week">Zoom: Week</option>
@@ -430,7 +441,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.10.1";
+        const APP_VERSION = "2.11.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -509,6 +520,7 @@
                 createNewProject();
             } else {
                 appDB.activeId = val;
+                resetGridSearch();
                 renderGrid();
                 syncToGantt(true);
             }
@@ -527,6 +539,7 @@
                 flagged: []
             };
             appDB.activeId = newId;
+            resetGridSearch();
             updateProjectDropdown();
             renderGrid();
             syncToGantt(true);
@@ -553,6 +566,7 @@
 
             delete appDB.projects[appDB.activeId];
             appDB.activeId = Object.keys(appDB.projects)[0];
+            resetGridSearch();
             updateProjectDropdown();
             renderGrid();
             syncToGantt(true);
@@ -1706,29 +1720,88 @@
             syncToGantt(false);
         }
 
-        // Hides/shows grid rows (via jexcel's own hideRow/showRow) for any task with
-        // a collapsed ancestor. Purely a display concern -- sheet.getData() and appDB
-        // still contain every row regardless of what's currently hidden.
+        // ==========================================
+        // GRID SEARCH / FILTER (view-only, like collapse -- never mutates task data)
+        // ==========================================
+        // Deliberately not jexcel's own built-in search(): that removes
+        // non-matching <tr> elements from the DOM and manages its own
+        // display state, which would fight with the hideRow/showRow calls
+        // applyRowVisibility() below already relies on for collapse. One
+        // unified visibility pass avoids the two mechanisms undoing each other.
+        let gridSearchQuery = '';
+
+        function onGridSearchInput(value) {
+            gridSearchQuery = (value || '').trim().toLowerCase();
+            document.getElementById('gridSearchClear').style.display = gridSearchQuery ? '' : 'none';
+            applyRowVisibility();
+        }
+
+        function clearGridSearch() {
+            document.getElementById('gridSearchInput').value = '';
+            onGridSearchInput('');
+        }
+
+        // Search is transient, not a saved-per-project preference like
+        // collapse -- called on every project switch/create/delete so a
+        // stale query from the previous project never carries over.
+        function resetGridSearch() {
+            gridSearchQuery = '';
+            document.getElementById('gridSearchInput').value = '';
+            document.getElementById('gridSearchClear').style.display = 'none';
+        }
+
+        // Hides/shows grid rows (via jexcel's own hideRow/showRow) for any task
+        // with a collapsed ancestor, and/or that doesn't match the active search
+        // (search keeps a matched row's ancestors visible too, for outline
+        // context, but never overrides a manual collapse -- the two compose
+        // with AND, not one overriding the other). Purely a display concern --
+        // sheet.getData() and appDB still contain every row regardless of what's
+        // currently hidden.
         function applyRowVisibility() {
             if (!sheet || typeof sheet.hideRow !== 'function') return;
             const data = sheet.getData();
             const collapsedSet = new Set(getCollapsedIds());
             const parentOf = {};
-            data.forEach(row => {
+            const idToIndex = {};
+            data.forEach((row, i) => {
                 const id = (row[COL.ID] != null) ? row[COL.ID].toString().trim() : '';
-                if (id) parentOf[id] = (row[COL.PARENT] != null) ? row[COL.PARENT].toString().trim() : '';
+                if (id) {
+                    parentOf[id] = (row[COL.PARENT] != null) ? row[COL.PARENT].toString().trim() : '';
+                    idToIndex[id] = i;
+                }
             });
+
+            let keepForSearch = null;
+            if (gridSearchQuery) {
+                keepForSearch = new Set();
+                data.forEach((row, i) => {
+                    const name = (row[COL.NAME] || '').toString().toLowerCase();
+                    const resource = (row[COL.RESOURCE] || '').toString().toLowerCase();
+                    if (!name.includes(gridSearchQuery) && !resource.includes(gridSearchQuery)) return;
+                    keepForSearch.add(i);
+                    const id = (row[COL.ID] != null) ? row[COL.ID].toString().trim() : '';
+                    let pid = parentOf[id] || '';
+                    let guard = 0;
+                    while (pid && guard < 30) {
+                        if (idToIndex[pid] !== undefined) keepForSearch.add(idToIndex[pid]);
+                        pid = parentOf[pid] || '';
+                        guard++;
+                    }
+                });
+            }
+
             data.forEach((row, index) => {
                 const id = (row[COL.ID] != null) ? row[COL.ID].toString().trim() : '';
-                let hidden = false;
+                let hiddenByCollapse = false;
                 let ancestor = parentOf[id] || '';
                 let guard = 0;
                 while (ancestor && guard < 30) {
-                    if (collapsedSet.has(ancestor)) { hidden = true; break; }
+                    if (collapsedSet.has(ancestor)) { hiddenByCollapse = true; break; }
                     ancestor = parentOf[ancestor] || '';
                     guard++;
                 }
-                if (hidden) sheet.hideRow(index); else sheet.showRow(index);
+                const hiddenBySearch = keepForSearch !== null && !keepForSearch.has(index);
+                if (hiddenByCollapse || hiddenBySearch) sheet.hideRow(index); else sheet.showRow(index);
             });
         }
 

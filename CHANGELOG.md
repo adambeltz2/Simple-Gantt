@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.11.0] - 2026-08-24
+
+### ✨ Added
+
+#### Grid Search/Filter
+- A search box in the toolbar filters rows by Task Name or Resource (case-insensitive substring match).
+- A match's ancestor chain (parent, grandparent, ...) stays visible too, for outline context -- otherwise a matched leaf task would show up orphaned with no indication of where it lives in the hierarchy.
+- Composes with Collapse via AND, not override: a manually collapsed section stays collapsed even if something inside it matches the search. Neither mechanism fights the other for control of a row's visibility.
+- Deliberately not built on jexcel's own built-in `search()`: that function detaches non-matching `<tr>` elements from the DOM entirely and manages its own display state, which would directly conflict with the `hideRow`/`showRow` calls the existing Collapse feature already relies on. Instead, `applyRowVisibility()` (already the single source of truth for Collapse) was extended to also account for the active search query in the same pass.
+- Purely a display concern, like Collapse and the In Progress flag -- `sheet.getData()` and CSV export are always the full, unfiltered data regardless of what's currently visible.
+- Resets automatically on project switch/create/delete, since it's a transient "find it right now" tool rather than a saved-per-project preference.
+
+### 🧪 Testing
+- Added `tests/grid-search.spec.js`: matching by name and resource, case-insensitivity, the ancestor-visibility behavior, the no-matches empty state, clearing via the X button, composition with manual collapse, data-integrity (search never touches `sheet.getData()`), and reset on project switch.
+- Full suite: 12 spec files, 75 tests, all pass.
+
+---
+
 ## [2.10.1] - 2026-08-24
 
 ### 🧪 Testing

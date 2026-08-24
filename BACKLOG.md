@@ -3,8 +3,8 @@
 Planned features and known follow-ups, evaluated one at a time before being built.
 
 ## Features
-
-_(nothing queued yet -- add ideas here as they come up)_
+- Add a Notes fields that is in Markdown and can add a large block of text. It would only be visible in the UI if someone clicks into it (indicated by a flag) but when we export/import to CSV it would be available.
+- Create a "Late" Flag, that visually indicates the task/parent is behind. It should be calculated based on the dates where anything in the future is blank/null but current day is "yellow" caution. Anything behind is "red", risk.
 
 ## Tech debt / follow-ups from the repo review
 
@@ -12,3 +12,6 @@ _(nothing queued yet -- add ideas here as they come up)_
 - **CSV import only sanitizes the Start/End columns.** Task Name and Resource pass through raw from imported (or Dropbox-discovered) CSVs. Currently safe because every render site escapes those values, but a shared/malicious CSV is one missed escape away from stored XSS. Worth closing so it's not relying solely on render-site discipline.
 - **`recalculateDatesUpstream` (the "Sync Dependencies" button) isn't wired into CSV import, CSV export, or Dropbox backup**, despite the CHANGELOG/README historically describing it as automatic on all three. Either wire it in (using the same parent-rollup logic `syncToGantt` already runs live) or make the docs match reality -- currently it's manual-only.
 - **Expand automated test coverage beyond the collapse/expand and in-progress-flag suites** (`tests/collapse-expand.spec.js`, `tests/flag-in-progress.spec.js`). No coverage yet for CSV import/export round-tripping, the dependency date-chaining logic, or the workload dashboard.
+- **Expand automated test coverage beyond the new collapse/expand suite** (`tests/collapse-expand.spec.js`). No coverage yet for CSV import/export round-tripping, the dependency date-chaining logic, or the workload dashboard.
+- **Add Feature for "In Progress"** If this box is ticked it turns the UI into a purple color so we can manually track visually but has no impact on the csv file itself
+- Ensure that Backups have a finite number associated to them. Perhaps 100 is a good number. Once we get to the 101 version of changes the oldest (1) record is deleted as an example.

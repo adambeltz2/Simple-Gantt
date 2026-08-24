@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.9.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-2.9.1-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
 
@@ -335,7 +335,10 @@ Right-click      Context menu
 
 See [CHANGELOG.md](./CHANGELOG.md) for detailed release notes.
 
-### Latest: v2.9.0 (2026-08-24)
+### Latest: v2.9.1 (2026-08-24)
+🐛 **Critical date bug fixed: End dates were landing before Start dates for users in most US/Americas timezones** – `new Date("YYYY-MM-DD")` parses as UTC midnight, which silently rolls back to the previous calendar day when read in any timezone behind UTC. This was masked for years by the old exclusive-End convention (fixed in 2.9.0) accidentally canceling it out for 1-day tasks -- removing that convention unmasked it. Every internal date parse now goes through a timezone-safe helper. **If you saw End dates before Start dates after updating to 2.9.0, click "↻ Sync Dependencies" once now** to fix it.
+
+### v2.9.0 (2026-08-24)
 ✨ **Late Indicator** – The End column colors itself automatically (red = overdue, yellow = due today) on every row, including parents. Grid-only, like the In Progress flag.
 
 🐛 **End date is now inclusive** – "End" now means the actual last day of work, not the day after it. A 1-day task starting 8/20 now shows End=8/20 (previously 8/21). This also fixes two side effects of the old convention: Gantt bars were rendering one day wider than they should have, and the chart's "overdue" red coloring was kicking in a day later than it should have. **If you have existing projects**, their stored End dates were computed under the old convention -- click **"↻ Sync Dependencies"** once after updating to refresh everything to the new one. Successor tasks (via "Depends") still start the very next working day after their dependency finishes; only the stored date's meaning changed, not the actual schedule.

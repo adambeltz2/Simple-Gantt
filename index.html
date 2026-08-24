@@ -388,6 +388,23 @@
             return `${year}-${month}-${day}`;
         }
 
+        // `new Date("YYYY-MM-DD")` is parsed as UTC midnight per the
+        // ECMAScript spec -- in any timezone behind UTC (most of the
+        // Americas), reading it back with local getters (getDate, getDay,
+        // etc.) silently rolls it back to the previous calendar day. Every
+        // date string this app produces internally is YYYY-MM-DD, so always
+        // parse those through here instead of the bare `new Date(str)`
+        // constructor. Behaves exactly like `new Date(...)` for anything
+        // that isn't our own canonical format (including Invalid Date for
+        // bad input), so it's a safe drop-in replacement everywhere.
+        function parseLocalDate(dateStr) {
+            if (typeof dateStr === 'string') {
+                const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr);
+                if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+            }
+            return new Date(dateStr);
+        }
+
         function showStatus(text, color) {
             const status = document.getElementById('saveStatus');
             const clean = text.replace(/^[✓✗⚠]\s*/, '');
@@ -398,7 +415,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.9.0";
+        const APP_VERSION = "2.9.1";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -991,7 +1008,7 @@
 
             let minStart = null, maxEnd = null;
             frappeTasks.forEach(t => {
-                const s = new Date(t.start), e = new Date(t.end);
+                const s = parseLocalDate(t.start), e = parseLocalDate(t.end);
                 if (isNaN(s) || isNaN(e)) return;
                 if (!minStart || s < minStart) minStart = s;
                 if (!maxEnd || e > maxEnd) maxEnd = e;
@@ -1151,7 +1168,7 @@
             }
 
             workingTasks.forEach(task => {
-                let d = new Date(task.start);
+                let d = parseLocalDate(task.start);
                 if (isNaN(d.getTime())) return; // malformed start date on this task -- skip it rather than crash the whole workload view
                 let daysAdded = 0;
                 
@@ -1323,7 +1340,7 @@
         function calculateEndDate(startDate, durationDays) {
             if (!startDate) return '';
             if (durationDays === 0) return startDate;
-            let d = new Date(startDate);
+            let d = parseLocalDate(startDate);
             if (isNaN(d.getTime())) return ''; // malformed start date -- don't let this throw and abort the whole sync
             let added = 0; let visualDaysToMove = durationDays - 1;
             if (shouldSkipWeekends()) {
@@ -1335,7 +1352,7 @@
         }
 
         function calculateWorkingDays(startDate, endDate) {
-            let s = new Date(startDate); let e = new Date(endDate);
+            let s = parseLocalDate(startDate); let e = parseLocalDate(endDate);
             if (isNaN(s.getTime()) || isNaN(e.getTime())) return 0; // malformed dates -- degrade gracefully instead of propagating NaN
             if (!shouldSkipWeekends()) return Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
             let days = 0; let temp = new Date(s);
@@ -1353,7 +1370,7 @@
         // own rolled-up value, so no special-casing is needed there.
         function computeLateStatus(endDateStr) {
             if (!endDateStr) return null;
-            const end = new Date(endDateStr);
+            const end = parseLocalDate(endDateStr);
             if (isNaN(end.getTime())) return null;
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -1880,7 +1897,7 @@
                                 if (dep) {
                                     let dateStr = dep.end || dep.start;
                                     if (dateStr) {
-                                        let dEnd = new Date(dateStr);
+                                        let dEnd = parseLocalDate(dateStr);
                                         if (!isNaN(dEnd) && (!maxDepEnd || dEnd > maxDepEnd)) {
                                             maxDepEnd = dEnd;
                                         }
@@ -1896,7 +1913,7 @@
                                 nextDay.setDate(nextDay.getDate() + 1);
                                 let calculatedStart = format(nextDay);
                                 if (shouldSkipWeekends()) {
-                                    let checkDate = new Date(calculatedStart);
+                                    let checkDate = parseLocalDate(calculatedStart);
                                     if (checkDate.getDay() === 6) checkDate.setDate(checkDate.getDate() + 2);
                                     if (checkDate.getDay() === 0) checkDate.setDate(checkDate.getDate() + 1);
                                     calculatedStart = format(checkDate);
@@ -1937,8 +1954,8 @@
                         let children = Object.values(tasksMap).filter(t => t.parentId === parentId && t.start && (t.end || t.dur === 0));
                         if (children.length > 0 && pTask) {
                             try {
-                            let minStart = new Date(Math.min(...children.map(c => new Date(c.start))));
-                            let maxEnd = new Date(Math.max(...children.map(c => new Date(c.end || c.start))));
+                            let minStart = new Date(Math.min(...children.map(c => parseLocalDate(c.start))));
+                            let maxEnd = new Date(Math.max(...children.map(c => parseLocalDate(c.end || c.start))));
                             if (isNaN(minStart.getTime()) || isNaN(maxEnd.getTime())) return; // a child has a malformed date -- skip this parent's rollup rather than crash
 
                             let newStart = format(minStart); let newEnd = format(maxEnd);
@@ -1977,10 +1994,10 @@
 
                     if (t.dur === 0) {
                         customClass = 'is-milestone';
-                        let d = new Date(t.start);
+                        let d = parseLocalDate(t.start);
                         if (!isNaN(d.getTime())) { d.setDate(d.getDate() + 1); fEnd = format(d); }
                     } else if (!t.isParent) {
-                        let taskEndDate = new Date(t.end);
+                        let taskEndDate = parseLocalDate(t.end);
                         if (t.pct === 100) { customClass = 'is-complete'; }
                         else if (taskEndDate < today) { customClass = 'is-overdue'; }
                         else if (t.pct === 0) { customClass = 'is-not-started'; }

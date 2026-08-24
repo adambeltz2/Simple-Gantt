@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.9.1-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-2.10.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
 
@@ -13,6 +13,7 @@ A lightweight, browser-based Gantt chart and task management tool. No server req
 - **Collapse/Expand** – Fold a parent's children out of view in both the grid and chart, with "Expand All"/"Collapse All" toolbar controls; purely visual, your data is never touched
 - **Manual "In Progress" Flag** – Click the marker next to any Task ID to tint that grid row purple for your own ad-hoc tracking; grid-only, never touches the Gantt chart or CSV export
 - **Late Indicator** – The End column tints itself automatically: red if it's in the past, yellow if it's today, no color if it's not due yet. Pure date math (doesn't consult % Done), applies to every row including parents. Grid-only, like the In Progress flag
+- **Notes Field** – Add a custom column named "Notes" and each row gets a small click-to-expand flag instead of raw inline text. Opens a modal rendering a lightweight Markdown subset (bold, italic, links, lists); still a plain-text cell underneath, so it round-trips through CSV import/export like any other custom column
 - **Progress Tracking** – Mark tasks as not started, in progress, complete, or overdue
 - **Dependencies** – Link tasks to show sequential relationships
 - **Milestones** – Create zero-duration milestone markers
@@ -335,7 +336,10 @@ Right-click      Context menu
 
 See [CHANGELOG.md](./CHANGELOG.md) for detailed release notes.
 
-### Latest: v2.9.1 (2026-08-24)
+### Latest: v2.10.0 (2026-08-24)
+✨ **Notes Field** – Add a custom column literally named "Notes" (case-insensitive) and it becomes click-to-expand: each cell shows a small flag instead of raw text, opening a modal that renders a self-contained Markdown subset (bold, italic, links, bullet/numbered lists) with an Edit toggle. No new CDN dependency -- the renderer is a small inline subset, not a full library. Still a plain-text cell underneath (readOnly at the grid level so editing only happens through the modal), so it round-trips through CSV import/export exactly like any other custom column.
+
+### v2.9.1 (2026-08-24)
 🐛 **Critical date bug fixed: End dates were landing before Start dates for users in most US/Americas timezones** – `new Date("YYYY-MM-DD")` parses as UTC midnight, which silently rolls back to the previous calendar day when read in any timezone behind UTC. This was masked for years by the old exclusive-End convention (fixed in 2.9.0) accidentally canceling it out for 1-day tasks -- removing that convention unmasked it. Every internal date parse now goes through a timezone-safe helper. **If you saw End dates before Start dates after updating to 2.9.0, click "↻ Sync Dependencies" once now** to fix it.
 
 ### v2.9.0 (2026-08-24)

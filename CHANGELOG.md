@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.10.0] - 2026-08-24
+
+### ✨ Added
+
+#### Notes Field
+- A custom column literally named "Notes" (case-insensitive, matching what several real projects already had as a plain-text custom column) now renders as a small click-to-expand flag (📝 if it has content, + if empty) instead of raw inline text.
+- Clicking it opens a modal titled with the task's name, rendering the note through a lightweight, self-contained Markdown subset -- bold (`**x**`/`__x__`), italic (`*x*`/`_x_`), links (`[text](https://...)`), and bullet/numbered lists. Deliberately not a full CommonMark library: no new CDN dependency to version-pin and SRI-hash, given how much of this project's recent history has been about hardening exactly that.
+- An Edit toggle switches to a raw-text textarea; Save writes the raw Markdown source back to the cell (still a plain-text value, so CSV export/import round-trips it unchanged like any other custom column) and re-renders; Cancel discards changes.
+- The column is readOnly at the grid level -- the modal is the only way to change it, so a stray double-click can't leave half-typed Markdown syntax sitting in a tiny cell.
+- Always escapes user text before inserting any Markdown-derived HTML, so typed `<script>`/`<img onerror>`-style content can never execute -- it renders as inert visible text.
+- Renaming a column to or from "Notes" (via the existing right-click Rename) picks up or drops the treatment immediately.
+
+### 🧪 Testing
+- Added `tests/notes-field.spec.js`: the icon vs raw-text rendering, readOnly enforcement, modal title/rendering, the empty-note placeholder, edit/save writing raw Markdown back to the cell, Cancel discarding edits, HTML-escaping safety, non-"Notes" custom columns being unaffected, and CSV-header round-tripping.
+- Found and fixed a real bug while writing these tests: `escapeHtml()`'s `innerText`/`innerHTML` round-trip silently converts embedded newlines into `<br>` in the browser, which broke multi-line note list-detection (it split on `\n` *after* escaping, by which point the newlines were already gone). Fixed by escaping each line individually, after splitting -- caught immediately by the new list-rendering test rather than shipping silently broken.
+- Full suite: 9 spec files, 54 tests, all pass.
+
+---
+
 ## [2.9.1] - 2026-08-24
 
 ### 🐛 Fixed

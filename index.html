@@ -398,7 +398,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.8.0";
+        const APP_VERSION = "2.9.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -1317,9 +1317,12 @@
 
         function shouldSkipWeekends() { return document.getElementById('skipWeekends').checked; }
 
+        // End is inclusive: it's the last day of work, matching what "End"
+        // means to a person filling in a spreadsheet (and what round-trips
+        // cleanly through CSV). A 1-day task starting 8/20 has End=8/20.
         function calculateEndDate(startDate, durationDays) {
             if (!startDate) return '';
-            if (durationDays === 0) return startDate; 
+            if (durationDays === 0) return startDate;
             let d = new Date(startDate);
             if (isNaN(d.getTime())) return ''; // malformed start date -- don't let this throw and abort the whole sync
             let added = 0; let visualDaysToMove = durationDays - 1;
@@ -1328,19 +1331,36 @@
                     d.setDate(d.getDate() + 1); if (d.getDay() !== 0 && d.getDay() !== 6) added++;
                 }
             } else { d.setDate(d.getDate() + visualDaysToMove); }
-            d.setDate(d.getDate() + 1); return format(d);
+            return format(d);
         }
 
         function calculateWorkingDays(startDate, endDate) {
             let s = new Date(startDate); let e = new Date(endDate);
             if (isNaN(s.getTime()) || isNaN(e.getTime())) return 0; // malformed dates -- degrade gracefully instead of propagating NaN
-            e.setDate(e.getDate() - 1); 
             if (!shouldSkipWeekends()) return Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
             let days = 0; let temp = new Date(s);
             while (temp <= e) {
                 if (temp.getDay() !== 0 && temp.getDay() !== 6) days++; temp.setDate(temp.getDate() + 1);
             }
             return days;
+        }
+
+        // Pure date math, deliberately ignoring % Done (per the same "dates
+        // are on the user" decision as dependency scheduling): red once the
+        // End date is in the past, yellow when it's today, null (no status)
+        // for a future or missing End date. Applies uniformly to every row
+        // including parents and milestones -- a parent's End is already its
+        // own rolled-up value, so no special-casing is needed there.
+        function computeLateStatus(endDateStr) {
+            if (!endDateStr) return null;
+            const end = new Date(endDateStr);
+            if (isNaN(end.getTime())) return null;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            end.setHours(0, 0, 0, 0);
+            if (end.getTime() < today.getTime()) return 'red';
+            if (end.getTime() === today.getTime()) return 'yellow';
+            return null;
         }
 
         function formatCells(instance, cell, col, row, val, label, cellName) {
@@ -1374,6 +1394,23 @@
                 
                 cell.classList.remove('readonly-cell', 'readonly');
                 if (col == COL.ID || col == COL.OUTLINE || col == COL.END) cell.classList.add('readonly-cell', 'readonly');
+
+                if (col == COL.END) {
+                    const status = computeLateStatus(val);
+                    if (status === 'red') {
+                        cell.style.backgroundColor = '#fecaca';
+                        cell.style.color = '#991b1b';
+                        cell.title = 'Overdue';
+                    } else if (status === 'yellow') {
+                        cell.style.backgroundColor = '#fef08a';
+                        cell.style.color = '#854d0e';
+                        cell.title = 'Due today';
+                    } else {
+                        cell.style.backgroundColor = '';
+                        cell.style.color = '';
+                        cell.title = '';
+                    }
+                }
 
                 if (col == COL.ID && rowID !== '') {
                     let flagged = isFlagged(rowID);
@@ -1853,7 +1890,11 @@
                             // -------------------------------------------------------------
                             
                             if (maxDepEnd) {
-                                let calculatedStart = format(maxDepEnd);
+                                // maxDepEnd is the dependency's own (inclusive) End --
+                                // the successor can't start until the day after that.
+                                let nextDay = new Date(maxDepEnd);
+                                nextDay.setDate(nextDay.getDate() + 1);
+                                let calculatedStart = format(nextDay);
                                 if (shouldSkipWeekends()) {
                                     let checkDate = new Date(calculatedStart);
                                     if (checkDate.getDay() === 6) checkDate.setDate(checkDate.getDate() + 2);
@@ -1882,32 +1923,46 @@
                     forceRecalculateDates = false;
                 }
 
-                parentIDs.forEach(parentId => {
-                    let pTask = tasksMap[parentId];
-                    let children = Object.values(tasksMap).filter(t => t.parentId === parentId && t.start && (t.end || t.dur === 0));
-                    if (children.length > 0 && pTask) {
-                        try {
-                        let minStart = new Date(Math.min(...children.map(c => new Date(c.start))));
-                        let maxEnd = new Date(Math.max(...children.map(c => new Date(c.end || c.start))));
-                        if (isNaN(minStart.getTime()) || isNaN(maxEnd.getTime())) return; // a child has a malformed date -- skip this parent's rollup rather than crash
+                // A single pass over parentIDs isn't enough for 3+ level
+                // hierarchies: processing order isn't guaranteed bottom-up,
+                // so a grandparent can roll up using a mid-level parent's
+                // stale pre-rollup values if that parent hasn't been
+                // reprocessed yet in this same pass. Loop to a fixed point,
+                // same pattern as the dependency-resolution loop above.
+                let parentLoopLimit = 100; let parentsChanged = true;
+                while (parentsChanged && parentLoopLimit > 0) {
+                    parentsChanged = false; parentLoopLimit--;
+                    parentIDs.forEach(parentId => {
+                        let pTask = tasksMap[parentId];
+                        let children = Object.values(tasksMap).filter(t => t.parentId === parentId && t.start && (t.end || t.dur === 0));
+                        if (children.length > 0 && pTask) {
+                            try {
+                            let minStart = new Date(Math.min(...children.map(c => new Date(c.start))));
+                            let maxEnd = new Date(Math.max(...children.map(c => new Date(c.end || c.start))));
+                            if (isNaN(minStart.getTime()) || isNaN(maxEnd.getTime())) return; // a child has a malformed date -- skip this parent's rollup rather than crash
 
-                        pTask.start = format(minStart); pTask.end = format(maxEnd);
-                        pTask.dur = calculateWorkingDays(pTask.start, pTask.end);
-                        
-                        let totalDur = 0; let totalWeightedPct = 0;
-                        children.forEach(c => { totalDur += c.dur; totalWeightedPct += (c.dur * c.pct); });
-                        pTask.pct = totalDur > 0 ? Math.round(totalWeightedPct / totalDur) : 0;
-                        
-                        sheet.setValueFromCoords(COL.START, pTask.rowIndex, pTask.start, true);
-                        sheet.setValueFromCoords(COL.DUR, pTask.rowIndex, pTask.dur, true);
-                        sheet.setValueFromCoords(COL.END, pTask.rowIndex, pTask.end, true);
-                        sheet.setValueFromCoords(COL.PCT, pTask.rowIndex, pTask.pct, true);
-                        sheet.setValueFromCoords(COL.ALLOC, pTask.rowIndex, '', true); 
-                        } catch (parentErr) {
-                            console.error(`Parent rollup failed for task ${parentId}:`, parentErr);
+                            let newStart = format(minStart); let newEnd = format(maxEnd);
+                            let newDur = calculateWorkingDays(newStart, newEnd);
+
+                            let totalDur = 0; let totalWeightedPct = 0;
+                            children.forEach(c => { totalDur += c.dur; totalWeightedPct += (c.dur * c.pct); });
+                            let newPct = totalDur > 0 ? Math.round(totalWeightedPct / totalDur) : 0;
+
+                            if (pTask.start !== newStart || pTask.end !== newEnd || pTask.dur !== newDur || pTask.pct !== newPct) {
+                                pTask.start = newStart; pTask.end = newEnd; pTask.dur = newDur; pTask.pct = newPct;
+                                sheet.setValueFromCoords(COL.START, pTask.rowIndex, pTask.start, true);
+                                sheet.setValueFromCoords(COL.DUR, pTask.rowIndex, pTask.dur, true);
+                                sheet.setValueFromCoords(COL.END, pTask.rowIndex, pTask.end, true);
+                                sheet.setValueFromCoords(COL.PCT, pTask.rowIndex, pTask.pct, true);
+                                sheet.setValueFromCoords(COL.ALLOC, pTask.rowIndex, '', true);
+                                parentsChanged = true;
+                            }
+                            } catch (parentErr) {
+                                console.error(`Parent rollup failed for task ${parentId}:`, parentErr);
+                            }
                         }
-                    }
-                });
+                    });
+                }
 
                 let today = new Date(); today.setHours(0,0,0,0);
 

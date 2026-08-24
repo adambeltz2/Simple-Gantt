@@ -4,9 +4,10 @@ const { test, expect } = require('@playwright/test');
 // Covers the two scheduling relationships and the "Sync Dependencies" button:
 //
 // - "Depends" is a finish-to-start date constraint: a task's Start is pushed
-//   to equal its dependency's End (calendar date only). % Done is never
-//   consulted -- it's on the user to keep dates accurate, not the app to
-//   infer readiness from completion percentage.
+//   to the day after its dependency's (inclusive) End -- calendar date only,
+//   skipping to the next working day if that lands on a weekend. % Done is
+//   never consulted -- it's on the user to keep dates accurate, not the app
+//   to infer readiness from completion percentage.
 // - "Parent" is a rollup: a parent's Start/End span the min/max of its
 //   children's dates, computed live on every edit.
 //
@@ -29,7 +30,7 @@ test.beforeEach(async ({ page }) => {
   await page.waitForTimeout(500);
 });
 
-test('a dependent task starts on its dependency\'s end date (finish-to-start, live)', async ({ page }) => {
+test('a dependent task starts the working day after its dependency\'s (inclusive) end date', async ({ page }) => {
   // Sample data: task 3 (UI Design) Depends on task 2 (Discovery), which is
   // already 100% done. This should already hold true without touching the
   // Sync Dependencies button, since the rule runs on every edit.
@@ -40,7 +41,17 @@ test('a dependent task starts on its dependency\'s end date (finish-to-start, li
     return [row2[COL.END], row3[COL.START]];
   }, COL);
 
-  expect(task3Start).toBe(task2End);
+  const end = new Date(task2End);
+  const start = new Date(task3Start);
+  // Strictly after -- End is now inclusive (the dependency's last day of
+  // work), so the successor can never start on that same day.
+  expect(start.getTime()).toBeGreaterThan(end.getTime());
+  // And it's the very next working day, not some arbitrary later date.
+  let expected = new Date(end);
+  expected.setDate(expected.getDate() + 1);
+  if (expected.getDay() === 6) expected.setDate(expected.getDate() + 2);
+  if (expected.getDay() === 0) expected.setDate(expected.getDate() + 1);
+  expect(start.getTime()).toBe(expected.getTime());
 });
 
 test('scheduling ignores % Done entirely -- only dates matter', async ({ page }) => {

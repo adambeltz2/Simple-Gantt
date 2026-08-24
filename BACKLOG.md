@@ -4,6 +4,7 @@ Planned features and known follow-ups, evaluated one at a time before being buil
 
 ## Features
 - Add a Notes fields that is in Markdown and can add a large block of text. It would only be visible in the UI if someone clicks into it (indicated by a flag) but when we export/import to CSV it would be available.
+- Create a "Late" Flag, that visually indicates the task/parent is behind. It should be calculated based on the dates where anything in the future is blank/null but current day is "yellow" caution. Anything behind is "red", risk.
 
 ## Tech debt / follow-ups from the repo review
 

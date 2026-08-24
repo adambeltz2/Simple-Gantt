@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.5.0] - 2026-08-24
+
+### ✨ Added
+
+#### Collapse/Expand Parent Tasks
+- Click the ▶/▼ toggle next to any parent task's name to fold or unfold its children, in both the spreadsheet grid and the Gantt chart
+- New **"Expand All"** / **"Collapse All"** toolbar buttons act on every parent task at once
+- Collapsed/expanded state is remembered per project (stored locally, alongside your other project settings) and survives a reload
+- Purely a display concern: collapsing never removes, reorders, or otherwise modifies task data. `sheet.getData()` and CSV/Dropbox exports are unaffected regardless of what's currently folded
+- Dependency arrows in the Gantt chart are pruned to only reference currently-visible tasks, so collapsing never leaves a dangling arrow
+
+#### Testing
+- Added a Playwright UI test suite (`tests/`) covering the collapse/expand feature: toggle behavior, data-integrity, persistence across reload, the bulk toolbar buttons, and compatibility with normal grid editing
+- Added `package.json` / `playwright.config.js` for running it (`npm install && npm test`); this is dev-only tooling and does not change how the app itself is deployed or run
+
+### 🔒 Security
+- Pinned the four already-versioned CDN libraries (PapaParse 5.4.1, Frappe Gantt 0.6.1, html2canvas 1.4.1, Dropbox SDK 10.34.0) to Subresource Integrity (SRI) hashes verified against the actual published npm packages, served via jsdelivr's npm mirror. A tampered or altered file at that host can no longer execute
+- `jsuites.js`/`jsuites.css` and `jexcel.js`/`jexcel.css` remain intentionally un-pinned for now (see the `TODO(security)` comment in `index.html`) -- their upstream URLs don't expose a version, so pinning them requires first confirming exactly which build is currently live rather than guessing
+
+---
+
 ## [2.4.5] - 2026-08-21
 
 ### ✨ Added

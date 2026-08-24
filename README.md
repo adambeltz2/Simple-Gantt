@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.7.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-2.8.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
 
@@ -334,7 +334,10 @@ Right-click      Context menu
 
 See [CHANGELOG.md](./CHANGELOG.md) for detailed release notes.
 
-### Latest: v2.7.0 (2026-08-24)
+### Latest: v2.8.0 (2026-08-24)
+🔒 **CSV import sanitization closed for every ingestion path** – Task Name, Resource, and custom-column text imported from a CSV now have HTML-significant characters stripped, whether the CSV comes from the manual Import button, a Dropbox backup restore, or Dropbox project discovery. Previously only the manual Import path sanitized anything, and even then only Start/End dates.
+
+### v2.7.0 (2026-08-24)
 🐛 **Sync Dependencies fixed** – The button, and the docs describing it, previously described a "bubble-up" mechanism that wasn't actually wired into CSV import/export/Dropbox backup, and its standalone implementation misread the Depends column as a parent/child relationship. Removed that dead code; the button now just force-triggers the same dependency (finish-to-start, date-only) and parent (rollup) logic that already runs automatically on every edit.
 
 ### v2.6.0 (2026-08-24)

@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.8.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-2.9.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
 
@@ -12,6 +12,7 @@ A lightweight, browser-based Gantt chart and task management tool. No server req
 - **Task Hierarchy** – Support for parent-child task relationships
 - **Collapse/Expand** – Fold a parent's children out of view in both the grid and chart, with "Expand All"/"Collapse All" toolbar controls; purely visual, your data is never touched
 - **Manual "In Progress" Flag** – Click the marker next to any Task ID to tint that grid row purple for your own ad-hoc tracking; grid-only, never touches the Gantt chart or CSV export
+- **Late Indicator** – The End column tints itself automatically: red if it's in the past, yellow if it's today, no color if it's not due yet. Pure date math (doesn't consult % Done), applies to every row including parents. Grid-only, like the In Progress flag
 - **Progress Tracking** – Mark tasks as not started, in progress, complete, or overdue
 - **Dependencies** – Link tasks to show sequential relationships
 - **Milestones** – Create zero-duration milestone markers
@@ -334,7 +335,14 @@ Right-click      Context menu
 
 See [CHANGELOG.md](./CHANGELOG.md) for detailed release notes.
 
-### Latest: v2.8.0 (2026-08-24)
+### Latest: v2.9.0 (2026-08-24)
+✨ **Late Indicator** – The End column colors itself automatically (red = overdue, yellow = due today) on every row, including parents. Grid-only, like the In Progress flag.
+
+🐛 **End date is now inclusive** – "End" now means the actual last day of work, not the day after it. A 1-day task starting 8/20 now shows End=8/20 (previously 8/21). This also fixes two side effects of the old convention: Gantt bars were rendering one day wider than they should have, and the chart's "overdue" red coloring was kicking in a day later than it should have. **If you have existing projects**, their stored End dates were computed under the old convention -- click **"↻ Sync Dependencies"** once after updating to refresh everything to the new one. Successor tasks (via "Depends") still start the very next working day after their dependency finishes; only the stored date's meaning changed, not the actual schedule.
+
+🐛 **Parent rollup now handles 3+ level hierarchies correctly** – Found while fixing the bug above: a grandparent-level task could roll up using a mid-level parent's stale, pre-rollup dates if that parent hadn't been recalculated yet in the same pass. The rollup now repeats to a fixed point (like dependency resolution already did), so it's correct regardless of how deep your outline goes or what order rows appear in.
+
+### v2.8.0 (2026-08-24)
 🔒 **CSV import sanitization closed for every ingestion path** – Task Name, Resource, and custom-column text imported from a CSV now have HTML-significant characters stripped, whether the CSV comes from the manual Import button, a Dropbox backup restore, or Dropbox project discovery. Previously only the manual Import path sanitized anything, and even then only Start/End dates.
 
 ### v2.7.0 (2026-08-24)

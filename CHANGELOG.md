@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.9.0] - 2026-08-24
+
+### ✨ Added
+
+#### Late Indicator
+- The End column now colors itself automatically: red if the date is in the past, yellow if it's today, no color if it's not due yet
+- Pure date math -- % Done is deliberately never consulted, same "dates are on the user" decision as dependency scheduling
+- Applies uniformly to every row, including parents and milestones (a parent's End is already its own rolled-up value)
+- Grid-only, matching the In Progress flag: no effect on the Gantt chart, CSV export, or Dropbox backups
+
+### 🐛 Fixed
+
+#### End date is now inclusive (real bug report)
+- Found via a user-reported bug: a multi-level parent task wasn't reflecting its children's current dates.
+- Root cause: `calculateEndDate`/`calculateWorkingDays` used an **exclusive** End convention (End = the day *after* the last day of work) rather than the inclusive convention ("End" = the actual last day) that matches what the app's own users -- and most people filling in a spreadsheet -- expect.
+- This one convention bug had three visible symptoms, all fixed by the same change:
+  1. A 1-day task starting 8/20 showed End=8/21 instead of 8/20.
+  2. Direct testing against the real frappe-gantt library showed it renders bar width using an **inclusive** end date -- so every non-milestone Gantt bar was rendering one day wider than it should have, this whole time.
+  3. The chart's automatic "overdue" (red) coloring was triggering one day later than the actual due date, for the same reason.
+- Dependency scheduling ("Depends") is adjusted to match: a successor now explicitly advances to the day after its dependency's (now-inclusive) End, skipping to the next working day if that lands on a weekend. The real-world schedule computed is identical to before -- only the stored End date's meaning changed.
+- **Existing projects' stored End dates were computed under the old convention.** They self-correct the next time a row is edited, or immediately if you click "↻ Sync Dependencies" once.
+
+#### Parent rollup now converges correctly for 3+ level hierarchies (found while fixing the bug above)
+- The rollup that computes a parent's Start/End/% Done from its children ran in a single pass over all parent IDs, in the order those IDs first appear in the data -- not guaranteed to be bottom-up. For a hierarchy like grandparent → parent → children, the grandparent could roll up using the parent's stale, pre-rollup values if the parent hadn't been recalculated yet in that same pass.
+- The rollup now repeats to a fixed point (same `while (changed)` pattern the dependency-resolution loop already used), so it converges correctly regardless of nesting depth or row order.
+
+### 🧪 Testing
+- Added `tests/late-flag.spec.js`: red/yellow/no-color thresholds, the tooltip, % Done being ignored, parent rows coloring from their own rolled-up End, zero effect on the chart/CSV columns.
+- Added `tests/inclusive-end-dates.spec.js`: `calculateEndDate`/`calculateWorkingDays` as exact inverses, a direct reproduction of the reported bug (the exact 3-row shape from the report), a direct reproduction of the second (grandparent) bug found while investigating the first, Gantt bar width verified against the real frappe-gantt library, and the corrected overdue-coloring timing.
+- Updated `tests/dependency-scheduling.spec.js`'s date-relationship assertion for the new inclusive-End adjacency rule.
+- Reran the full suite (7 spec files, 40 tests) -- all pass.
+
+---
+
 ## [2.8.0] - 2026-08-24
 
 ### 🔒 Security

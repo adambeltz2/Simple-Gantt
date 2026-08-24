@@ -3,6 +3,7 @@
 Planned features and known follow-ups, evaluated one at a time before being built.
 
 ## Features
+- Add a Notes fields that is in Markdown and can add a large block of text. It would only be visible in the UI if someone clicks into it (indicated by a flag) but when we export/import to CSV it would be available.
 
 _(nothing queued yet -- add ideas here as they come up)_
 

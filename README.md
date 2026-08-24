@@ -361,7 +361,7 @@ npm test
 
 ## Contributing
 
-This is an open-source project. Contributions welcome!
+This is an open-source project. Contributions welcome! Planned features and known follow-ups live in [BACKLOG.md](./BACKLOG.md).
 
 - **Found a bug?** Open an issue with:
   - Browser/OS

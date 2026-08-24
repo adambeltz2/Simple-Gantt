@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.6.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-2.7.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
 
@@ -16,14 +16,10 @@ A lightweight, browser-based Gantt chart and task management tool. No server req
 - **Dependencies** – Link tasks to show sequential relationships
 - **Milestones** – Create zero-duration milestone markers
 
-### 🔄 **NEW: Automatic Date Bubble-Up (v2.4.5)**
-- **Parent dates automatically span all children** – Change a child task's dates and parent/grandparent dates recalculate instantly
-- **Three sync points:**
-  - ✅ **On CSV Import** – Imported data is validated and recalculated
-  - ✅ **On CSV Export** – Ensures consistency before download
-  - ✅ **On Dropbox Backup** – Backups always have correct dates
-- **Manual "Sync Dependencies" button** – Click anytime to recalculate (useful for offline edits)
-- **Automatic for Dropbox users** – No extra steps needed
+### 🔄 Automatic Date Recalculation
+- **Depends** – a finish-to-start constraint. If task B Depends on task A, B's Start is kept equal to A's End date. This runs live on every edit; it's calendar-only and never looks at % Done, so it's on you to keep dates accurate as work runs long or short.
+- **Parent dates automatically span all children** – a parent's Start/End/% Done are continuously rolled up from its children (earliest start, latest end, duration-weighted % Done), all the way up through grandparents. Also live on every edit.
+- **Manual "Sync Dependencies" button** – both rules above already run automatically, so you shouldn't need this. It forces a full recompute of every row anyway, mainly useful right after pasting in a large block of rows.
 
 ### 🌐 Flexible Deployment
 - **100% Browser-Based** – No server, no installation. Just open the HTML file.
@@ -99,9 +95,9 @@ ID   Name                    Start       End         Depends  Parent
 4    Frontend Dev           2024-02-11  2024-03-15  3        1
 ```
 
-### The Bubble-Up Magic (NEW)
+### The Bubble-Up Magic
 
-When child task dates change, parents automatically expand:
+When child task dates change, parents automatically expand -- live, on every edit, no button required:
 
 ```
 BEFORE:
@@ -115,10 +111,7 @@ Parent Task    Start: 1/15   End: 2/10  ✅ Parent expanded
 └─ Child 2     Start: 1/21   End: 2/10
 ```
 
-**How to Trigger:**
-1. **Automatic** – Happens on CSV import/export/Dropbox backup
-2. **Manual** – Click "↻ Sync Dependencies" button anytime
-3. **Offline** – Works entirely in your browser
+The "↻ Sync Dependencies" button just forces a full recompute of every row on demand -- handy after pasting in a large block of data, but not something you need to click for the bubble-up itself.
 
 ---
 
@@ -241,9 +234,9 @@ Select different project from dropdown at top-left
 - Try in incognito mode
 
 ### Dates aren't calculating
-- Click **"↻ Sync Dependencies"** button
-- Check "Depends" column – must reference parent task ID
-- Parent task must have children with dates
+- This should be automatic, but you can click **"↻ Sync Dependencies"** to force a full recompute
+- "Depends" should reference the task ID(s) this task can't start before -- not its parent
+- "Parent" should reference the summary task this row belongs to; a parent needs children with dates set to roll up
 
 ### Data lost after browser clear
 - If using Dropbox: Click **"Versions"** to restore
@@ -310,10 +303,9 @@ Select different project from dropdown at top-left
 - Export CSV weekly as a backup
 - You own the file immediately; no cloud needed
 
-### 4. Sync Dependencies After Bulk Edits
-- If you import a CSV with inconsistent parent dates
-- Click **"↻ Sync Dependencies"** once
-- All parents recalculate in seconds
+### 4. Sync Dependencies After a Bulk Paste
+- Dependency and parent dates already recalculate automatically as you edit, including on CSV import
+- After pasting in a large block of rows at once, click **"↻ Sync Dependencies"** to force a full recompute in one go
 
 ### 5. Use Resources for Workload Tracking
 - Enter resource names consistently ("Alice", "Alice", not "Alice", "alice")
@@ -342,7 +334,10 @@ Right-click      Context menu
 
 See [CHANGELOG.md](./CHANGELOG.md) for detailed release notes.
 
-### Latest: v2.6.0 (2026-08-24)
+### Latest: v2.7.0 (2026-08-24)
+🐛 **Sync Dependencies fixed** – The button, and the docs describing it, previously described a "bubble-up" mechanism that wasn't actually wired into CSV import/export/Dropbox backup, and its standalone implementation misread the Depends column as a parent/child relationship. Removed that dead code; the button now just force-triggers the same dependency (finish-to-start, date-only) and parent (rollup) logic that already runs automatically on every edit.
+
+### v2.6.0 (2026-08-24)
 ✨ **Manual "In Progress" Flag** – Click the marker next to any Task ID to tint that row purple for your own ad-hoc tracking. Grid-only: never touches the Gantt chart, and has zero effect on CSV export or Dropbox backups.
 
 ### v2.5.0 (2026-08-24)

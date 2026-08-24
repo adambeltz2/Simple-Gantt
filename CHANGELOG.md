@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.7.0] - 2026-08-24
+
+### 🐛 Fixed
+
+#### "Sync Dependencies" cleanup
+- Removed `recalculateDatesUpstream()` (and its helpers `parseDate`/`calculateDuration`), the standalone implementation behind the "Sync Dependencies" button. It misread the `Depends` column as if it defined a parent/child rollup, which doesn't match either relationship in this app:
+  - **Depends** = finish-to-start date constraint (a task's Start is pushed to equal its dependency's End). Calendar dates only -- % Done is never consulted.
+  - **Parent** = rollup (a parent's Start/End/% Done are computed from its children).
+- Both rules were already implemented correctly and run automatically on every edit inside `syncToGantt()` -- they did not need the button, and the button's old logic was actively wrong.
+- `syncDependencies()` now simply forces a full recompute via the same live logic (`syncToGantt(true)`), useful mainly after pasting in a large block of rows.
+- Previously, the README/CHANGELOG described this as automatically wired into CSV import, CSV export, and Dropbox backup. It never was for the old (buggy) implementation, and the docs also referenced `processImportedTasks()`/`processBeforeExport()` helper functions that never existed in the codebase. Corrected the README to describe the real, live behavior.
+
+### 🧪 Testing
+- Added `tests/dependency-scheduling.spec.js`: verifies finish-to-start scheduling happens live without the button, verifies scheduling ignores % Done entirely, verifies parent rollup happens live, verifies the button still works and is idempotent, and verifies the old buggy function is gone for good.
+
+---
+
 ## [2.6.0] - 2026-08-24
 
 ### ✨ Added

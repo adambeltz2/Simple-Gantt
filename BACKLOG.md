@@ -5,6 +5,7 @@ Planned features and known follow-ups, evaluated one at a time before being buil
 ## Features
 
 - Add critical path highlighting: visually mark the chain of dependent tasks that determines the project's overall end date (in both the grid and the Gantt chart).
+- Add grid search/filter: quickly jump to or filter rows by task name/resource, useful once a project gets past ~50 rows.
 
 ## Tech debt / follow-ups from the repo review
 

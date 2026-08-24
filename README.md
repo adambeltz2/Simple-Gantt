@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.10.1-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-2.11.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
 
@@ -14,6 +14,7 @@ A lightweight, browser-based Gantt chart and task management tool. No server req
 - **Manual "In Progress" Flag** – Click the marker next to any Task ID to tint that grid row purple for your own ad-hoc tracking; grid-only, never touches the Gantt chart or CSV export
 - **Late Indicator** – The End column tints itself automatically: red if it's in the past, yellow if it's today, no color if it's not due yet. Pure date math (doesn't consult % Done), applies to every row including parents. Grid-only, like the In Progress flag
 - **Notes Field** – Add a custom column named "Notes" and each row gets a small click-to-expand flag instead of raw inline text. Opens a modal rendering a lightweight Markdown subset (bold, italic, links, lists); still a plain-text cell underneath, so it round-trips through CSV import/export like any other custom column
+- **Grid Search/Filter** – Filter rows by Task Name or Resource; matches keep their parent/ancestor chain visible for context, and search composes with Collapse (a manually collapsed section stays collapsed even if something inside it matches)
 - **Progress Tracking** – Mark tasks as not started, in progress, complete, or overdue
 - **Dependencies** – Link tasks to show sequential relationships
 - **Milestones** – Create zero-duration milestone markers
@@ -336,7 +337,10 @@ Right-click      Context menu
 
 See [CHANGELOG.md](./CHANGELOG.md) for detailed release notes.
 
-### Latest: v2.10.1 (2026-08-24)
+### Latest: v2.11.0 (2026-08-24)
+✨ **Grid Search/Filter** – A search box in the toolbar filters rows by Task Name or Resource, keeping a match's parent/ancestor chain visible for outline context. Built on the same `hideRow`/`showRow` mechanism as Collapse (not jexcel's own built-in `search()`, which manages visibility by detaching rows from the DOM and would conflict with it) -- the two compose with AND, so a manually collapsed section stays collapsed even if a search matches something inside it. Resets automatically when you switch projects.
+
+### v2.10.1 (2026-08-24)
 🧪 **Test coverage expanded to CSV round-tripping and the Workload dashboard** – no functional changes; closes the last tech-debt item from the original repo review.
 
 ### v2.10.0 (2026-08-24)

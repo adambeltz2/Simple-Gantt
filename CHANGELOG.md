@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.12.0] - 2026-08-25
+
+### ✨ Added
+
+#### Resource Color-Coding in the Gantt Chart
+- Each resource gets a deterministic color, assigned alphabetically from a fixed categorical palette, so the same roster always produces the same colors across renders regardless of task/row order.
+- Rendered as a thin (4px) colored stripe on the left edge of each bar, layered on top of the existing status fill and progress overlay -- so it stays visible at any completion percentage, and the status colors (not started/in progress/complete/overdue/summary) keep doing their existing job of showing schedule health.
+- For a multi-resource task, the first-listed resource's color wins the stripe. This matches the Workload dashboard's own "primary assignee" framing and keeps the visual simple rather than trying to split a 4px stripe further.
+- Milestones and unassigned tasks are skipped -- a milestone's diamond shape has no meaningful "left edge," and an unassigned task has no resource to color by.
+- The palette is deliberately disjoint from the status-fill hues (no blue/green/red/amber/slate), so a resource's color is never mistaken for a status.
+- The chart legend gains a second section listing every resource currently in use with its swatch, separated from the status legend by a thin divider. Resource names are HTML-escaped the same way task/note content already is elsewhere in the app.
+
+### 🧪 Testing
+- Added `tests/resource-colors.spec.js`: stripe presence/absence (assigned vs. unassigned vs. milestone), first-resource-wins on multi-resource tasks, color stability across row-order changes, distinct colors for distinct resources, legend content/ordering/color-matching, the no-resources-assigned empty state, and XSS-safety of resource names in the legend.
+- Full suite: 13 spec files, 85 tests, all pass.
+
+---
+
 ## [2.11.0] - 2026-08-24
 
 ### ✨ Added

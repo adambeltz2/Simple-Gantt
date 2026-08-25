@@ -70,6 +70,8 @@
         .gantt-legend .legend-item { display: flex; align-items: center; gap: 5px; }
         .gantt-legend .swatch { width: 11px; height: 11px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
         .gantt-legend .swatch.diamond { border-radius: 0; transform: rotate(45deg); width: 9px; height: 9px; }
+        .gantt-legend .swatch.stripe { width: 4px; border-radius: 1px; }
+        .gantt-legend .legend-sep { width: 1px; height: 14px; background: #e2e8f0; flex-shrink: 0; }
 
         /* Frappe Gantt's own axis labels are small/light by default; boost legibility */
         .gantt .upper-text { font-size: 12px; font-weight: 700; fill: #0f172a; }
@@ -441,7 +443,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.11.0";
+        const APP_VERSION = "2.12.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -1111,7 +1113,26 @@
             renderNotesView(sheet.getData()[row][col] || '');
         }
 
-        function renderGanttLegend(show) {
+        // Categorical palette for the resource-color stripe/legend -- deliberately
+        // distinct from the status-fill hues above (no blue/green/red/amber/slate)
+        // so a resource's color never gets confused with a task's status.
+        const RESOURCE_COLOR_PALETTE = ['#8b5cf6', '#14b8a6', '#ec4899', '#06b6d4', '#a855f7', '#f43f5e', '#0ea5e9', '#84cc16', '#eab308', '#78716c'];
+
+        // Deterministic name -> color assignment: sort resource names alphabetically
+        // then walk the palette, so the same roster always gets the same colors
+        // (stable across re-renders) regardless of task/row order.
+        function getResourceColorMap(frappeTasks) {
+            const names = new Set();
+            frappeTasks.forEach(t => {
+                if (t._assignments && t._assignments.length > 0) names.add(t._assignments[0].name);
+            });
+            const sorted = Array.from(names).sort((a, b) => a.localeCompare(b));
+            const map = {};
+            sorted.forEach((name, i) => { map[name] = RESOURCE_COLOR_PALETTE[i % RESOURCE_COLOR_PALETTE.length]; });
+            return map;
+        }
+
+        function renderGanttLegend(show, resourceColorMap) {
             const legend = document.getElementById('ganttLegend');
             if (!legend) return;
             if (!show) { legend.style.display = 'none'; return; }
@@ -1124,13 +1145,63 @@
                 { color: '#f59e0b', label: 'Milestone', diamond: true },
                 { color: '#334155', label: 'Summary' }
             ];
-            legend.innerHTML = items.map(i => `
+            let html = items.map(i => `
                 <span class="legend-item">
                     <span class="swatch${i.diamond ? ' diamond' : ''}" style="background:${i.color};"></span>
                     ${i.label}
                 </span>
             `).join('');
+
+            const resourceNames = resourceColorMap ? Object.keys(resourceColorMap).sort((a, b) => a.localeCompare(b)) : [];
+            if (resourceNames.length > 0) {
+                html += '<span class="legend-sep"></span>';
+                html += resourceNames.map(name => `
+                    <span class="legend-item">
+                        <span class="swatch stripe" style="background:${resourceColorMap[name]};"></span>
+                        ${escapeHtml(name)}
+                    </span>
+                `).join('');
+            }
+
+            legend.innerHTML = html;
             legend.style.display = 'flex';
+        }
+
+        // Frappe Gantt owns the bar SVG and re-draws it from scratch on every
+        // render, so the resource stripe can't be baked into custom_class (there's
+        // no per-resource CSS class space) -- it's appended as an extra <rect> on
+        // top of the bar/progress fill after the chart instantiates. Skips
+        // milestones (diamond shape, no meaningful "left edge") and unassigned
+        // tasks. Uses the first-listed resource for multi-resource tasks, matching
+        // the legend and the Workload dashboard's own "primary assignee" framing.
+        function renderResourceStripes(frappeTasks, resourceColorMap) {
+            const chartContainer = document.getElementById('gantt');
+            if (!chartContainer || !resourceColorMap) return;
+            frappeTasks.forEach(t => {
+                if (!t._assignments || t._assignments.length === 0) return;
+                if (t.custom_class === 'is-milestone') return;
+                const color = resourceColorMap[t._assignments[0].name];
+                if (!color) return;
+                const wrapper = chartContainer.querySelector(`.bar-wrapper[data-id="${CSS.escape(String(t.id))}"]`);
+                if (!wrapper) return;
+                const barGroup = wrapper.querySelector('.bar-group');
+                const bar = wrapper.querySelector('.bar');
+                if (!barGroup || !bar) return;
+                const x = parseFloat(bar.getAttribute('x'));
+                const y = parseFloat(bar.getAttribute('y'));
+                const height = parseFloat(bar.getAttribute('height'));
+                const barWidth = parseFloat(bar.getAttribute('width'));
+                if (isNaN(x) || isNaN(y) || isNaN(height) || isNaN(barWidth)) return;
+                const stripe = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                stripe.setAttribute('x', x);
+                stripe.setAttribute('y', y);
+                stripe.setAttribute('width', Math.min(4, barWidth));
+                stripe.setAttribute('height', height);
+                stripe.setAttribute('class', 'resource-stripe');
+                stripe.setAttribute('fill', color);
+                stripe.style.pointerEvents = 'none';
+                barGroup.appendChild(stripe);
+            });
         }
 
         function renderGanttRangeBar(frappeTasks) {
@@ -2254,8 +2325,9 @@
                 });
 
                 const chartContainer = document.getElementById('gantt');
+                const resourceColorMap = getResourceColorMap(frappeTasks);
                 renderGanttRangeBar(frappeTasks);
-                renderGanttLegend(frappeTasks.length > 0);
+                renderGanttLegend(frappeTasks.length > 0, resourceColorMap);
                 if (visibleFrappeTasks.length === 0) {
                     chartContainer.innerHTML = '<div style="color:#94a3b8; margin-top: 20px;">Add Durations to render the chart.</div>';
                 } else {
@@ -2279,8 +2351,9 @@
                             `;
                         }
                     });
+                    renderResourceStripes(visibleFrappeTasks, resourceColorMap);
                 }
-                
+
                 if (document.getElementById('workloadModal').classList.contains('active')) {
                     renderWorkloadTable();
                 }

@@ -4,6 +4,7 @@ Planned features and known follow-ups, evaluated one at a time before being buil
 
 ## Bug
 - [ ] Upon login its to check for projects that aren't successfully imported which could occur if you were working in another browser or on another device. This is not currently working.
+- [ ] Treat Resources as first class entity. I'd like them to be assigned (named) prior to being typed in the grid. This should allow a pre-selected value for me to use. Discuss how to handle this when its done via CSV Import/Export.
 
 ## Features
 

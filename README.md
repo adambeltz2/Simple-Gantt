@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.12.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-2.13.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
 
@@ -24,6 +24,7 @@ A lightweight, browser-based Gantt chart and task management tool. No server req
 - **Depends** – a finish-to-start constraint. If task B Depends on task A, B's Start is kept equal to A's End date. This runs live on every edit; it's calendar-only and never looks at % Done, so it's on you to keep dates accurate as work runs long or short.
 - **Parent dates automatically span all children** – a parent's Start/End/% Done are continuously rolled up from its children (earliest start, latest end, duration-weighted % Done), all the way up through grandparents. Also live on every edit.
 - **Manual "Sync Dependencies" button** – both rules above already run automatically, so you shouldn't need this. It forces a full recompute of every row anyway, mainly useful right after pasting in a large block of rows.
+- **Dependency cycle detection** – if the Depends graph loops back on itself (A depends on B depends on A, or a longer chain), the affected Task IDs get a red outline with a tooltip naming the cycle, plus a one-time status-bar warning. Purely informational -- it doesn't remove the Depends link or block anything, it just explains why those tasks' dates might not settle.
 
 ### 🌐 Flexible Deployment
 - **100% Browser-Based** – No server, no installation. Just open the HTML file.

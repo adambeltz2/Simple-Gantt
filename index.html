@@ -71,6 +71,7 @@
         .gantt-legend .swatch { width: 11px; height: 11px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
         .gantt-legend .swatch.diamond { border-radius: 0; transform: rotate(45deg); width: 9px; height: 9px; }
         .gantt-legend .swatch.stripe { width: 4px; border-radius: 1px; }
+        .gantt-legend .swatch.outline { background: none; border: 2px solid; box-sizing: border-box; }
         .gantt-legend .legend-sep { width: 1px; height: 14px; background: #e2e8f0; flex-shrink: 0; }
 
         /* Frappe Gantt's own axis labels are small/light by default; boost legibility */
@@ -194,6 +195,7 @@
                     <option value="Month">Zoom: Month</option>
                 </select>
                 <label class="toggle-label"><input type="checkbox" id="skipWeekends" onchange="forceRecalc()"> Weekends off</label>
+                <label class="toggle-label"><input type="checkbox" id="showCriticalPath" onchange="triggerSync()"> Critical path</label>
                 <button class="tbtn" onclick="snapPanes(92)" title="Show grid only">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="2" y="4" width="16" height="16" rx="1.5"></rect><rect x="20" y="4" width="2" height="16" rx="1" opacity="0.35"></rect></svg>
                     Grid
@@ -443,7 +445,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.13.0";
+        const APP_VERSION = "2.14.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -1152,6 +1154,16 @@
                 </span>
             `).join('');
 
+            if (isCriticalPathViewOn() && criticalPathIds.size > 0) {
+                html += '<span class="legend-sep"></span>';
+                html += `
+                    <span class="legend-item">
+                        <span class="swatch outline" style="border-color:#ea580c;"></span>
+                        Critical path
+                    </span>
+                `;
+            }
+
             const resourceNames = resourceColorMap ? Object.keys(resourceColorMap).sort((a, b) => a.localeCompare(b)) : [];
             if (resourceNames.length > 0) {
                 html += '<span class="legend-sep"></span>';
@@ -1201,6 +1213,41 @@
                 stripe.setAttribute('fill', color);
                 stripe.style.pointerEvents = 'none';
                 barGroup.appendChild(stripe);
+            });
+        }
+
+        // Outlines each critical-path bar with a colored stroke -- layered on
+        // top of the status fill and resource stripe rather than replacing
+        // them, same append-after-render approach as renderResourceStripes.
+        // Deliberately not skipping milestones here (unlike the resource
+        // stripe): a milestone can legitimately sit on the critical path.
+        function renderCriticalPathHighlight(frappeTasks) {
+            const chartContainer = document.getElementById('gantt');
+            if (!chartContainer || criticalPathIds.size === 0) return;
+            frappeTasks.forEach(t => {
+                if (!criticalPathIds.has(String(t.id))) return;
+                const wrapper = chartContainer.querySelector(`.bar-wrapper[data-id="${CSS.escape(String(t.id))}"]`);
+                if (!wrapper) return;
+                const barGroup = wrapper.querySelector('.bar-group');
+                const bar = wrapper.querySelector('.bar');
+                if (!barGroup || !bar) return;
+                const x = parseFloat(bar.getAttribute('x'));
+                const y = parseFloat(bar.getAttribute('y'));
+                const height = parseFloat(bar.getAttribute('height'));
+                const width = parseFloat(bar.getAttribute('width'));
+                if (isNaN(x) || isNaN(y) || isNaN(height) || isNaN(width)) return;
+                const outline = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                outline.setAttribute('x', x + 1);
+                outline.setAttribute('y', y + 1);
+                outline.setAttribute('width', Math.max(0, width - 2));
+                outline.setAttribute('height', Math.max(0, height - 2));
+                outline.setAttribute('rx', 2);
+                outline.setAttribute('class', 'critical-path-outline');
+                outline.setAttribute('fill', 'none');
+                outline.setAttribute('stroke', '#ea580c');
+                outline.setAttribute('stroke-width', '2');
+                outline.style.pointerEvents = 'none';
+                barGroup.appendChild(outline);
             });
         }
 
@@ -1639,6 +1686,118 @@
             return { cycleIds, cyclePaths };
         }
 
+        // CRITICAL PATH (view-only, opt-in via the "Critical path" toolbar
+        // toggle -- off by default so it doesn't add visual noise unless asked
+        // for). Standard CPM forward/backward pass over the Depends graph,
+        // expressed with the same working-day-aware date arithmetic
+        // calculateEndDate and dependency scheduling already use, so "zero
+        // slack" lines up exactly with the Start/End dates the app's own
+        // scheduler already produced -- there's no separate/parallel date
+        // model here, just a backward pass on top of the existing one.
+        // Parent/summary rows are excluded, same as the Workload dashboard --
+        // their dates are a rollup, not a real scheduled duration. Skipped
+        // entirely while a dependency cycle exists (see detectDependencyCycles
+        // above): a cycle has no well-defined critical path, and this app
+        // already has a dedicated warning for that case.
+        let criticalPathIds = new Set();
+
+        function isCriticalPathViewOn() {
+            const el = document.getElementById('showCriticalPath');
+            return !!(el && el.checked);
+        }
+
+        function criticalPathIcon() {
+            const icon = document.createElement('span');
+            icon.textContent = '⚡';
+            icon.title = 'On the critical path';
+            icon.style.cssText = 'display:inline-block; margin-right:3px; font-size:11px; color:#ea580c; vertical-align:middle;';
+            return icon;
+        }
+
+        // Inverse of calculateEndDate: given the last (inclusive) day of work
+        // and a working-day duration, find the first day of work.
+        function subtractWorkingDays(endDate, durationDays) {
+            if (!endDate) return '';
+            if (durationDays <= 0) return endDate;
+            let d = parseLocalDate(endDate);
+            if (isNaN(d.getTime())) return '';
+            let toMove = durationDays - 1; let moved = 0;
+            if (shouldSkipWeekends()) {
+                while (moved < toMove) {
+                    d.setDate(d.getDate() - 1);
+                    if (d.getDay() !== 0 && d.getDay() !== 6) moved++;
+                }
+            } else {
+                d.setDate(d.getDate() - toMove);
+            }
+            return format(d);
+        }
+
+        // Inverse of the "successor starts the next working day after its
+        // dependency's End" rule the live scheduler uses above: the latest a
+        // predecessor could finish while still letting a successor start
+        // exactly on dateStr.
+        function workdayBefore(dateStr) {
+            let d = parseLocalDate(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
+            d.setDate(d.getDate() - 1);
+            if (shouldSkipWeekends()) {
+                if (d.getDay() === 0) d.setDate(d.getDate() - 2);
+                else if (d.getDay() === 6) d.setDate(d.getDate() - 1);
+            }
+            return format(d);
+        }
+
+        function computeCriticalPath(tasksMap) {
+            if (dependencyCycleIds.size > 0) return new Set();
+
+            const nodes = Object.values(tasksMap).filter((t) => !t.isParent && t.start && t.end);
+            if (nodes.length === 0) return new Set();
+
+            const nodeIds = new Set(nodes.map((t) => t.id));
+            const successors = {};
+            nodes.forEach((t) => { successors[t.id] = []; });
+            nodes.forEach((t) => {
+                t.dependenciesArray.forEach((depId) => {
+                    if (nodeIds.has(depId) && successors[depId]) successors[depId].push(t.id);
+                });
+            });
+
+            let projectEnd = nodes[0].end;
+            nodes.forEach((t) => {
+                if (parseLocalDate(t.end) > parseLocalDate(projectEnd)) projectEnd = t.end;
+            });
+
+            const lfMemo = {};
+            const visiting = new Set();
+            function lateStart(id) {
+                return subtractWorkingDays(lateFinish(id), tasksMap[id].dur);
+            }
+            function lateFinish(id) {
+                if (lfMemo[id] !== undefined) return lfMemo[id];
+                if (visiting.has(id)) return projectEnd; // defensive only -- cycles are already filtered out above
+                visiting.add(id);
+                const succs = successors[id] || [];
+                let lf;
+                if (succs.length === 0) {
+                    lf = projectEnd;
+                } else {
+                    lf = succs
+                        .map((sid) => workdayBefore(lateStart(sid)))
+                        .reduce((earliest, cand) => (parseLocalDate(cand) < parseLocalDate(earliest) ? cand : earliest));
+                }
+                visiting.delete(id);
+                lfMemo[id] = lf;
+                return lf;
+            }
+
+            const criticalIds = new Set();
+            nodes.forEach((t) => {
+                if (lateFinish(t.id) === t.end) criticalIds.add(t.id);
+            });
+            return criticalIds;
+        }
+
         function formatCells(instance, cell, col, row, val, label, cellName) {
             try {
                 if (!instance || !instance.jexcel) return;
@@ -1742,6 +1901,8 @@
                         cell.style.fontWeight = isParent ? 'bold' : 'normal';
                     }
 
+                    let isCritical = isCriticalPathViewOn() && criticalPathIds.has(rowID);
+
                     if (isParent && rowID !== '') {
                         let collapsed = isCollapsed(rowID);
                         cell.innerHTML = '';
@@ -1756,6 +1917,11 @@
                         toggle.addEventListener('mousedown', function(e) { e.stopPropagation(); });
                         toggle.addEventListener('click', function(e) { e.stopPropagation(); toggleCollapse(rowID); });
                         cell.appendChild(toggle);
+                        if (isCritical) cell.appendChild(criticalPathIcon());
+                        cell.appendChild(document.createTextNode(val != null ? val : ''));
+                    } else if (isCritical && rowID !== '') {
+                        cell.innerHTML = '';
+                        cell.appendChild(criticalPathIcon());
                         cell.appendChild(document.createTextNode(val != null ? val : ''));
                     }
                 }
@@ -2358,6 +2524,11 @@
                     });
                 }
 
+                const newCriticalPathIds = isCriticalPathViewOn() ? computeCriticalPath(tasksMap) : new Set();
+                const criticalPathChanged = !setsEqual(newCriticalPathIds, criticalPathIds);
+                criticalPathIds = newCriticalPathIds;
+                if (criticalPathChanged && sheet) sheet.updateTable();
+
                 let today = new Date(); today.setHours(0,0,0,0);
 
                 const frappeTasks = Object.values(tasksMap).filter(t => t.start && (t.end || t.dur === 0)).map(t => {
@@ -2439,6 +2610,7 @@
                         }
                     });
                     renderResourceStripes(visibleFrappeTasks, resourceColorMap);
+                    if (isCriticalPathViewOn()) renderCriticalPathHighlight(visibleFrappeTasks);
                 }
 
                 if (document.getElementById('workloadModal').classList.contains('active')) {

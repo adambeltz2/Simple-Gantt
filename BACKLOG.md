@@ -2,6 +2,9 @@
 
 Planned features and known follow-ups, evaluated one at a time before being built.
 
+## Bug
+- [ ] Upon login its to check for projects that aren't successfully imported which could occur if you were working in another browser or on another device. This is not currently working.
+
 ## Features
 
 Ordered lowest to highest risk/complexity -- roughly, how contained the change is to a single isolated piece vs. how much it touches the core scheduling engine (date math, parent rollup, dependency resolution) or needs new persisted state.

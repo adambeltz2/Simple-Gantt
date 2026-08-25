@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.14.0] - 2026-08-25
+
+### ✨ Added
+
+#### Critical Path Highlighting
+- A new "Critical path" toolbar toggle, off by default, runs a standard CPM (Critical Path Method) forward/backward pass over the Depends graph and highlights the chain of zero-slack tasks that determines the project's overall end date.
+- Deliberately not a separate/parallel date model -- the pass is expressed with the exact same working-day-aware date arithmetic `calculateEndDate` and the live dependency scheduler already use (`subtractWorkingDays`/`workdayBefore` are direct inverses of that forward logic), so "zero slack" lines up exactly with the Start/End dates already on screen.
+- Critical tasks get a small ⚡ next to their name in the grid, an outlined bar in the Gantt chart (layered on top of the status fill and resource stripe, not replacing them), and a "Critical path" entry in the chart legend while the toggle is on.
+- Parent/summary rows are excluded, same convention as the Workload dashboard -- their dates are a rollup, not a real scheduled duration, so they're never themselves marked critical (only their children can be).
+- A parallel branch with float (a shorter path that isn't the long pole) is correctly left unmarked -- verified with a dedicated test fixture (two branches off one root, rejoining at one task) rather than just the trivial all-critical case of a single linear chain.
+- Suppressed entirely while a dependency cycle exists (see 2.13.0's cycle detection) -- a cycle has no well-defined critical path, and the app already has a dedicated warning for that case.
+
+### 🧪 Testing
+- Added `tests/critical-path.spec.js`: the toggle off by default, an all-critical linear chain, a parallel branch with float correctly excluded, a milestone on the critical path, an isolated task with slack, a lone task trivially critical, parent rows never marked, suppression during a dependency cycle, that toggling never mutates task data, the legend entry appearing only when appropriate, and no uncaught errors.
+- Full suite: 15 spec files, 104 tests, all pass.
+
+---
+
 ## [2.13.0] - 2026-08-25
 
 ### ✨ Added

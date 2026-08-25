@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.13.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-2.14.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
 
@@ -16,6 +16,7 @@ A lightweight, browser-based Gantt chart and task management tool. No server req
 - **Notes Field** – Add a custom column named "Notes" and each row gets a small click-to-expand flag instead of raw inline text. Opens a modal rendering a lightweight Markdown subset (bold, italic, links, lists); still a plain-text cell underneath, so it round-trips through CSV import/export like any other custom column
 - **Grid Search/Filter** – Filter rows by Task Name or Resource; matches keep their parent/ancestor chain visible for context, and search composes with Collapse (a manually collapsed section stays collapsed even if something inside it matches)
 - **Resource Color-Coding** – Each resource gets a deterministic color, shown as a stripe on the left edge of its bars (first-listed resource wins on multi-resource tasks) and listed in the chart legend; complements the Workload dashboard's per-resource view
+- **Critical Path Highlighting** – Opt-in toolbar toggle ("Critical path", off by default) that runs the chain of zero-slack tasks determining the project's overall end date through a standard CPM pass over the Depends graph. Critical tasks get a small ⚡ next to their name in the grid and an outlined bar in the chart; parallel branches with float are correctly left unmarked. Suppressed while a dependency cycle exists, since a cycle has no well-defined critical path.
 - **Progress Tracking** – Mark tasks as not started, in progress, complete, or overdue
 - **Dependencies** – Link tasks to show sequential relationships
 - **Milestones** – Create zero-duration milestone markers

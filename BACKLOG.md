@@ -3,8 +3,7 @@
 Planned features and known follow-ups, evaluated one at a time before being built.
 
 ## Bug
-- [ ] Upon login its to check for projects that aren't successfully imported which could occur if you were working in another browser or on another device. This is not currently working.
-- [ ] Treat Resources as first class entity. I'd like them to be assigned (named) prior to being typed in the grid. This should allow a pre-selected value for me to use. Discuss how to handle this when its done via CSV Import/Export.
+- [ ] Upon login its to check for projects that aren't successfully imported which could occur if you were working in another browser or on another device. This is not currently working. 
 
 ## Features
 
@@ -18,7 +17,8 @@ Ordered lowest to highest risk/complexity -- roughly, how contained the change i
 6. **PDF export** -- a proper paginated print/PDF view of the Gantt chart (currently only PNG export exists). Real design decision up front: a new CDN dependency (e.g. jsPDF) vs. a print-stylesheet-only approach with zero new dependencies. Either way, paginating a wide scrolling timeline cleanly is a genuinely gnarly layout problem.
 8. **Baseline / plan-vs-actual tracking** -- snapshot dates when a plan is finalized, then show variance when things drift (ghost bars in the chart, variance indicators in the grid). Needs a new persisted data model (baseline snapshots, separate from live task data) and non-trivial additions to the Gantt rendering pipeline.
 9. **Undo/redo** -- there's no in-app undo today (the README just points at the browser's Ctrl+Z, which isn't reliable for a JS grid). Highest risk: it's not just about reverting a raw cell edit -- every edit can cascade through dependency scheduling and parent rollup, so a naive undo could easily leave the sheet in an inconsistent state (a reverted Start/Dur with stale computed End/rollup values). Needs real design thought before any code, not just a wrapper around jexcel's own internal history.
-10. **Bulk edit / multi-row select** -- select multiple rows and apply a Resource/%Done/Parent change to all of them at once. Needs figuring out jexcel's selection-range API and a clear UX; may partially already be possible via existing copy/paste-down-a-column behavior, worth checking before building new UI.
+10. Treat Resources as first class entity. I'd like them to be assigned (named) prior to being typed in the grid. This should allow a pre-selected value for me to use. Discuss how to handle this when its done via CSV Import/Export.
+11. **Bulk edit / multi-row select** -- select multiple rows and apply a Resource/%Done/Parent change to all of them at once. Needs figuring out jexcel's selection-range API and a clear UX; may partially already be possible via existing copy/paste-down-a-column behavior, worth checking before building new UI.
 
 ## Tech debt / follow-ups from the repo review
 

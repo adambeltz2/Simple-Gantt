@@ -443,7 +443,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.12.0";
+        const APP_VERSION = "2.13.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -1584,6 +1584,61 @@
             return null;
         }
 
+        // DEPENDENCY CYCLE DETECTION (view-only -- warns, never blocks or mutates data)
+        //
+        // The self-reference check in syncToGantt already strips a task that
+        // depends on/is parented to itself. A longer cycle (A depends on B
+        // depends on A) is a different failure mode: the fixed-point loop that
+        // resolves dependency dates will just keep nudging both tasks' Start
+        // dates forward, changing something every pass, until it silently hits
+        // its own 100-iteration safety valve with no explanation. This is a
+        // pure graph traversal over the same Depends edges syncToGantt already
+        // has in tasksMap, run once per sync, purely to explain *why* dates
+        // look wrong instead of leaving the user to guess.
+        let dependencyCycleIds = new Set();
+        let dependencyCyclePaths = [];
+
+        function setsEqual(a, b) {
+            if (a.size !== b.size) return false;
+            for (const x of a) if (!b.has(x)) return false;
+            return true;
+        }
+
+        function detectDependencyCycles(tasksMap) {
+            const WHITE = 0, GRAY = 1, BLACK = 2;
+            const color = {};
+            Object.keys(tasksMap).forEach((id) => { color[id] = WHITE; });
+            const cycleIds = new Set();
+            const cyclePaths = [];
+
+            function visit(id, path) {
+                color[id] = GRAY;
+                path.push(id);
+                const task = tasksMap[id];
+                if (task) {
+                    task.dependenciesArray.forEach((depId) => {
+                        if (!tasksMap[depId]) return;
+                        if (color[depId] === GRAY) {
+                            const cycleStart = path.indexOf(depId);
+                            const cycle = path.slice(cycleStart).concat(depId);
+                            cycle.forEach((cid) => cycleIds.add(cid));
+                            cyclePaths.push(cycle);
+                        } else if (color[depId] === WHITE) {
+                            visit(depId, path);
+                        }
+                    });
+                }
+                path.pop();
+                color[id] = BLACK;
+            }
+
+            Object.keys(tasksMap).forEach((id) => {
+                if (color[id] === WHITE) visit(id, []);
+            });
+
+            return { cycleIds, cyclePaths };
+        }
+
         function formatCells(instance, cell, col, row, val, label, cellName) {
             try {
                 if (!instance || !instance.jexcel) return;
@@ -1664,6 +1719,16 @@
                     dot.addEventListener('click', function(e) { e.stopPropagation(); toggleFlag(rowID); });
                     cell.appendChild(dot);
                     cell.appendChild(document.createTextNode(val != null ? val : ''));
+
+                    if (dependencyCycleIds.has(rowID)) {
+                        cell.style.boxShadow = 'inset 0 0 0 2px #dc2626';
+                        const cyclePath = dependencyCyclePaths.find((p) => p.includes(rowID));
+                        cell.title = cyclePath
+                            ? `Dependency cycle: ${cyclePath.join(' → ')}`
+                            : 'Part of a dependency cycle';
+                    } else {
+                        cell.style.boxShadow = '';
+                    }
                 }
 
                 if (col == COL.NAME) {
@@ -2094,7 +2159,12 @@
         }
 
         function syncToGantt(forceRecalculateDates = false) {
-            isSyncing = true; 
+            isSyncing = true;
+            // saveToLocal() (called in the finally block below, on every sync) always
+            // shows its own "✓ Saved" status last -- so a warning set mid-function via
+            // showStatus() would be overwritten before the user ever sees it. Anything
+            // that needs to survive that gets queued here and shown after saveToLocal().
+            let pendingWarning = null;
             try {
                 let rawData = sheet.getData();
                 if(!rawData || rawData.length === 0) return; 
@@ -2165,7 +2235,24 @@
                 });
 
                 if (selfRefFound) {
-                    showStatus("⚠ Removed a self-reference (task can't depend on or be parented to itself)", "#f59e0b");
+                    pendingWarning = { text: "⚠ Removed a self-reference (task can't depend on or be parented to itself)", color: "#f59e0b" };
+                }
+
+                // Run cycle detection before the fixed-point loop below, purely to
+                // explain -- via a status message and a red outline on the ID cells
+                // involved -- why a cycle's dates may never settle. Detection is
+                // additive: it never removes a Depends link or blocks the loop, which
+                // already protects itself with its own iteration limit.
+                const cycleResult = detectDependencyCycles(tasksMap);
+                const cycleMembershipChanged = !setsEqual(cycleResult.cycleIds, dependencyCycleIds);
+                dependencyCycleIds = cycleResult.cycleIds;
+                dependencyCyclePaths = cycleResult.cyclePaths;
+                if (cycleMembershipChanged) {
+                    if (dependencyCycleIds.size > 0) {
+                        const pathStrs = dependencyCyclePaths.map((p) => p.join(' → '));
+                        pendingWarning = { text: `⚠ Dependency cycle detected (${pathStrs.join('; ')}) -- scheduling for these tasks may not converge`, color: "#f59e0b" };
+                    }
+                    if (sheet) sheet.updateTable();
                 }
 
                 let loopLimit = 100; let changed = true;
@@ -2366,6 +2453,7 @@
             } finally {
                 isSyncing = false;
                 saveToLocal();
+                if (pendingWarning) showStatus(pendingWarning.text, pendingWarning.color);
             }
         }
 

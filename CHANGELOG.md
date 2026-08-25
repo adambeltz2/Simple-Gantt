@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.13.0] - 2026-08-25
+
+### ✨ Added
+
+#### Explicit Dependency Cycle Detection
+- The self-reference guard already stripped a task depending on/parented to itself, but a longer cycle in the Depends graph (A depends on B depends on A, or a longer chain) went completely undetected -- the fixed-point scheduling loop that resolves Start dates would just keep changing something every pass until it silently hit its own 100-iteration safety valve, with no explanation for why the dates never settled.
+- Added a real graph traversal (`detectDependencyCycles`, three-color DFS over the same Depends edges `syncToGantt` already builds into `tasksMap`) that runs once per sync, before the fixed-point loop, and finds every cycle -- not just two-task loops, arbitrary-length chains.
+- Purely additive: it never removes a Depends link or blocks scheduling (the existing iteration limit already protects against a runaway loop) -- it only explains what's happening. A detected cycle gets a red outline + tooltip (naming the exact cycle path) on the Task ID cell of every task involved, plus a one-time amber status-bar warning when the cycle first appears or its membership changes (not re-shown on every subsequent edit while it's unresolved, so it doesn't spam the status bar).
+- A diamond-shaped dependency graph (two tasks sharing a common ancestor/descendant) is correctly *not* flagged -- only genuine cycles are.
+
+### 🐛 Fixed
+
+#### Status-bar warnings were being silently overwritten by "✓ Saved" (pre-existing bug, found while wiring up the cycle warning)
+- `syncToGantt()` always calls `saveToLocal()` in its `finally` block, and `saveToLocal()` always shows its own "✓ Saved" status last. Any warning set earlier in the same sync pass -- including the existing self-reference warning -- was being overwritten before the user could ever see it, since both happen synchronously in the same tick.
+- Fixed by queuing warnings (`pendingWarning`) during the sync and showing them *after* `saveToLocal()`'s own status call, so an actionable warning is what's left on screen, not a routine save confirmation. This also makes the pre-existing self-reference warning visible for the first time.
+
+### 🧪 Testing
+- Added `tests/dependency-cycle-detection.spec.js`: a two-task cycle, a three-task chain cycle, a normal linear chain (no false positive), a diamond shape (no false positive), that detection never mutates the Depends column, that a plain self-reference still shows its own message and not a cycle message, that fixing the cycle clears the outline and status, and no uncaught errors across the whole flow.
+- Full suite: 14 spec files, 93 tests, all pass.
+
+---
+
 ## [2.12.0] - 2026-08-25
 
 ### ✨ Added

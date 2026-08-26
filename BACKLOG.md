@@ -3,7 +3,8 @@
 Planned features and known follow-ups, evaluated one at a time before being built.
 
 ## Bug
-- [ ] Upon login its to check for projects that aren't successfully imported which could occur if you were working in another browser or on another device. This is not currently working. 
+- [x] ~~Upon login its to check for projects that aren't successfully imported which could occur if you were working in another browser or on another device. This is not currently working.~~ -- **fixed in v2.15.3.** (Automatic discovery was only ever wired to the one-time OAuth callback (`isFreshDropboxLogin`), not to normal page loads where the Dropbox token already persists in `localStorage` -- which is every session after the first. Now runs on every load where a token is present; stays silent when nothing new is found.)
+- [ ] [BUG] PDF export renders wrong -- user-reported screenshot shows the exported page with content squeezed into a small box in the top-left corner and the rest of the page blank, instead of the full-page chart tiling described in backlog item #7. Needs investigation into `exportPDF()` (`index.html`, ~line 1323) and its html2canvas rasterization/tiling math -- likely a canvas sizing or page-scaling miscalculation. Not yet reproduced/root-caused; affected files: `index.html`.
 
 ## Features
 

@@ -450,7 +450,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.15.2";
+        const APP_VERSION = "2.15.3";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -665,21 +665,17 @@
         const AUTO_BACKUP_DELAY_MS = 60000;
         let dbx = null;
         let dbxAutoBackupTimer = null;
-        let isFreshDropboxLogin = false;
 
         if (window.location.hash.includes('access_token')) {
             const params = new URLSearchParams(window.location.hash.substring(1));
             localStorage.setItem('dropbox_token', params.get('access_token'));
             window.history.replaceState({}, document.title, window.location.pathname);
-            isFreshDropboxLogin = true;
         }
         if (localStorage.getItem('dropbox_token')) {
             dbx = new Dropbox.Dropbox({ accessToken: localStorage.getItem('dropbox_token') });
             let dbxLogoutBtn = document.getElementById('btnDbxLogout');
             if(dbxLogoutBtn) dbxLogoutBtn.style.display = '';
-            if (isFreshDropboxLogin) {
-                discoverDropboxProjects(false);
-            }
+            discoverDropboxProjects(false);
         } else {
             let dbxBtn = document.getElementById('btnDbxSave');
             if(dbxBtn) dbxBtn.innerHTML = dbxBtn.innerHTML.replace('Back up', 'Login to Dropbox');

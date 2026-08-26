@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.15.3] - 2026-08-26
+
+### 🐛 Fixed
+
+#### Cross-device Dropbox project discovery now actually runs on login
+- Backlog bug: automatic discovery of Dropbox-backed projects from other browsers/devices ("Check Dropbox for other projects not in this browser") was only ever wired to fire once, immediately after the initial OAuth authorize redirect (`isFreshDropboxLogin`). On every later visit -- the case that actually matters, since the Dropbox token persists in `localStorage` across sessions -- the automatic check never ran, silently defeating the "Auto-import found projects" behavior described in the README's Dropbox comparison table. You had to remember to click "Check Dropbox for other projects" manually every time.
+- `discoverDropboxProjects(false)` now runs on every page load where a Dropbox token is already present, not just the one-time OAuth callback. It stays silent when nothing new is found (unchanged), and only surfaces the import modal when a project exists in Dropbox that isn't yet local.
+
+---
+
 ## [2.15.2] - 2026-08-26
 
 ### 🧪 Testing

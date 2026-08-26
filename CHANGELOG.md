@@ -7,11 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.15.2] - 2026-08-26
+
+### 🧪 Testing
+
+#### Faster test runs, no functional changes
+- `playwright.config.js`: explicit `workers: '100%'` -- every spec file navigates to its own fresh page and localStorage, so there's no shared state for parallel workers to contend over, and the previous default left cores idle.
+- Every spec file's post-load "let the initial syncToGantt() pass settle" wait dropped from a flat 500ms to 150ms. Traced through the actual library internals to confirm this is safe: jexcel 4.6.1's row/cell construction (`updateTable()`, which calls this app's own `formatCells`) runs synchronously inside the same constructor call that creates the `.jexcel` element Playwright waits on, and frappe-gantt 0.6.1's bar/label creation is also synchronous -- the only deferred work found was a single `requestAnimationFrame` frappe-gantt uses to reposition (not create) a bar's label text, which no test asserts on. 150ms keeps a real cushion for that repaint without paying for 350ms of pure idle time on every single test.
+- One `waitForTimeout(500)` was deliberately left alone (`csv-sanitization.spec.js`, after a file-input CSV import): that one is masking a real async operation (PapaParse's `FileReader`-based parse), not a page-load settle, so it wasn't touched.
+- No test assertions changed -- this is exclusively about how long each test waits before asserting, verified by re-running the affected spec files.
+
+---
+
+## [2.15.1] - 2026-08-26
+
+### 🐛 Fixed
+
+#### A pasted-over row could permanently lose its Task ID and Outline (real bug report)
+- Reported behavior: right-click "Insert row", then paste a block of data into the new row and edit it further -- the Task ID and Outline (WBS) columns never populate, even after leaving the record.
+- Root cause: `oninsertrow` auto-assigns a Task ID exactly once, right after the row is created. If a paste then overwrites that cell with a blank value (paste, like the auto-assignment itself, writes through the ID column's `readOnly` flag), nothing ever re-assigned it afterward -- and the WBS/outline numbering pass in `syncToGantt()` skips any row with a blank Task ID entirely, by design (it can't place an unidentified row in the hierarchy). The row was permanently stuck with no ID and no Outline, no matter how many further edits triggered a sync.
+- Fixed by having `syncToGantt()` backfill a blank Task ID on every sync, not just at insert time -- assigned the same way (next available integer), before the WBS pass runs, so the very next edit to an affected row (or an explicit "↻ Sync Dependencies") recovers it instead of requiring the row to be deleted and re-created.
+
+### 🧪 Testing
+- Added `tests/row-id-backfill.spec.js`: the existing insert-row auto-assignment still works, a blanked-out Task ID/Outline gets backfilled on the next sync, backfilled IDs stay unique when multiple rows are blanked at once, and no uncaught errors during backfill.
+
+---
+
 ## [2.15.0] - 2026-08-26
 
 ### ✨ Added
 
 #### Paginated PDF Export
+- New "Export PDF" toolbar button, next to Export PNG, produces a proper paginated print/PDF view of the Gantt chart instead of a single oversized image.
+- Built on a new CDN dependency, [jsPDF](https://github.com/parallax/jsPDF) 2.5.2 (pinned, SRI-hashed against the real npm-published `dist/jspdf.umd.min.js` bytes) -- chosen over a print-stylesheet-only approach because a wide scrolling timeline needs actual raster pagination (splitting one continuous canvas into discrete pages), which CSS `@media print` alone can't do cleanly for an arbitrarily wide SVG chart.
+- Reuses the exact same rasterization the existing PNG export already relies on (`html2canvas` on `.chart-panel` at `scale: 2`) rather than a second, parallel rendering path -- the one captured canvas is then sliced into a grid of landscape-Letter pages sized for ~150dpi print quality.
+- Each page gets the project name and today's date in a header, and a "Page X of Y (row R of Rows, col C of Cols)" footer when there's more than one page -- the row/col coordinates are there specifically so a multi-page printout can be reassembled back into the original layout, since pagination on a wide timeline is 2-dimensional (across for date range, down for row count), not just a simple top-to-bottom split.
+- A Day-zoom view over a multi-year plan can paginate into a very large PDF -- generating more than 40 pages prompts for confirmation first (showing the exact page grid it's about to produce) rather than silently writing out a huge file.
+- Grid-only export concern like PNG: never touches task data, the live Gantt chart, CSV export, or Dropbox backups.
+
+### 🧪 Testing
+- Added `tests/pdf-export.spec.js`: the toolbar button's presence, a real download producing a structurally valid PDF (`%PDF-` header, `%%EOF` trailer, at least one real page object), zero effect on grid data and the Gantt chart, the status-bar completion message, and no uncaught errors during export.
+- The jsPDF UMD build and this file's exact pagination/slicing algorithm were additionally verified in a throwaway harness (real npm-fetched `jspdf.umd.min.js` bytes, run headless) against both a single-page-sized canvas (1 page) and a wide multi-year-shaped canvas (9000x1200px -> 6 cols x 2 rows = 12 pages), confirming the generated PDF's actual page count matches the computed grid in both cases.
 - A new "Export PDF" toolbar button, next to Export PNG. Reuses the same html2canvas rasterization the PNG export already does (the PDF matches the PNG pixel-for-pixel), then tiles that canvas across as many landscape PDF pages as the timeline needs -- a Gantt chart is wide, not tall, so pagination goes left to right, each page a full-height vertical slice, rather than shrinking a long project onto one illegibly small page.
 - Adds `jsPDF 2.5.2` as a new pinned CDN dependency (exact version, SRI hash computed from the real npm-published bytes, same discipline as every other library here except the one flagged tech-debt item). Checked first whether this could be done with zero new dependencies via browser print CSS; went with jsPDF because it builds directly on the html2canvas rendering this app already trusts and ships, giving precise one-click pagination instead of a manual "Save as PDF" step with less control over page breaks.
 

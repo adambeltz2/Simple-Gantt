@@ -14,7 +14,7 @@ test.beforeEach(async ({ page }) => {
 
   await page.goto('/index.html');
   await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(150);
   // Weekends off is on by default; turn it off so Mon-start day math in
   // these tests isn't sensitive to which day of the week "today" is.
   await page.evaluate(() => { document.getElementById('skipWeekends').checked = false; });

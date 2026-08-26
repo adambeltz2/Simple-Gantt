@@ -8,6 +8,9 @@ const { defineConfig } = require('@playwright/test');
 module.exports = defineConfig({
   testDir: './tests',
   fullyParallel: true,
+  // Every spec file navigates to its own fresh page/localStorage, so there's
+  // no shared state for parallel workers to fight over -- use every core.
+  workers: '100%',
   reporter: 'list',
   use: {
     baseURL: 'http://127.0.0.1:4173',

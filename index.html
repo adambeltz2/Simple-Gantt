@@ -450,7 +450,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.15.0";
+        const APP_VERSION = "2.15.1";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -2422,8 +2422,26 @@
             let pendingWarning = null;
             try {
                 let rawData = sheet.getData();
-                if(!rawData || rawData.length === 0) return; 
-                
+                if(!rawData || rawData.length === 0) return;
+
+                // A row can end up with a blank Task ID well after insert-time
+                // auto-assignment -- most commonly, pasting a block of data over a
+                // freshly-inserted row overwrites that just-assigned ID with whatever
+                // (or nothing) was in the clipboard's first column. The WBS/outline
+                // pass below skips any row with a blank ID entirely, so a row like
+                // that would otherwise never get a Task ID or Outline number, no
+                // matter how many times it's edited afterward. Assign one here too,
+                // on every sync, not just on insert.
+                let maxExistingId = Math.max(0, ...rawData.map(r => parseInt(r[COL.ID]) || 0));
+                rawData.forEach((row, index) => {
+                    if (row[COL.ID] == null || row[COL.ID].toString().trim() === '') {
+                        maxExistingId++;
+                        const newId = maxExistingId.toString();
+                        sheet.setValueFromCoords(COL.ID, index, newId, true);
+                        row[COL.ID] = newId;
+                    }
+                });
+
                 let wbsMap = {};
                 let siblingCounts = {};
                 

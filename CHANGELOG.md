@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.15.1] - 2026-08-26
+
+### 🐛 Fixed
+
+#### A pasted-over row could permanently lose its Task ID and Outline (real bug report)
+- Reported behavior: right-click "Insert row", then paste a block of data into the new row and edit it further -- the Task ID and Outline (WBS) columns never populate, even after leaving the record.
+- Root cause: `oninsertrow` auto-assigns a Task ID exactly once, right after the row is created. If a paste then overwrites that cell with a blank value (paste, like the auto-assignment itself, writes through the ID column's `readOnly` flag), nothing ever re-assigned it afterward -- and the WBS/outline numbering pass in `syncToGantt()` skips any row with a blank Task ID entirely, by design (it can't place an unidentified row in the hierarchy). The row was permanently stuck with no ID and no Outline, no matter how many further edits triggered a sync.
+- Fixed by having `syncToGantt()` backfill a blank Task ID on every sync, not just at insert time -- assigned the same way (next available integer), before the WBS pass runs, so the very next edit to an affected row (or an explicit "↻ Sync Dependencies") recovers it instead of requiring the row to be deleted and re-created.
+
+### 🧪 Testing
+- Added `tests/row-id-backfill.spec.js`: the existing insert-row auto-assignment still works, a blanked-out Task ID/Outline gets backfilled on the next sync, backfilled IDs stay unique when multiple rows are blanked at once, and no uncaught errors during backfill.
+
+---
+
 ## [2.15.0] - 2026-08-26
 
 ### ✨ Added

@@ -13,7 +13,7 @@ test.beforeEach(async ({ page }) => {
 
   await page.goto('/index.html');
   await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(150);
 });
 
 test('every row gets a flag toggle in the Task ID column', async ({ page }) => {
@@ -78,7 +78,7 @@ test('flag state persists per project across a reload', async ({ page }) => {
 
   await page.reload();
   await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(150);
 
   const flagged = await page.evaluate(() => appDB.projects[appDB.activeId].flagged);
   expect(flagged).toEqual(['2']);

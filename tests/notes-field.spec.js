@@ -32,7 +32,7 @@ test.beforeEach(async ({ page }) => {
 
   await page.goto('/index.html');
   await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(150);
 });
 
 test('a column named "Notes" shows an icon flag instead of raw text', async ({ page }) => {

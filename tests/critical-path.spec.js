@@ -19,7 +19,7 @@ test.beforeEach(async ({ page }) => {
 
   await page.goto('/index.html');
   await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(150);
   // Weekends off, so calendar days == working days -- keeps the expected
   // dates in these tests simple regardless of which day of the week the
   // fixture's anchor date falls on.

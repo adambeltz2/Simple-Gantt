@@ -13,8 +13,11 @@ test.beforeEach(async ({ page }) => {
 
   await page.goto('/index.html');
   await page.waitForSelector('#spreadsheet .jexcel');
-  // let the initial syncToGantt() pass settle
-  await page.waitForTimeout(500);
+  // jexcel's own row/cell construction and the app's initial syncToGantt()
+  // pass both run synchronously in the same tick that creates this element,
+  // so by the time it's queryable, both have already finished; this is just
+  // a small cushion for frappe-gantt's one-frame label-position rAF.
+  await page.waitForTimeout(150);
 });
 
 function visibleRowCount(page) {
@@ -68,7 +71,7 @@ test('collapse state persists per project across a reload', async ({ page }) => 
 
   await page.reload();
   await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(150);
 
   const collapsed = await page.evaluate(() => appDB.projects[appDB.activeId].collapsed);
   expect(collapsed).toEqual(['1']);

@@ -27,7 +27,7 @@ test.beforeEach(async ({ page }) => {
 
   await page.goto('/index.html');
   await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(150);
 });
 
 test('a dependent task starts the working day after its dependency\'s (inclusive) end date', async ({ page }) => {

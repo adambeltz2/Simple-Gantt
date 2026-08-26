@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.15.2] - 2026-08-26
+
+### 🧪 Testing
+
+#### Faster test runs, no functional changes
+- `playwright.config.js`: explicit `workers: '100%'` -- every spec file navigates to its own fresh page and localStorage, so there's no shared state for parallel workers to contend over, and the previous default left cores idle.
+- Every spec file's post-load "let the initial syncToGantt() pass settle" wait dropped from a flat 500ms to 150ms. Traced through the actual library internals to confirm this is safe: jexcel 4.6.1's row/cell construction (`updateTable()`, which calls this app's own `formatCells`) runs synchronously inside the same constructor call that creates the `.jexcel` element Playwright waits on, and frappe-gantt 0.6.1's bar/label creation is also synchronous -- the only deferred work found was a single `requestAnimationFrame` frappe-gantt uses to reposition (not create) a bar's label text, which no test asserts on. 150ms keeps a real cushion for that repaint without paying for 350ms of pure idle time on every single test.
+- One `waitForTimeout(500)` was deliberately left alone (`csv-sanitization.spec.js`, after a file-input CSV import): that one is masking a real async operation (PapaParse's `FileReader`-based parse), not a page-load settle, so it wasn't touched.
+- No test assertions changed -- this is exclusively about how long each test waits before asserting, verified by re-running the affected spec files.
+
+---
+
 ## [2.15.1] - 2026-08-26
 
 ### 🐛 Fixed

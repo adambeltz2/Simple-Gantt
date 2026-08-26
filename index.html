@@ -236,8 +236,6 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                     Export PNG
                 </button>
-                <button class="tbtn" onclick="exportPDF()">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line><line x1="9" y1="11" x2="12" y2="11"></line></svg>
                 <button class="tbtn" onclick="exportPDF()" title="Paginated PDF of the Gantt chart, one page per horizontal slice for wide timelines">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><text x="6.5" y="18" font-size="7" stroke="none" fill="currentColor" font-family="sans-serif" font-weight="bold">PDF</text></svg>
                     Export PDF
@@ -453,7 +451,6 @@
         }
 
         const APP_VERSION = "2.15.2";
-        const APP_VERSION = "2.15.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -1317,90 +1314,6 @@
             captureChartCanvas().then(canvas => {
                 const link = document.createElement('a'); link.download = `${appDB.projects[appDB.activeId].name}.png`;
                 link.href = canvas.toDataURL('image/png'); link.click();
-            });
-        }
-
-        // Paginated PDF export: the chart panel is rasterized once (same html2canvas
-        // approach as PNG export), then that single tall/wide canvas is sliced into a
-        // grid of pages sized for landscape Letter -- a wide multi-year timeline needs
-        // multiple pages across, not just one giant unreadable image squeezed onto paper.
-        const PDF_PAGE_WIDTH_PT = 792;  // 11in landscape Letter
-        const PDF_PAGE_HEIGHT_PT = 612; // 8.5in
-        const PDF_MARGIN_PT = 24;
-        const PDF_HEADER_PT = 26;
-        const PDF_FOOTER_PT = 18;
-        const PDF_DPI = 150; // print-quality raster resolution for the sliced images
-
-        function exportPDF() {
-            const panel = document.querySelector('.chart-panel');
-            const proj = appDB.projects[appDB.activeId];
-            const projectName = (proj && proj.name) ? proj.name : 'Gantt Chart';
-
-            showStatus('Generating PDF...', '#f59e0b');
-
-            html2canvas(panel, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
-                const pxPerPt = PDF_DPI / 72;
-                const contentWidthPt = PDF_PAGE_WIDTH_PT - PDF_MARGIN_PT * 2;
-                const contentHeightPt = PDF_PAGE_HEIGHT_PT - PDF_MARGIN_PT * 2 - PDF_HEADER_PT - PDF_FOOTER_PT;
-                const pageWidthPx = Math.max(1, Math.floor(contentWidthPt * pxPerPt));
-                const pageHeightPx = Math.max(1, Math.floor(contentHeightPt * pxPerPt));
-
-                const cols = Math.max(1, Math.ceil(canvas.width / pageWidthPx));
-                const rows = Math.max(1, Math.ceil(canvas.height / pageHeightPx));
-                const totalPages = cols * rows;
-
-                // A Day-zoom view over a multi-year plan can paginate into an
-                // impractically large PDF -- confirm before generating one that big
-                // rather than silently producing a 100+ page file.
-                if (totalPages > 40 && !confirm(`This will produce a ${totalPages}-page PDF (${cols} across x ${rows} down). Continue?`)) {
-                    showStatus('PDF export cancelled', '#f59e0b');
-                    return;
-                }
-
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: [PDF_PAGE_WIDTH_PT, PDF_PAGE_HEIGHT_PT] });
-                const sliceCanvas = document.createElement('canvas');
-                const sctx = sliceCanvas.getContext('2d');
-                const today = new Date().toLocaleDateString();
-
-                let pageNum = 0;
-                for (let r = 0; r < rows; r++) {
-                    for (let c = 0; c < cols; c++) {
-                        pageNum++;
-                        if (pageNum > 1) doc.addPage([PDF_PAGE_WIDTH_PT, PDF_PAGE_HEIGHT_PT], 'landscape');
-
-                        const sx = c * pageWidthPx;
-                        const sy = r * pageHeightPx;
-                        const sw = Math.min(pageWidthPx, canvas.width - sx);
-                        const sh = Math.min(pageHeightPx, canvas.height - sy);
-
-                        sliceCanvas.width = sw;
-                        sliceCanvas.height = sh;
-                        sctx.clearRect(0, 0, sw, sh);
-                        sctx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
-
-                        doc.setFontSize(10);
-                        doc.setTextColor(100);
-                        doc.text(String(projectName), PDF_MARGIN_PT, PDF_MARGIN_PT);
-                        doc.text(today, PDF_PAGE_WIDTH_PT - PDF_MARGIN_PT, PDF_MARGIN_PT, { align: 'right' });
-
-                        const drawWidthPt = sw / pxPerPt;
-                        const drawHeightPt = sh / pxPerPt;
-                        doc.addImage(sliceCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', PDF_MARGIN_PT, PDF_MARGIN_PT + PDF_HEADER_PT, drawWidthPt, drawHeightPt);
-
-                        doc.setFontSize(9);
-                        doc.setTextColor(150);
-                        const pageLabel = (cols > 1 || rows > 1)
-                            ? `Page ${pageNum} of ${totalPages} (row ${r + 1} of ${rows}, col ${c + 1} of ${cols})`
-                            : `Page ${pageNum} of ${totalPages}`;
-                        doc.text(pageLabel, PDF_PAGE_WIDTH_PT / 2, PDF_PAGE_HEIGHT_PT - PDF_FOOTER_PT / 2, { align: 'center' });
-                    }
-                }
-
-                doc.save(`${projectName}.pdf`);
-                showStatus('✓ PDF exported', '#10b981');
-            }).catch(() => {
-                showStatus('✗ PDF export failed', '#ef4444');
             });
         }
 

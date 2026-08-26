@@ -181,7 +181,7 @@
             <div class="toolbar-group">
                 <div style="position:relative; display:flex; align-items:center;">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute; left:8px; pointer-events:none;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                    <input id="gridSearchInput" type="text" placeholder="Search name or resource..." oninput="onGridSearchInput(this.value)"
+                    <input id="gridSearchInput" type="text" placeholder="Search any column..." oninput="onGridSearchInput(this.value)"
                         style="background:#1e293b; color:#e2e8f0; border:0.5px solid #334155; border-radius:6px; padding:6px 26px 6px 26px; font-size:12.5px; outline:none; width:180px;">
                     <button id="gridSearchClear" onclick="clearGridSearch()" title="Clear search"
                         style="display:none; position:absolute; right:5px; background:none; border:none; color:#94a3b8; cursor:pointer; padding:2px; line-height:0;">
@@ -450,7 +450,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.15.4";
+        const APP_VERSION = "2.16.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -2114,6 +2114,11 @@
         // display state, which would fight with the hideRow/showRow calls
         // applyRowVisibility() below already relies on for collapse. One
         // unified visibility pass avoids the two mechanisms undoing each other.
+        //
+        // Matches against every column (core and custom alike), not just
+        // Task Name/Resource -- e.g. typing "100" surfaces every fully-done
+        // task via % Done, a date fragment surfaces tasks by Start/End, an
+        // ID/Depends/Parent number surfaces the rows that reference it.
         let gridSearchQuery = '';
 
         function onGridSearchInput(value) {
@@ -2161,9 +2166,8 @@
             if (gridSearchQuery) {
                 keepForSearch = new Set();
                 data.forEach((row, i) => {
-                    const name = (row[COL.NAME] || '').toString().toLowerCase();
-                    const resource = (row[COL.RESOURCE] || '').toString().toLowerCase();
-                    if (!name.includes(gridSearchQuery) && !resource.includes(gridSearchQuery)) return;
+                    const matches = row.some(cell => (cell != null ? cell.toString().toLowerCase() : '').includes(gridSearchQuery));
+                    if (!matches) return;
                     keepForSearch.add(i);
                     const id = (row[COL.ID] != null) ? row[COL.ID].toString().trim() : '';
                     let pid = parentOf[id] || '';

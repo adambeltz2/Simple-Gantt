@@ -1,14 +1,15 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
 
-// Covers the grid search/filter: matches Task Name and Resource
-// case-insensitively, keeps a matched row's ancestor chain visible for
-// outline context, composes with collapse via AND (never overrides a
-// manual collapse to reveal a match), is purely a display concern (never
-// touches task data), and resets when switching projects. Deliberately
-// built on the same hideRow/showRow mechanism as collapse rather than
-// jexcel's own built-in search(), which manages visibility by detaching
-// <tr> elements from the DOM and would fight with it.
+// Covers the grid search/filter: matches any column's value (not just Task
+// Name/Resource -- also % Done, dates, and custom columns) case-insensitively,
+// keeps a matched row's ancestor chain visible for outline context, composes
+// with collapse via AND (never overrides a manual collapse to reveal a
+// match), is purely a display concern (never touches task data), and resets
+// when switching projects. Deliberately built on the same hideRow/showRow
+// mechanism as collapse rather than jexcel's own built-in search(), which
+// manages visibility by detaching <tr> elements from the DOM and would
+// fight with it.
 
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10 };
 
@@ -113,6 +114,71 @@ test('switching projects resets an active search', async ({ page }) => {
 
   await expect(page.locator('#gridSearchInput')).toHaveValue('');
   expect(await visibleRowCount(page)).toBe(1);
+});
+
+test('matching by % Done finds only the row with that value, not the others', async ({ page }) => {
+  await page.evaluate(() => {
+    const data = [
+      ['1', '1', 'Parent Project', '', '', '0', '', '', '', '', ''],
+      ['2', '1.1', 'Kickoff Meeting', 'Alice', '100', '42', '2026-08-24', '1', '2026-08-24', '', '1'],
+      ['3', '1.2', 'Build Feature X', 'Bob', '100', '0', '2026-08-24', '1', '2026-08-24', '', '1'],
+      ['4', '1.3', 'Ship Release', 'Charlie', '100', '0', '2026-08-24', '1', '2026-08-24', '', '1'],
+    ];
+    appDB.projects[appDB.activeId].data = data;
+    renderGrid(data);
+    syncToGantt(true);
+  });
+  await page.waitForTimeout(300);
+
+  await page.fill('#gridSearchInput', '42');
+  await page.waitForTimeout(200);
+
+  expect(await visibleRowCount(page)).toBe(2); // Parent Project + Kickoff Meeting (its % Done is 42)
+  const buildRowHidden = await page.evaluate(() => sheet.rows[2].style.display);
+  expect(buildRowHidden).toBe('none');
+});
+
+test('matching by a Start date fragment filters to the matching tasks plus their ancestor', async ({ page }) => {
+  await page.evaluate(() => {
+    const data = [
+      ['1', '1', 'Parent Project', '', '', '0', '', '', '', '', ''],
+      ['2', '1.1', 'Kickoff Meeting', 'Alice', '100', '0', '2026-09-15', '1', '2026-09-15', '', '1'],
+      ['3', '1.2', 'Build Feature X', 'Bob', '100', '0', '2026-08-24', '1', '2026-08-24', '', '1'],
+      ['4', '1.3', 'Ship Release', 'Charlie', '100', '0', '2026-08-24', '1', '2026-08-24', '', '1'],
+    ];
+    appDB.projects[appDB.activeId].data = data;
+    renderGrid(data);
+    syncToGantt(true);
+  });
+  await page.waitForTimeout(300);
+
+  await page.fill('#gridSearchInput', '09-15');
+  await page.waitForTimeout(200);
+
+  expect(await visibleRowCount(page)).toBe(2); // Parent Project + Kickoff Meeting
+});
+
+test('matching by a custom column value filters correctly', async ({ page }) => {
+  await page.evaluate(() => {
+    const data = [
+      ['1', '1', 'Parent Project', '', '', '0', '', '', '', '', '', ''],
+      ['2', '1.1', 'Kickoff Meeting', 'Alice', '100', '0', '2026-08-24', '1', '2026-08-24', '', '1', 'System A'],
+      ['3', '1.2', 'Build Feature X', 'Bob', '100', '0', '2026-08-24', '1', '2026-08-24', '', '1', 'System B'],
+      ['4', '1.3', 'Ship Release', 'Charlie', '100', '0', '2026-08-24', '1', '2026-08-24', '', '1', 'System B'],
+    ];
+    appDB.projects[appDB.activeId].columns = ['Category'];
+    appDB.projects[appDB.activeId].data = data;
+    renderGrid(data);
+    syncToGantt(true);
+  });
+  await page.waitForTimeout(300);
+
+  await page.fill('#gridSearchInput', 'system a');
+  await page.waitForTimeout(200);
+
+  expect(await visibleRowCount(page)).toBe(2); // Parent Project + Kickoff Meeting
+  const buildRowHidden = await page.evaluate(() => sheet.rows[2].style.display);
+  expect(buildRowHidden).toBe('none');
 });
 
 test('no uncaught JS errors while searching and clearing', async ({ page }) => {

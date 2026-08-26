@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.14.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-2.15.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
 
@@ -32,6 +32,7 @@ A lightweight, browser-based Gantt chart and task management tool. No server req
 - **Fully Offline** – All data stored in browser's local storage
 - **Dropbox Integration** – Optional backup and sync across devices
 - **CSV Import/Export** – Move data in and out easily
+- **PNG / Paginated PDF Export** – Export the Gantt chart as a PNG, or as a PDF that automatically tiles a long timeline across as many landscape pages as needed (each page a full-height vertical slice, left to right) rather than shrinking it illegibly onto one page
 
 ### 📱 User Experience
 - **Responsive Design** – Works on desktop, tablet, and mobile

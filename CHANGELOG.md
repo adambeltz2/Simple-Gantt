@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.15.0] - 2026-08-26
+
+### ✨ Added
+
+#### Paginated PDF Export
+- New "Export PDF" toolbar button, next to Export PNG, produces a proper paginated print/PDF view of the Gantt chart instead of a single oversized image.
+- Built on a new CDN dependency, [jsPDF](https://github.com/parallax/jsPDF) 2.5.2 (pinned, SRI-hashed against the real npm-published `dist/jspdf.umd.min.js` bytes) -- chosen over a print-stylesheet-only approach because a wide scrolling timeline needs actual raster pagination (splitting one continuous canvas into discrete pages), which CSS `@media print` alone can't do cleanly for an arbitrarily wide SVG chart.
+- Reuses the exact same rasterization the existing PNG export already relies on (`html2canvas` on `.chart-panel` at `scale: 2`) rather than a second, parallel rendering path -- the one captured canvas is then sliced into a grid of landscape-Letter pages sized for ~150dpi print quality.
+- Each page gets the project name and today's date in a header, and a "Page X of Y (row R of Rows, col C of Cols)" footer when there's more than one page -- the row/col coordinates are there specifically so a multi-page printout can be reassembled back into the original layout, since pagination on a wide timeline is 2-dimensional (across for date range, down for row count), not just a simple top-to-bottom split.
+- A Day-zoom view over a multi-year plan can paginate into a very large PDF -- generating more than 40 pages prompts for confirmation first (showing the exact page grid it's about to produce) rather than silently writing out a huge file.
+- Grid-only export concern like PNG: never touches task data, the live Gantt chart, CSV export, or Dropbox backups.
+
+### 🧪 Testing
+- Added `tests/pdf-export.spec.js`: the toolbar button's presence, a real download producing a structurally valid PDF (`%PDF-` header, `%%EOF` trailer, at least one real page object), zero effect on grid data and the Gantt chart, the status-bar completion message, and no uncaught errors during export.
+- The jsPDF UMD build and this file's exact pagination/slicing algorithm were additionally verified in a throwaway harness (real npm-fetched `jspdf.umd.min.js` bytes, run headless) against both a single-page-sized canvas (1 page) and a wide multi-year-shaped canvas (9000x1200px -> 6 cols x 2 rows = 12 pages), confirming the generated PDF's actual page count matches the computed grid in both cases.
+
+---
+
 ## [2.14.0] - 2026-08-25
 
 ### ✨ Added

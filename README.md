@@ -420,6 +420,7 @@ See LICENSE file for details.
 - [PapaParse](https://www.papaparse.com/) – CSV parsing
 - [Dropbox SDK](https://www.dropbox.com/developers) – Cloud sync
 - [html2canvas](https://html2canvas.hertzen.com/) – Export to PNG
+- [jsPDF](https://github.com/parallax/jsPDF) – Paginated PDF export
 
 ---
 

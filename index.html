@@ -20,6 +20,7 @@
     <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js" integrity="sha384-vIVXvmnGMKcWl9tl8Erv6xZ+73fWqZSOY0D31kkKw/VZocq7VAG3zqYhuOn0Yzlq" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css" integrity="sha384-7m7QARZ+I5i/e3zNLmxAeO3v1vOgtpJBC/b0Aev34b6oIOxdjl7lSXlILQgb8b3Z" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" integrity="sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/dropbox@10.34.0/dist/Dropbox-sdk.min.js" integrity="sha384-YWkd65tkMrhoUmJnjCxyrQASvTgA80dRkNv1iltGzS5KgwXnxYEhNC0hO7jjWkZe" crossorigin="anonymous"></script>
 
     <style>
@@ -235,6 +236,10 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                     Export PNG
                 </button>
+                <button class="tbtn" onclick="exportPDF()" title="Paginated PDF of the Gantt chart, one page per horizontal slice for wide timelines">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><text x="6.5" y="18" font-size="7" stroke="none" fill="currentColor" font-family="sans-serif" font-weight="bold">PDF</text></svg>
+                    Export PDF
+                </button>
             </div>
             <div class="toolbar-group">
                 <button id="btnDbxSave" class="tbtn tbtn-cloud" onclick="backupToDropbox(false)">
@@ -445,7 +450,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.14.0";
+        const APP_VERSION = "2.15.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -1289,10 +1294,68 @@
             `;
         }
 
+        // .chart-panel's own scrollWidth never exceeds its clientWidth -- the
+        // actual horizontal scrolling happens on frappe-gantt's own internal
+        // .gantt-container element nested inside it. html2canvas only rasterizes
+        // an element's own box by default, so capturing .chart-panel plainly
+        // only ever grabs whatever horizontal slice is currently scrolled into
+        // view, silently dropping the rest of a long project's timeline. Fixed
+        // by explicitly sizing the capture to the widest scrollWidth of either
+        // element (via html2canvas's width/windowWidth options, which make it
+        // lay out and render the full off-screen content instead of clipping).
+        function captureChartCanvas() {
+            const panel = document.querySelector('.chart-panel');
+            const ganttContainer = document.querySelector('.gantt-container');
+            const fullWidth = Math.max(panel.scrollWidth, ganttContainer ? ganttContainer.scrollWidth + 40 : panel.scrollWidth);
+            return html2canvas(panel, { scale: 2, width: fullWidth, height: panel.scrollHeight, windowWidth: fullWidth });
+        }
+
         function exportImage() {
-            html2canvas(document.querySelector('.chart-panel'), { scale: 2 }).then(canvas => {
+            captureChartCanvas().then(canvas => {
                 const link = document.createElement('a'); link.download = `${appDB.projects[appDB.activeId].name}.png`;
                 link.href = canvas.toDataURL('image/png'); link.click();
+            });
+        }
+
+        // Reuses the same full-timeline rasterization exportImage() now does
+        // (so the PDF matches the PNG pixel-for-pixel), then tiles that single
+        // wide canvas across as many landscape pages as needed. A Gantt
+        // timeline is wide, not tall, so pagination goes left-to-right: each
+        // page gets a full-height vertical slice, scaled to fill the page,
+        // rather than trying to shrink the whole chart onto one page (which
+        // would make a long project's bars and labels illegibly small).
+        function exportPDF() {
+            captureChartCanvas().then(canvas => {
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+                const margin = 24;
+                const usableWidth = pdf.internal.pageSize.getWidth() - margin * 2;
+                const usableHeight = pdf.internal.pageSize.getHeight() - margin * 2;
+
+                // Scale so the canvas's full height fits the page height;
+                // that scale then tells us how many canvas pixels of width
+                // fit in one page's usable width.
+                const scale = usableHeight / canvas.height;
+                const pageSliceWidthPx = Math.max(1, Math.floor(usableWidth / scale));
+                const totalPages = Math.max(1, Math.ceil(canvas.width / pageSliceWidthPx));
+
+                for (let page = 0; page < totalPages; page++) {
+                    if (page > 0) pdf.addPage();
+
+                    const sx = page * pageSliceWidthPx;
+                    const sliceWidthPx = Math.min(pageSliceWidthPx, canvas.width - sx);
+
+                    const sliceCanvas = document.createElement('canvas');
+                    sliceCanvas.width = sliceWidthPx;
+                    sliceCanvas.height = canvas.height;
+                    sliceCanvas.getContext('2d').drawImage(
+                        canvas, sx, 0, sliceWidthPx, canvas.height, 0, 0, sliceWidthPx, canvas.height
+                    );
+
+                    pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, margin, sliceWidthPx * scale, usableHeight);
+                }
+
+                pdf.save(`${appDB.projects[appDB.activeId].name}.pdf`);
             });
         }
         

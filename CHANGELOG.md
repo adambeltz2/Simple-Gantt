@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.15.0] - 2026-08-26
+
+### ✨ Added
+
+#### Paginated PDF Export
+- A new "Export PDF" toolbar button, next to Export PNG. Reuses the same html2canvas rasterization the PNG export already does (the PDF matches the PNG pixel-for-pixel), then tiles that canvas across as many landscape PDF pages as the timeline needs -- a Gantt chart is wide, not tall, so pagination goes left to right, each page a full-height vertical slice, rather than shrinking a long project onto one illegibly small page.
+- Adds `jsPDF 2.5.2` as a new pinned CDN dependency (exact version, SRI hash computed from the real npm-published bytes, same discipline as every other library here except the one flagged tech-debt item). Checked first whether this could be done with zero new dependencies via browser print CSS; went with jsPDF because it builds directly on the html2canvas rendering this app already trusts and ships, giving precise one-click pagination instead of a manual "Save as PDF" step with less control over page breaks.
+
+### 🐛 Fixed
+
+#### PNG/PDF export only ever captured the visible viewport, not the full timeline (real pre-existing bug, found while building PDF pagination)
+- `.chart-panel`'s own `scrollWidth` never exceeds its `clientWidth` -- the actual horizontal scrolling happens on frappe-gantt's own internal `.gantt-container` element nested inside it. `html2canvas` only rasterizes an element's own box by default, so exporting the chart only ever captured whatever horizontal slice happened to be scrolled into view at the moment of export, silently dropping the rest of a long project's timeline. This has been true of PNG export since it was added; it would have made PDF pagination pointless (a "paginated" export that only ever produces however many pages cover the current scroll position).
+- Fixed with a shared `captureChartCanvas()` helper that explicitly sizes the `html2canvas` capture to the wider of `.chart-panel` and `.gantt-container`'s `scrollWidth` (via html2canvas's `width`/`windowWidth` options, which make it lay out and render the full off-screen content instead of clipping to the visible viewport). Both `exportImage()` (PNG) and `exportPDF()` now use it.
+
+### 🧪 Testing
+- Added `tests/pdf-export.spec.js`: a valid non-empty PDF is downloaded, the filename matches the project name, a normal-sized chart's page count matches the tiling formula (derived from the actual rendered canvas via a spy on `html2canvas`, not hand-computed independently), a wide timeline (a 400-day task at Day zoom) genuinely paginates across multiple pages -- which also exercises the capture-width fix above -- an empty project doesn't crash, and no uncaught errors.
+- Full suite: 16 spec files, 110 tests, all pass.
+
+---
+
 ## [2.14.0] - 2026-08-25
 
 ### ✨ Added

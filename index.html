@@ -450,7 +450,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.15.2";
+        const APP_VERSION = "2.15.4";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -665,21 +665,17 @@
         const AUTO_BACKUP_DELAY_MS = 60000;
         let dbx = null;
         let dbxAutoBackupTimer = null;
-        let isFreshDropboxLogin = false;
 
         if (window.location.hash.includes('access_token')) {
             const params = new URLSearchParams(window.location.hash.substring(1));
             localStorage.setItem('dropbox_token', params.get('access_token'));
             window.history.replaceState({}, document.title, window.location.pathname);
-            isFreshDropboxLogin = true;
         }
         if (localStorage.getItem('dropbox_token')) {
             dbx = new Dropbox.Dropbox({ accessToken: localStorage.getItem('dropbox_token') });
             let dbxLogoutBtn = document.getElementById('btnDbxLogout');
             if(dbxLogoutBtn) dbxLogoutBtn.style.display = '';
-            if (isFreshDropboxLogin) {
-                discoverDropboxProjects(false);
-            }
+            discoverDropboxProjects(false);
         } else {
             let dbxBtn = document.getElementById('btnDbxSave');
             if(dbxBtn) dbxBtn.innerHTML = dbxBtn.innerHTML.replace('Back up', 'Login to Dropbox');
@@ -1294,20 +1290,45 @@
             `;
         }
 
-        // .chart-panel's own scrollWidth never exceeds its clientWidth -- the
-        // actual horizontal scrolling happens on frappe-gantt's own internal
-        // .gantt-container element nested inside it. html2canvas only rasterizes
-        // an element's own box by default, so capturing .chart-panel plainly
-        // only ever grabs whatever horizontal slice is currently scrolled into
-        // view, silently dropping the rest of a long project's timeline. Fixed
-        // by explicitly sizing the capture to the widest scrollWidth of either
-        // element (via html2canvas's width/windowWidth options, which make it
-        // lay out and render the full off-screen content instead of clipping).
+        // Both .chart-panel and frappe-gantt's own nested .gantt-container have
+        // `overflow: auto` in their live CSS -- and that CSS survives into
+        // html2canvas's cloned document. So regardless of how large a
+        // width/height/windowWidth/windowHeight this asks html2canvas for, the
+        // cloned elements still visually clip to their own on-screen scrolled
+        // box: only whatever already fit in the visible viewport gets painted,
+        // and everything past that (the rest of a long timeline horizontally,
+        // or rows past what fits vertically for a project with many tasks)
+        // comes out blank. Confirmed directly against the real html2canvas
+        // 1.4.1 source/renderer, not just inferred from behavior.
+        //
+        // The only real fix is to neutralize the overflow on the CLONED
+        // elements via html2canvas's onclone callback, pinning them to their
+        // true full content size so nothing is left for them to clip.
         function captureChartCanvas() {
             const panel = document.querySelector('.chart-panel');
             const ganttContainer = document.querySelector('.gantt-container');
             const fullWidth = Math.max(panel.scrollWidth, ganttContainer ? ganttContainer.scrollWidth + 40 : panel.scrollWidth);
-            return html2canvas(panel, { scale: 2, width: fullWidth, height: panel.scrollHeight, windowWidth: fullWidth });
+            const fullHeight = panel.scrollHeight;
+            const ganttContainerWidth = ganttContainer ? ganttContainer.scrollWidth : null;
+            return html2canvas(panel, {
+                scale: 2,
+                width: fullWidth,
+                height: fullHeight,
+                windowWidth: fullWidth,
+                windowHeight: fullHeight,
+                onclone: (clonedDoc) => {
+                    const clonedPanel = clonedDoc.querySelector('.chart-panel');
+                    if (clonedPanel) {
+                        clonedPanel.style.overflow = 'visible';
+                        clonedPanel.style.height = fullHeight + 'px';
+                    }
+                    const clonedGanttContainer = clonedDoc.querySelector('.gantt-container');
+                    if (clonedGanttContainer && ganttContainerWidth) {
+                        clonedGanttContainer.style.overflow = 'visible';
+                        clonedGanttContainer.style.width = ganttContainerWidth + 'px';
+                    }
+                },
+            });
         }
 
         function exportImage() {

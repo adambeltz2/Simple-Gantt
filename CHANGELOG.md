@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.15.4] - 2026-08-26
+
+### 🐛 Fixed
+
+#### PDF (and PNG) export only ever captured a small top-left box, rest blank (real bug report, screenshot)
+- The v2.15.0 fix for chart export clipping (widening the html2canvas capture via `width`/`windowWidth`) didn't actually work -- verified directly: both `.chart-panel` and frappe-gantt's nested `.gantt-container` have `overflow: auto` in their live CSS, and that CSS survives into html2canvas's *cloned* document. No matter how large a `width`/`height`/`windowWidth`/`windowHeight` you ask html2canvas for, the cloned elements still visually clip to their own on-screen scrolled box -- so the capture only ever contained whatever already fit in the visible browser viewport, with everything past that rendering blank. That's exactly the reported symptom: content squeezed into a small box, the rest of the page empty.
+- Confirmed against the real html2canvas 1.4.1 source (fetched from npm) and reproduced in an isolated headless-browser harness before touching production code: a synthetic DOM shaped like the real app (nested `overflow: auto` containers, content wider and taller than the visible viewport) showed the previously-shipped fix only capturing ~1/3 of the content in each dimension, blank everywhere else.
+- Fixed by neutralizing the overflow on the cloned `.chart-panel` and `.gantt-container` via html2canvas's `onclone` callback, pinning them to their true full-content width/height instead of leaving their original CSS overflow rule intact. Re-verified the same harness against the fixed function: full content now captured in both dimensions.
+- Affects `captureChartCanvas()`, shared by both `exportImage()` (PNG) and `exportPDF()`.
+
+---
+
+## [2.15.3] - 2026-08-26
+
+### 🐛 Fixed
+
+#### Cross-device Dropbox project discovery now actually runs on login
+- Backlog bug: automatic discovery of Dropbox-backed projects from other browsers/devices ("Check Dropbox for other projects not in this browser") was only ever wired to fire once, immediately after the initial OAuth authorize redirect (`isFreshDropboxLogin`). On every later visit -- the case that actually matters, since the Dropbox token persists in `localStorage` across sessions -- the automatic check never ran, silently defeating the "Auto-import found projects" behavior described in the README's Dropbox comparison table. You had to remember to click "Check Dropbox for other projects" manually every time.
+- `discoverDropboxProjects(false)` now runs on every page load where a Dropbox token is already present, not just the one-time OAuth callback. It stays silent when nothing new is found (unchanged), and only surfaces the import modal when a project exists in Dropbox that isn't yet local.
+
+---
+
 ## [2.15.2] - 2026-08-26
 
 ### 🧪 Testing

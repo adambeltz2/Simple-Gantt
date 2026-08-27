@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.16.0] - 2026-08-26
+
+### ✨ Added
+
+#### Grid Search/Filter now matches any column, not just Task Name/Resource
+- Requested by name in the backlog, with % Done as the motivating example (finding every fully-done task at a glance). The search box now checks every column's value on a row -- core columns (% Done, Start, End, Dur., Depends, Parent, Outline, Task ID) and any custom columns alike -- instead of only Task Name and Resource.
+- Same matching semantics as before (case-insensitive substring, composes with Collapse via AND, keeps a match's ancestor chain visible for outline context) -- this only widens *what* gets checked per row, not how matching or visibility works.
+- Toolbar placeholder updated from "Search name or resource..." to "Search any column..." to reflect the new scope.
+
+### 🧪 Testing
+- Extended `tests/grid-search.spec.js` with matching by % Done, by a Start date fragment, and by a value in a custom column.
+
+---
+
 ## [2.15.4] - 2026-08-26
 
 ### 🐛 Fixed

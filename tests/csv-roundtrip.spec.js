@@ -25,9 +25,9 @@ async function loadRoundtripFixture(page) {
   await page.evaluate(() => {
     appDB.projects[appDB.activeId].columns = ['JIRA', 'Notes'];
     const data = [
-      ['1', '1', 'Parent Task', '', '', '0', '', '', '', '', '', '', ''],
-      ['2', '1.1', 'Child One', 'Alice', '100', '50', '2026-08-24', '3', '2026-08-26', '', '1', 'PROJ-100', 'First **note**'],
-      ['3', '1.2', 'Child Two', 'Bob (50%)', '100', '100', '2026-08-27', '2', '2026-08-28', '2', '1', 'PROJ-101', ''],
+      ['1', '1', 'Parent Task', '', '', '0', '', '', '', '', '', '', '', ''],
+      ['2', '1.1', 'Child One', 'Alice', '100', '50', '2026-08-24', '3', '2026-08-26', '', '1', '', 'PROJ-100', 'First **note**'],
+      ['3', '1.2', 'Child Two', 'Bob (50%)', '100', '100', '2026-08-27', '2', '2026-08-28', '2', '1', '', 'PROJ-101', ''],
     ];
     appDB.projects[appDB.activeId].data = data;
     renderGrid(data);
@@ -47,7 +47,7 @@ test('exported CSV has the right headers, in order, including custom columns', a
   const headerLine = content.split('\n')[0].trim();
 
   expect(headerLine).toBe(
-    'Task ID,Outline,Task Name,Resource,Def. Alloc,% Done,Start,Dur.,End,Depends,Parent,JIRA,Notes'
+    'Task ID,Outline,Task Name,Resource,Def. Alloc,% Done,Start,Dur.,End,Depends,Parent,Labels,JIRA,Notes'
   );
 });
 
@@ -66,7 +66,7 @@ test('exported CSV contains correctly formatted dates and the parent rollup', as
   const parentLine = content.split('\n').find((l) => l.startsWith('1,1,Parent Task')).trim();
 
   expect(parentLine).toBe(
-    `1,1,Parent Task,,,${parentRow[COL.PCT]},${parentRow[COL.START]},${parentRow[COL.DUR]},${parentRow[COL.END]},,,,`
+    `1,1,Parent Task,,,${parentRow[COL.PCT]},${parentRow[COL.START]},${parentRow[COL.DUR]},${parentRow[COL.END]},,,,,`
   );
   expect(content).toContain('PROJ-100');
   expect(content).toContain('PROJ-101');

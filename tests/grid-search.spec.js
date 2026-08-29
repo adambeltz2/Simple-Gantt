@@ -161,10 +161,10 @@ test('matching by a Start date fragment filters to the matching tasks plus their
 test('matching by a custom column value filters correctly', async ({ page }) => {
   await page.evaluate(() => {
     const data = [
-      ['1', '1', 'Parent Project', '', '', '0', '', '', '', '', '', ''],
-      ['2', '1.1', 'Kickoff Meeting', 'Alice', '100', '0', '2026-08-24', '1', '2026-08-24', '', '1', 'System A'],
-      ['3', '1.2', 'Build Feature X', 'Bob', '100', '0', '2026-08-24', '1', '2026-08-24', '', '1', 'System B'],
-      ['4', '1.3', 'Ship Release', 'Charlie', '100', '0', '2026-08-24', '1', '2026-08-24', '', '1', 'System B'],
+      ['1', '1', 'Parent Project', '', '', '0', '', '', '', '', '', '', ''],
+      ['2', '1.1', 'Kickoff Meeting', 'Alice', '100', '0', '2026-08-24', '1', '2026-08-24', '', '1', '', 'System A'],
+      ['3', '1.2', 'Build Feature X', 'Bob', '100', '0', '2026-08-24', '1', '2026-08-24', '', '1', '', 'System B'],
+      ['4', '1.3', 'Ship Release', 'Charlie', '100', '0', '2026-08-24', '1', '2026-08-24', '', '1', '', 'System B'],
     ];
     appDB.projects[appDB.activeId].columns = ['Category'];
     appDB.projects[appDB.activeId].data = data;

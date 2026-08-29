@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.17.0] - 2026-08-29
+
+### ✨ Added
+
+#### Label functionality on a row (backlog #13, Msft Planner style)
+- New "Labels" grid column, right after Parent: free-text, semicolon-separated so a row can carry many labels, one, or none (e.g. `System A;Urgent`) -- same multi-value storage convention the Depends column already uses, rather than a separate managed/colored label entity (that level of formality is exactly what backlog #12 flags as still-unresolved complexity for Resources, so Labels deliberately follows Resource's simpler freeform pattern instead).
+- New toolbar "Label" filter dropdown, auto-populated from every distinct label typed anywhere in the active project. Selecting one narrows the grid to matching rows (keeping a match's ancestor chain visible, same outline-context behavior as grid search), composes with Collapse and search via AND, and resets on project switch/create/delete.
+- New "Label in chart" toggle (off by default) lets that same filter also narrow the Gantt chart to just the selected label -- opt-in, so the chart keeps showing the whole plan unless someone deliberately isolates one label there.
+- The free-text grid search already matched every column, so it picks up Labels automatically with no changes needed there.
+- CSV export/import round-trips the Labels column like any other. Importing a CSV exported before this version (no Labels header) inserts a blank Labels column on the way in so older custom columns (e.g. JIRA, Notes) still land in the right place instead of merging into Labels.
+
+### 🧪 Testing
+- Added `tests/labels.spec.js`: the Labels column's position and multi-value storage, the filter dropdown's population, grid filtering (including ancestor-visibility and composing with Collapse), the chart toggle's opt-in behavior, project-switch reset, and CSV round-trip.
+- Updated `tests/csv-roundtrip.spec.js`, `tests/csv-sanitization.spec.js`, `tests/flag-in-progress.spec.js`, `tests/grid-search.spec.js`, `tests/late-flag.spec.js`, and `tests/notes-field.spec.js` for the new column position.
+- Verified against the real jexcel/jsuites/frappe-gantt/papaparse sources (fetched from npm, routed in via `page.route()` in a throwaway harness) since the sandbox couldn't reach the live CDN hosts -- including the legacy-CSV migration path with a pre-existing custom column.
+
+---
+
 ## [2.16.0] - 2026-08-26
 
 ### ✨ Added

@@ -8,14 +8,14 @@ const { test, expect } = require('@playwright/test');
 // happens through the modal), and round-trips through CSV like any other
 // custom column since the underlying stored value is still plain text.
 
-const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10 };
-const NOTES_COL = 11;
+const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10, LABELS: 11 };
+const NOTES_COL = 12;
 
 async function setupWithNotesColumn(page) {
   await page.evaluate((COL) => {
     const data = [
-      ['1', '1', 'Task with a note', '', '', '0', '', '', '', '', '', 'Existing **note**'],
-      ['2', '2', 'Task without a note', '', '', '0', '', '', '', '', '', ''],
+      ['1', '1', 'Task with a note', '', '', '0', '', '', '', '', '', '', 'Existing **note**'],
+      ['2', '2', 'Task without a note', '', '', '0', '', '', '', '', '', '', ''],
     ];
     appDB.projects[appDB.activeId].columns = ['Notes'];
     appDB.projects[appDB.activeId].data = data;
@@ -115,7 +115,7 @@ test('user-typed HTML in a note is escaped, not executed', async ({ page }) => {
 
 test('a custom column NOT named "Notes" is unaffected', async ({ page }) => {
   await page.evaluate((COL) => {
-    const data = [['1', '1', 'Task', '', '', '0', '', '', '', '', '', 'plain custom value']];
+    const data = [['1', '1', 'Task', '', '', '0', '', '', '', '', '', '', 'plain custom value']];
     appDB.projects[appDB.activeId].columns = ['JIRA'];
     appDB.projects[appDB.activeId].data = data;
     renderGrid(data);

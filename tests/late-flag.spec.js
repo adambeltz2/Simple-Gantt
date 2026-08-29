@@ -133,7 +133,7 @@ test('Late coloring has no effect on the Gantt chart or exported columns', async
   const headers = await page.evaluate(() => sheet.options.columns.map((c) => c.title));
   expect(headers).toEqual([
     'Task ID', 'Outline', 'Task Name', 'Resource', 'Def. Alloc',
-    '% Done', 'Start', 'Dur.', 'End', 'Depends', 'Parent',
+    '% Done', 'Start', 'Dur.', 'End', 'Depends', 'Parent', 'Labels',
   ]);
 });
 

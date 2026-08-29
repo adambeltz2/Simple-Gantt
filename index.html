@@ -188,6 +188,9 @@
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     </button>
                 </div>
+                <select id="labelFilterSelect" class="tbtn-select" onchange="onLabelFilterChange(this.value)" title="Filter the grid to tasks carrying this label">
+                    <option value="">All Labels</option>
+                </select>
             </div>
             <div class="toolbar-group">
                 <select id="zoomScale" class="tbtn-select" onchange="changeZoom()">
@@ -197,6 +200,7 @@
                 </select>
                 <label class="toggle-label"><input type="checkbox" id="skipWeekends" onchange="forceRecalc()"> Weekends off</label>
                 <label class="toggle-label"><input type="checkbox" id="showCriticalPath" onchange="triggerSync()"> Critical path</label>
+                <label class="toggle-label" title="When a label is selected above, also narrow the Gantt chart to just that label"><input type="checkbox" id="applyLabelToChart" onchange="triggerSync()"> Label in chart</label>
                 <button class="tbtn" onclick="snapPanes(92)" title="Show grid only">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="2" y="4" width="16" height="16" rx="1.5"></rect><rect x="20" y="4" width="2" height="16" rx="1" opacity="0.35"></rect></svg>
                     Grid
@@ -450,7 +454,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.16.1";
+        const APP_VERSION = "2.17.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -459,11 +463,11 @@
         const dateStr1 = format(todayObj);
         
         const sampleProjectData = [
-            ['1', '1', 'Website Redesign Phase', '', '', '0', '', '', '', '', ''],
-            ['2', '1.1', 'Discovery & Wireframes', 'Alice 50%, Bob', '100', '100', dateStr1, '3', '', '', '1'],
-            ['3', '1.2', 'UI Design & Assets', 'Bob (50%), Charlie @ 50%', '100', '50', '', '5', '', '2', '1'],
-            ['4', '1.3', 'Frontend Implementation', 'Charlie', '100', '0', '', '7', '', '3', '1'],
-            ['5', '1.4', 'Launch Milestone', '', '', '0', '', '0', '', '4', '1']
+            ['1', '1', 'Website Redesign Phase', '', '', '0', '', '', '', '', '', ''],
+            ['2', '1.1', 'Discovery & Wireframes', 'Alice 50%, Bob', '100', '100', dateStr1, '3', '', '', '1', 'Planning'],
+            ['3', '1.2', 'UI Design & Assets', 'Bob (50%), Charlie @ 50%', '100', '50', '', '5', '', '2', '1', 'Design'],
+            ['4', '1.3', 'Frontend Implementation', 'Charlie', '100', '0', '', '7', '', '3', '1', 'Development'],
+            ['5', '1.4', 'Launch Milestone', '', '', '0', '', '0', '', '4', '1', 'Milestone']
         ];
 
         let appDB = {
@@ -495,11 +499,16 @@
         } catch(e) { console.error("Error loading DB", e); }
 
         function normalizeData(data, customColsCount) {
-            let targetLength = 11 + (customColsCount || 0);
-            if (!data || !Array.isArray(data) || data.length === 0) return [['1', '1', '', '', '100', '0', '', '', '', '', ...Array(customColsCount || 0).fill('')]];
+            let targetLength = 12 + (customColsCount || 0);
+            if (!data || !Array.isArray(data) || data.length === 0) return [['1', '1', '', '', '100', '0', '', '', '', '', '', '', ...Array(customColsCount || 0).fill('')]];
             return data.map(row => {
-                if (row.length === 9) row.splice(7, 0, ''); 
-                if (row.length === 10) row.splice(1, 0, ''); 
+                if (row.length === 9) row.splice(7, 0, '');
+                if (row.length === 10) row.splice(1, 0, '');
+                // Rows saved before the Labels column existed are exactly 11 +
+                // however many custom columns this project already had -- insert
+                // a blank there so every row's custom-column data keeps its
+                // original position instead of shifting left into Labels.
+                if (row.length === 11 + (customColsCount || 0)) row.splice(11, 0, '');
                 while (row.length < targetLength) row.push('');
                 return row;
             });
@@ -530,6 +539,7 @@
             } else {
                 appDB.activeId = val;
                 resetGridSearch();
+                resetLabelFilter();
                 renderGrid();
                 syncToGantt(true);
             }
@@ -543,12 +553,13 @@
             appDB.projects[newId] = {
                 name: name,
                 columns: [],
-                data: [['1', '1', '', '', '100', '0', '', '', '', '', '']],
+                data: [['1', '1', '', '', '100', '0', '', '', '', '', '', '']],
                 collapsed: [],
                 flagged: []
             };
             appDB.activeId = newId;
             resetGridSearch();
+            resetLabelFilter();
             updateProjectDropdown();
             renderGrid();
             syncToGantt(true);
@@ -576,6 +587,7 @@
             delete appDB.projects[appDB.activeId];
             appDB.activeId = Object.keys(appDB.projects)[0];
             resetGridSearch();
+            resetLabelFilter();
             updateProjectDropdown();
             renderGrid();
             syncToGantt(true);
@@ -809,7 +821,17 @@
             let headers = [];
             if (data.length > 0 && (data[0][0] === 'ID' || data[0][1] === 'Outline')) {
                 headers = data.shift();
-                appDB.projects[appDB.activeId].columns = headers.slice(11);
+                // A CSV exported before the Labels column existed has whatever
+                // was the first custom column (e.g. "JIRA") sitting at index 11
+                // instead. Insert a blank Labels column there -- same idea as
+                // normalizeData()'s legacy-shape splicing for localStorage data --
+                // so older exports/backups still land every custom column in the
+                // right place instead of merging into Labels.
+                if (headers[11] !== 'Labels') {
+                    headers.splice(11, 0, 'Labels');
+                    data.forEach(row => row.splice(11, 0, ''));
+                }
+                appDB.projects[appDB.activeId].columns = headers.slice(12);
             }
             renderGrid(sanitizeImportedRows(data, headers));
             syncToGantt(true);
@@ -1664,7 +1686,17 @@
         // ==========================================
         // CORE GANTT ENGINE & DYNAMIC COLUMNS
         // ==========================================
-        const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10 };
+        const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10, LABELS: 11 };
+
+        // Labels are free-text, semicolon-separated (same multi-value convention
+        // as the Depends column) rather than a managed/colored entity list --
+        // matches how Resource already handles "many values in one cell" without
+        // the extra CRUD surface a first-class Label entity would need (see
+        // backlog item #12, which flags that complexity as still unresolved for
+        // Resources and deliberately left undone).
+        function parseLabelsCell(cellValue) {
+            return (cellValue != null ? cellValue.toString() : '').split(';').map(s => s.trim()).filter(Boolean);
+        }
         let ganttChart; let isSyncing = false; let sheet;
 
         function shouldSkipWeekends() { return document.getElementById('skipWeekends').checked; }
@@ -2026,7 +2058,7 @@
         function syncColumnsToDB() {
             if(!sheet) return;
             let headers = sheet.options.columns.map(c => c.title);
-            appDB.projects[appDB.activeId].columns = headers.slice(11);
+            appDB.projects[appDB.activeId].columns = headers.slice(12);
             saveToLocal();
         }
 
@@ -2146,6 +2178,44 @@
             document.getElementById('gridSearchClear').style.display = 'none';
         }
 
+        // ==========================================
+        // LABEL FILTER (view-only, like search/collapse -- never mutates task data)
+        // ==========================================
+        // Selecting a label always narrows the grid; narrowing the Gantt chart
+        // too is opt-in via "Label in chart" (off by default) so the chart still
+        // shows the whole plan unless someone deliberately wants to isolate one
+        // label there.
+        let labelFilterValue = '';
+
+        function getAllLabelsInProject(data) {
+            const set = new Set();
+            (data || []).forEach(row => parseLabelsCell(row[COL.LABELS]).forEach(l => set.add(l)));
+            return Array.from(set).sort((a, b) => a.localeCompare(b));
+        }
+
+        function refreshLabelFilterOptions(data) {
+            const select = document.getElementById('labelFilterSelect');
+            if (!select) return;
+            const labels = getAllLabelsInProject(data);
+            const current = labelFilterValue;
+            select.innerHTML = '<option value="">All Labels</option>' +
+                labels.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
+            select.value = labels.includes(current) ? current : '';
+            labelFilterValue = select.value;
+        }
+
+        function onLabelFilterChange(value) {
+            labelFilterValue = value || '';
+            applyRowVisibility();
+            syncToGantt(false);
+        }
+
+        function resetLabelFilter() {
+            labelFilterValue = '';
+            const select = document.getElementById('labelFilterSelect');
+            if (select) select.value = '';
+        }
+
         // Hides/shows grid rows (via jexcel's own hideRow/showRow) for any task
         // with a collapsed ancestor, and/or that doesn't match the active search
         // (search keeps a matched row's ancestors visible too, for outline
@@ -2167,22 +2237,36 @@
                 }
             });
 
-            let keepForSearch = null;
-            if (gridSearchQuery) {
-                keepForSearch = new Set();
+            // Collects every row matching `matchFn`, plus (for outline context)
+            // all of its ancestors -- shared by search and label filtering below
+            // so a matched row's parent chain stays visible under either one.
+            function collectMatchesWithAncestors(matchFn) {
+                const keep = new Set();
                 data.forEach((row, i) => {
-                    const matches = row.some(cell => (cell != null ? cell.toString().toLowerCase() : '').includes(gridSearchQuery));
-                    if (!matches) return;
-                    keepForSearch.add(i);
+                    if (!matchFn(row)) return;
+                    keep.add(i);
                     const id = (row[COL.ID] != null) ? row[COL.ID].toString().trim() : '';
                     let pid = parentOf[id] || '';
                     let guard = 0;
                     while (pid && guard < 30) {
-                        if (idToIndex[pid] !== undefined) keepForSearch.add(idToIndex[pid]);
+                        if (idToIndex[pid] !== undefined) keep.add(idToIndex[pid]);
                         pid = parentOf[pid] || '';
                         guard++;
                     }
                 });
+                return keep;
+            }
+
+            let keepForSearch = null;
+            if (gridSearchQuery) {
+                keepForSearch = collectMatchesWithAncestors(row =>
+                    row.some(cell => (cell != null ? cell.toString().toLowerCase() : '').includes(gridSearchQuery))
+                );
+            }
+
+            let keepForLabel = null;
+            if (labelFilterValue) {
+                keepForLabel = collectMatchesWithAncestors(row => parseLabelsCell(row[COL.LABELS]).includes(labelFilterValue));
             }
 
             data.forEach((row, index) => {
@@ -2196,7 +2280,8 @@
                     guard++;
                 }
                 const hiddenBySearch = keepForSearch !== null && !keepForSearch.has(index);
-                if (hiddenByCollapse || hiddenBySearch) sheet.hideRow(index); else sheet.showRow(index);
+                const hiddenByLabel = keepForLabel !== null && !keepForLabel.has(index);
+                if (hiddenByCollapse || hiddenBySearch || hiddenByLabel) sheet.hideRow(index); else sheet.showRow(index);
             });
         }
 
@@ -2274,7 +2359,8 @@
                 { type: 'numeric', title: 'Dur.', width: 40, align: 'center' },
                 { type: 'calendar', title: 'End', width: 85, readOnly: true, options: { format: 'YYYY-MM-DD' }, align: 'center' },
                 { type: 'dropdown', title: 'Depends', width: 70, source: [], autocomplete: true, multiple: true, align: 'left' },
-                { type: 'dropdown', title: 'Parent', width: 60, source: [], autocomplete: true, align: 'left' }
+                { type: 'dropdown', title: 'Parent', width: 60, source: [], autocomplete: true, align: 'left' },
+                { type: 'text', title: 'Labels', width: 110, align: 'left' }
             ];
 
             if (activeProj.columns) {
@@ -2316,26 +2402,26 @@
                 ondeleterow: function() {
                     let data = sheet.getData();
                     if (!data || data.length === 0) {
-                        let emptyRow = ['1', '1', '', '', '100', '0', '', '', '', '', ...Array(appDB.projects[appDB.activeId].columns.length).fill('')];
+                        let emptyRow = ['1', '1', '', '', '100', '0', '', '', '', '', '', '', ...Array(appDB.projects[appDB.activeId].columns.length).fill('')];
                         sheet.setData([emptyRow]);
                     }
                     triggerSync();
                 },
                 contextMenu: function(obj, x, y, e) {
                     var items = [];
-                    if (y === null) { 
-                        if (x >= 10) { 
+                    if (y === null) {
+                        if (x >= 11) {
                             items.push({
                                 title: '➕ Insert Column Right',
                                 onclick: function() {
                                     sheet.insertColumn(1, parseInt(x), false);
                                     let newColIdx = parseInt(x) + 1;
-                                    sheet.setHeader(newColIdx, 'Custom ' + (newColIdx - 10));
+                                    sheet.setHeader(newColIdx, 'Custom ' + (newColIdx - 11));
                                     syncColumnsToDB();
                                 }
                             });
                         }
-                        if (x >= 11) {
+                        if (x >= 12) {
                             items.push({
                                 title: '✏️ Rename Column',
                                 onclick: function() {
@@ -2473,6 +2559,7 @@
                 let sourceList = rawData.map(r => ({ id: r[COL.ID], name: `${r[COL.ID]} - ${r[COL.NAME] || ''}` })).filter(r => r.id);
                 sheet.options.columns[COL.DEP].source = sourceList;
                 sheet.options.columns[COL.PARENT].source = sourceList;
+                refreshLabelFilterOptions(rawData);
 
                 let tasksMap = {};
                 let parentIDs = [...new Set(rawData.map(r => (r[COL.PARENT] !== r[COL.ID] ? r[COL.PARENT] : "")).filter(p => p !== ""))];
@@ -2503,11 +2590,11 @@
                     let assignments = parseAssignments(row[COL.RESOURCE], rawAlloc);
 
                     tasksMap[id] = {
-                        id: id, name: row[COL.NAME], resource: row[COL.RESOURCE], alloc: rawAlloc, 
+                        id: id, name: row[COL.NAME], resource: row[COL.RESOURCE], alloc: rawAlloc,
                         assignments: assignments, pct: parseInt(row[COL.PCT]) || 0,
-                        start: row[COL.START], dur: parseInt(row[COL.DUR]) || 0, end: row[COL.END], 
-                        dependenciesArray: depArray, frappeDependencies: depArray.join(', '), 
-                        parentId: parentId, rowIndex: index, isParent: parentIDs.includes(id)
+                        start: row[COL.START], dur: parseInt(row[COL.DUR]) || 0, end: row[COL.END],
+                        dependenciesArray: depArray, frappeDependencies: depArray.join(', '),
+                        parentId: parentId, rowIndex: index, isParent: parentIDs.includes(id), labels: row[COL.LABELS]
                     };
                 });
 
@@ -2666,7 +2753,7 @@
                     return {
                         id: t.id, name: displayName, start: t.start, end: fEnd, progress: t.pct,
                         dependencies: t.frappeDependencies, custom_class: customClass,
-                        _rawName: t.name, _assignments: t.assignments
+                        _rawName: t.name, _assignments: t.assignments, _labels: t.labels
                     };
                 });
 
@@ -2685,7 +2772,14 @@
                     }
                     return false;
                 }
-                const visibleFrappeTasks = frappeTasks.filter(t => !hasCollapsedAncestor(tasksMap[t.id]));
+                // "Label in chart" is opt-in and only takes effect while a label is
+                // actually selected -- otherwise the chart keeps showing the whole
+                // plan, per backlog #13 ("retaining 1 greater plan").
+                const chartLabelFilterActive = !!labelFilterValue && !!document.getElementById('applyLabelToChart') && document.getElementById('applyLabelToChart').checked;
+                const visibleFrappeTasks = frappeTasks.filter(t =>
+                    !hasCollapsedAncestor(tasksMap[t.id]) &&
+                    (!chartLabelFilterActive || parseLabelsCell(t._labels).includes(labelFilterValue))
+                );
                 const visibleIds = new Set(visibleFrappeTasks.map(t => String(t.id)));
                 visibleFrappeTasks.forEach(t => {
                     if (t.dependencies) {

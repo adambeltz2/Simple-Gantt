@@ -450,7 +450,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.16.0";
+        const APP_VERSION = "2.16.1";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -1697,13 +1697,17 @@
             return days;
         }
 
-        // Pure date math, deliberately ignoring % Done (per the same "dates
-        // are on the user" decision as dependency scheduling): red once the
-        // End date is in the past, yellow when it's today, null (no status)
-        // for a future or missing End date. Applies uniformly to every row
-        // including parents and milestones -- a parent's End is already its
-        // own rolled-up value, so no special-casing is needed there.
-        function computeLateStatus(endDateStr) {
+        // Date math against the End date, same as dependency scheduling's own
+        // "dates are on the user" rule -- but a task finished at 100% is never
+        // late no matter what its End date says, matching the Gantt chart's
+        // own is-complete-before-is-overdue precedence. Red once the End date
+        // is in the past, yellow when it's today, null (no status) for a
+        // future/missing End date or a completed task. Applies uniformly to
+        // every row including parents and milestones -- a parent's End/%
+        // Done are already its own rolled-up values, so no special-casing is
+        // needed there.
+        function computeLateStatus(endDateStr, pct) {
+            if (pct === 100) return null;
             if (!endDateStr) return null;
             const end = parseLocalDate(endDateStr);
             if (isNaN(end.getTime())) return null;
@@ -1915,7 +1919,8 @@
                 if (col == COL.ID || col == COL.OUTLINE || col == COL.END) cell.classList.add('readonly-cell', 'readonly');
 
                 if (col == COL.END) {
-                    const status = computeLateStatus(val);
+                    const pct = parseInt(rowData[COL.PCT]) || 0;
+                    const status = computeLateStatus(val, pct);
                     if (status === 'red') {
                         cell.style.backgroundColor = '#fecaca';
                         cell.style.color = '#991b1b';

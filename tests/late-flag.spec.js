@@ -4,10 +4,12 @@ const { test, expect } = require('@playwright/test');
 // Covers the "Late" indicator: an automatically-computed color on the End
 // cell itself (grid-only, per the feature request) -- red if End is in the
 // past, yellow if End is today, and no color for a future or missing End.
-// Pure date math: % Done is deliberately never consulted, matching the same
-// "dates are on the user" decision as dependency scheduling. Applies
-// uniformly to every row including parents, since a parent's End is already
-// its own rolled-up value.
+// Date math against today, matching the same "dates are on the user"
+// decision as dependency scheduling -- except a task finished at 100% is
+// never marked late, no matter what its End date says, same as the Gantt
+// chart's own is-complete-before-is-overdue precedence. Applies uniformly
+// to every row including parents, since a parent's End/% Done are already
+// its own rolled-up values.
 
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10 };
 
@@ -28,7 +30,7 @@ function endCellStyle(page, rowIndex) {
   }, rowIndex);
 }
 
-test('computeLateStatus: red for a past End, yellow for today, null for future or empty', async ({ page }) => {
+test('computeLateStatus: red for a past End, yellow for today, null for future, empty, or 100% done', async ({ page }) => {
   const results = await page.evaluate(() => {
     const today = new Date();
     const past = new Date(today); past.setDate(past.getDate() - 5);
@@ -38,12 +40,16 @@ test('computeLateStatus: red for a past End, yellow for today, null for future o
       today: computeLateStatus(format(today)),
       future: computeLateStatus(format(future)),
       empty: computeLateStatus(''),
+      pastButComplete: computeLateStatus(format(past), 100),
+      todayButComplete: computeLateStatus(format(today), 100),
     };
   });
   expect(results.past).toBe('red');
   expect(results.today).toBe('yellow');
   expect(results.future).toBeNull();
   expect(results.empty).toBeNull();
+  expect(results.pastButComplete).toBeNull();
+  expect(results.todayButComplete).toBeNull();
 });
 
 test('a row with an overdue End is tinted red in the grid, with a tooltip', async ({ page }) => {
@@ -76,7 +82,7 @@ test('a row due today is tinted yellow, not red', async ({ page }) => {
   expect(style.title).toBe('Due today');
 });
 
-test('% Done is ignored -- a 100%-complete overdue task still shows red', async ({ page }) => {
+test('a 100%-complete task is never marked late, even with a past End date', async ({ page }) => {
   await page.evaluate((COL) => {
     const past = new Date(); past.setDate(past.getDate() - 3);
     const data = [['1', '1', 'Finished late', '', '', '100', format(past), '1', format(past), '', '']];
@@ -87,7 +93,8 @@ test('% Done is ignored -- a 100%-complete overdue task still shows red', async 
   await page.waitForTimeout(300);
 
   const style = await endCellStyle(page, 0);
-  expect(style.bg).toBe('rgb(254, 202, 202)');
+  expect(style.bg).toBe('');
+  expect(style.title).toBe('');
 });
 
 test('a parent row is colored from its own rolled-up End, same as any row', async ({ page }) => {

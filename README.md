@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.16.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-2.18.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
 
@@ -15,6 +15,7 @@ A lightweight, browser-based Gantt chart and task management tool. No server req
 - **Late Indicator** – The End column tints itself automatically: red if it's in the past, yellow if it's today, no color if it's not due yet. Pure date math (doesn't consult % Done), applies to every row including parents. Grid-only, like the In Progress flag
 - **Notes Field** – Add a custom column named "Notes" and each row gets a small click-to-expand flag instead of raw inline text. Opens a modal rendering a lightweight Markdown subset (bold, italic, links, lists); still a plain-text cell underneath, so it round-trips through CSV import/export like any other custom column
 - **Grid Search/Filter** – Filter rows by any column's value -- Task Name, Resource, % Done, dates, custom columns, all of it; matches keep their parent/ancestor chain visible for context, and search composes with Collapse (a manually collapsed section stays collapsed even if something inside it matches)
+- **Labels** – Tag any row with one or more free-text labels (comma or semicolon-separated). The toolbar's label filter is a checkbox multi-select: check one or more to narrow the grid to tasks carrying any of them; an opt-in "Label in chart" toggle applies that same filter to the Gantt chart
 - **Resource Color-Coding** – Each resource gets a deterministic color, shown as a stripe on the left edge of its bars (first-listed resource wins on multi-resource tasks) and listed in the chart legend; complements the Workload dashboard's per-resource view
 - **Critical Path Highlighting** – Opt-in toolbar toggle ("Critical path", off by default) that runs the chain of zero-slack tasks determining the project's overall end date through a standard CPM pass over the Depends graph. Critical tasks get a small ⚡ next to their name in the grid and an outlined bar in the chart; parallel branches with float are correctly left unmarked. Suppressed while a dependency cycle exists, since a cycle has no well-defined critical path.
 - **Progress Tracking** – Mark tasks as not started, in progress, complete, or overdue

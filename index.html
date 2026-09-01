@@ -188,9 +188,17 @@
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     </button>
                 </div>
-                <select id="labelFilterSelect" class="tbtn-select" onchange="onLabelFilterChange(this.value)" title="Filter the grid to tasks carrying this label">
-                    <option value="">All Labels</option>
-                </select>
+                <div style="position:relative; display:inline-block;">
+                    <button id="labelFilterBtn" type="button" onclick="toggleLabelFilterDropdown(event)"
+                        title="Filter the grid to tasks carrying any of the checked labels"
+                        style="background:#1e293b; color:#e2e8f0; border:0.5px solid #334155; border-radius:6px; padding:6px 10px; font-size:12.5px; outline:none; cursor:pointer; display:flex; align-items:center; gap:6px; white-space:nowrap;">
+                        <span id="labelFilterBtnText">All Labels</span>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <div id="labelFilterDropdown" style="display:none; position:absolute; top:100%; left:0; margin-top:4px; background:#1e293b; border:1px solid #334155; border-radius:6px; padding:8px; min-width:170px; max-height:260px; overflow-y:auto; z-index:50; box-shadow:0 8px 20px rgba(0,0,0,0.35);">
+                        <div id="labelFilterOptions"></div>
+                    </div>
+                </div>
             </div>
             <div class="toolbar-group">
                 <select id="zoomScale" class="tbtn-select" onchange="changeZoom()">
@@ -454,7 +462,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.17.0";
+        const APP_VERSION = "2.18.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -1475,19 +1483,27 @@
             document.getElementById('workloadModal').classList.remove('active');
         }
 
+        // Shared multi-value cell splitter: Resource and Labels both accept
+        // either ',' or ';' as a separator, so a user reaching for either
+        // habit (Resource historically used ',', Labels/Depends use ';')
+        // gets the same "many values in one cell" result either way. Depends
+        // deliberately keeps ';' only -- its cycle detection and existing
+        // tests assume that single delimiter, and a dependency's Task ID
+        // can't contain a comma to begin with.
+        function splitMultiValueCell(cellValue) {
+            return (cellValue != null ? cellValue.toString() : '').split(/[,;]/).map(s => s.trim()).filter(Boolean);
+        }
+
         function parseAssignments(resStr, defAlloc) {
             if (!resStr) return [];
             let assignments = [];
             let fallback = parseInt(defAlloc);
             if (isNaN(fallback)) fallback = 100;
 
-            resStr.split(',').forEach(p => {
-                let s = p.trim();
-                if (!s) return;
-                
+            splitMultiValueCell(resStr).forEach(s => {
                 let alloc = fallback;
                 let name = s;
-                
+
                 let match = s.match(/(.*?)(?:[\(\:\@]\s*(\d+)\s*\%?\)?|\s+(\d+)\%)$/);
                 if (match) {
                     name = match[1].trim();
@@ -1688,14 +1704,14 @@
         // ==========================================
         const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10, LABELS: 11 };
 
-        // Labels are free-text, semicolon-separated (same multi-value convention
-        // as the Depends column) rather than a managed/colored entity list --
-        // matches how Resource already handles "many values in one cell" without
-        // the extra CRUD surface a first-class Label entity would need (see
-        // backlog item #12, which flags that complexity as still unresolved for
-        // Resources and deliberately left undone).
+        // Labels are free-text (accepts ',' or ';' -- see splitMultiValueCell)
+        // rather than a managed/colored entity list -- matches how Resource
+        // already handles "many values in one cell" without the extra CRUD
+        // surface a first-class Label entity would need (see backlog item
+        // #12, which flags that complexity as still unresolved for Resources
+        // and deliberately left undone).
         function parseLabelsCell(cellValue) {
-            return (cellValue != null ? cellValue.toString() : '').split(';').map(s => s.trim()).filter(Boolean);
+            return splitMultiValueCell(cellValue);
         }
         let ganttChart; let isSyncing = false; let sheet;
 
@@ -2181,11 +2197,13 @@
         // ==========================================
         // LABEL FILTER (view-only, like search/collapse -- never mutates task data)
         // ==========================================
-        // Selecting a label always narrows the grid; narrowing the Gantt chart
-        // too is opt-in via "Label in chart" (off by default) so the chart still
-        // shows the whole plan unless someone deliberately wants to isolate one
-        // label there.
-        let labelFilterValue = '';
+        // Checking one or more labels always narrows the grid to tasks carrying
+        // ANY of them (OR, not AND -- checking both "Design" and "Dev" finds
+        // everything tagged either one, not just tasks tagged both). Narrowing
+        // the Gantt chart too is opt-in via "Label in chart" (off by default) so
+        // the chart still shows the whole plan unless someone deliberately wants
+        // to isolate those labels there.
+        let labelFilterValues = new Set();
 
         function getAllLabelsInProject(data) {
             const set = new Set();
@@ -2194,26 +2212,63 @@
         }
 
         function refreshLabelFilterOptions(data) {
-            const select = document.getElementById('labelFilterSelect');
-            if (!select) return;
+            const container = document.getElementById('labelFilterOptions');
+            if (!container) return;
             const labels = getAllLabelsInProject(data);
-            const current = labelFilterValue;
-            select.innerHTML = '<option value="">All Labels</option>' +
-                labels.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
-            select.value = labels.includes(current) ? current : '';
-            labelFilterValue = select.value;
+            // Drop any checked label that no longer exists in this project's data
+            // (e.g. after switching projects, or the last task carrying it changed).
+            labelFilterValues = new Set(Array.from(labelFilterValues).filter(l => labels.includes(l)));
+            container.innerHTML = labels.length === 0
+                ? '<div style="color:#64748b; font-size:12px; padding:4px 2px;">No labels yet</div>'
+                : labels.map(l => `
+                    <label style="display:flex; align-items:center; gap:8px; padding:5px 4px; font-size:12.5px; color:#e2e8f0; cursor:pointer; white-space:nowrap;">
+                        <input type="checkbox" class="labelFilterCheckbox" value="${escapeHtml(l)}" ${labelFilterValues.has(l) ? 'checked' : ''} onchange="onLabelFilterCheckboxChange()">
+                        ${escapeHtml(l)}
+                    </label>
+                `).join('');
+            updateLabelFilterButtonText();
         }
 
-        function onLabelFilterChange(value) {
-            labelFilterValue = value || '';
+        function updateLabelFilterButtonText() {
+            const btnText = document.getElementById('labelFilterBtnText');
+            if (!btnText) return;
+            const n = labelFilterValues.size;
+            btnText.textContent = n === 0 ? 'All Labels' : (n === 1 ? Array.from(labelFilterValues)[0] : `${n} labels`);
+        }
+
+        function onLabelFilterCheckboxChange() {
+            const checked = Array.from(document.querySelectorAll('.labelFilterCheckbox:checked')).map(cb => cb.value);
+            labelFilterValues = new Set(checked);
+            updateLabelFilterButtonText();
             applyRowVisibility();
             syncToGantt(false);
         }
 
+        function toggleLabelFilterDropdown(event) {
+            if (event) event.stopPropagation();
+            const dropdown = document.getElementById('labelFilterDropdown');
+            if (!dropdown) return;
+            dropdown.style.display = (dropdown.style.display === 'none' || !dropdown.style.display) ? 'block' : 'none';
+        }
+
+        // Closes the label filter dropdown on any click outside it (or its
+        // toggle button) -- the standard pattern for a lightweight anchored
+        // popover, as opposed to this app's full-screen modals which close via
+        // an explicit Close button or backdrop click instead.
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('labelFilterDropdown');
+            const btn = document.getElementById('labelFilterBtn');
+            if (!dropdown || dropdown.style.display === 'none' || !dropdown.style.display) return;
+            if (dropdown.contains(e.target) || (btn && btn.contains(e.target))) return;
+            dropdown.style.display = 'none';
+        });
+
         function resetLabelFilter() {
-            labelFilterValue = '';
-            const select = document.getElementById('labelFilterSelect');
-            if (select) select.value = '';
+            labelFilterValues = new Set();
+            updateLabelFilterButtonText();
+            document.querySelectorAll('.labelFilterCheckbox').forEach(cb => { cb.checked = false; });
+            const dropdown = document.getElementById('labelFilterDropdown');
+            if (dropdown) dropdown.style.display = 'none';
         }
 
         // Hides/shows grid rows (via jexcel's own hideRow/showRow) for any task
@@ -2265,8 +2320,8 @@
             }
 
             let keepForLabel = null;
-            if (labelFilterValue) {
-                keepForLabel = collectMatchesWithAncestors(row => parseLabelsCell(row[COL.LABELS]).includes(labelFilterValue));
+            if (labelFilterValues.size > 0) {
+                keepForLabel = collectMatchesWithAncestors(row => parseLabelsCell(row[COL.LABELS]).some(l => labelFilterValues.has(l)));
             }
 
             data.forEach((row, index) => {
@@ -2772,13 +2827,13 @@
                     }
                     return false;
                 }
-                // "Label in chart" is opt-in and only takes effect while a label is
-                // actually selected -- otherwise the chart keeps showing the whole
-                // plan, per backlog #13 ("retaining 1 greater plan").
-                const chartLabelFilterActive = !!labelFilterValue && !!document.getElementById('applyLabelToChart') && document.getElementById('applyLabelToChart').checked;
+                // "Label in chart" is opt-in and only takes effect while at least
+                // one label is checked -- otherwise the chart keeps showing the
+                // whole plan, per backlog #13 ("retaining 1 greater plan").
+                const chartLabelFilterActive = labelFilterValues.size > 0 && !!document.getElementById('applyLabelToChart') && document.getElementById('applyLabelToChart').checked;
                 const visibleFrappeTasks = frappeTasks.filter(t =>
                     !hasCollapsedAncestor(tasksMap[t.id]) &&
-                    (!chartLabelFilterActive || parseLabelsCell(t._labels).includes(labelFilterValue))
+                    (!chartLabelFilterActive || parseLabelsCell(t._labels).some(l => labelFilterValues.has(l)))
                 );
                 const visibleIds = new Set(visibleFrappeTasks.map(t => String(t.id)));
                 visibleFrappeTasks.forEach(t => {

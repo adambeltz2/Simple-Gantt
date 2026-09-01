@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.19.0] - 2026-09-01
+
+### ✨ Added
+
+#### Bulk edit -- apply one value to multiple selected rows at once
+- Backlog #14. A new "Bulk Edit" toolbar button: click-and-drag to select 2 or more rows in the grid, click the button, pick a field (Resource, % Done, or Parent), enter one value, and it's applied to every row in the selection.
+- Selection tracking works around a real jexcel quirk: the library's own global `mousedown` listener clears its internal `selectedCell` the moment a click lands outside any grid cell (e.g. on the toolbar button itself), so reading it at click time never works. Instead, a new `onselection` callback on the grid captures the live selection range into an app-level variable as it changes, and the toolbar button reads that instead.
+- Respects the grid's existing read-only business rules (a parent row's computed % Done/Resource rollup, a dependency-driven Start date) by asking jexcel's own `isReadOnly()` per cell rather than reimplementing them a second time -- a read-only row in the selection is skipped and called out separately in the confirmation ("3 rows updated, 1 skipped, read-only").
+- The Parent value picker reuses the exact same task-list source `syncToGantt()` already builds for the grid's own Parent/Depends dropdown columns.
+
+### 🧪 Testing
+- Added `tests/bulk-edit.spec.js`: no-selection and single-row-selection both show a helpful alert instead of opening the modal; a 2+ row selection shows the correct row count; bulk-setting Resource/% Done/Parent each apply correctly across the selection; % Done rejects an out-of-range value without closing the modal; a parent row's read-only % Done is skipped and reflected in the status message; untouched columns/rows are left intact; Cancel discards the pending value; the Gantt chart re-renders afterward with no console errors.
+- Selection is simulated by calling jexcel's own `updateSelectionFromCoords()` -- the same internal call a real mouse drag ends up making -- rather than approximating it, so the tests exercise the real selection→`onselection` dispatch path.
+- Verified with a real (not just syntax-checked) Playwright run against genuine vendored copies of jsuites/jexcel/frappe-gantt/papaparse (fetched from npm, served via `page.route()`), since this sandbox's outbound network blocks the live CDN hosts the app normally loads them from -- all 11 tests passed for real.
+
+---
+
 ## [2.18.1] - 2026-09-01
 
 ### 🐛 Fixed

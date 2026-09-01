@@ -462,7 +462,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.18.0";
+        const APP_VERSION = "2.18.1";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -734,6 +734,23 @@
             return false;
         }
 
+        // dbx.filesListFolder() truncates to Dropbox's own per-page limit and
+        // sets has_more/cursor when there's more -- every call site here used
+        // to only ever look at that first page, silently dropping anything
+        // past it once a folder had enough entries (backup files past the
+        // page limit, or project folders past it under the shared "Simple
+        // Gantt Backups" root). This walks every page via
+        // filesListFolderContinue before resolving, so callers always see
+        // the complete list regardless of how many entries exist.
+        function listAllDropboxEntries(path) {
+            function collectFrom(res, entriesSoFar) {
+                const combined = entriesSoFar.concat(res.result.entries);
+                if (!res.result.has_more) return Promise.resolve(combined);
+                return dbx.filesListFolderContinue({ cursor: res.result.cursor }).then(nextRes => collectFrom(nextRes, combined));
+            }
+            return dbx.filesListFolder({ path: path }).then(res => collectFrom(res, []));
+        }
+
         function ensureDropboxProjectId(projectId) {
             let p = appDB.projects[projectId];
             if (!p.dropboxProjectId) {
@@ -809,9 +826,9 @@
         }
 
         function pruneOldBackups(folder) {
-            dbx.filesListFolder({ path: folder })
-            .then(res => {
-                let entries = res.result.entries.filter(e => e['.tag'] === 'file' && e.name.toLowerCase().endsWith('.csv'));
+            listAllDropboxEntries(folder)
+            .then(allEntries => {
+                let entries = allEntries.filter(e => e['.tag'] === 'file' && e.name.toLowerCase().endsWith('.csv'));
                 if (entries.length <= MAX_BACKUPS_PER_PROJECT) return;
                 entries.sort((a, b) => new Date(b.client_modified) - new Date(a.client_modified));
                 entries.slice(MAX_BACKUPS_PER_PROJECT).forEach(e => {
@@ -856,9 +873,9 @@
             container.innerHTML = '<p style="color:#94a3b8; font-size:13px;">Loading versions...</p>';
 
             const folder = getDropboxFolder(appDB.activeId);
-            dbx.filesListFolder({ path: folder })
-            .then(res => {
-                let entries = res.result.entries.filter(e => e['.tag'] === 'file' && e.name.toLowerCase().endsWith('.csv'));
+            listAllDropboxEntries(folder)
+            .then(allEntries => {
+                let entries = allEntries.filter(e => e['.tag'] === 'file' && e.name.toLowerCase().endsWith('.csv'));
                 entries.sort((a, b) => new Date(b.client_modified) - new Date(a.client_modified));
                 renderVersionsList(entries);
             })
@@ -938,9 +955,9 @@
         function discoverDropboxProjects(manualTrigger) {
             if (!dbx) { if (manualTrigger) dropboxLogin(); return; }
 
-            dbx.filesListFolder({ path: '/Simple Gantt Backups' })
-            .then(res => {
-                let folders = res.result.entries.filter(e => e['.tag'] === 'folder');
+            listAllDropboxEntries('/Simple Gantt Backups')
+            .then(allEntries => {
+                let folders = allEntries.filter(e => e['.tag'] === 'folder');
                 const localIds = new Set(Object.values(appDB.projects).map(p => p.dropboxProjectId).filter(Boolean));
                 const candidates = folders.filter(f => !localIds.has(f.name));
 
@@ -998,9 +1015,9 @@
         }
 
         function importDiscoveredProject(discovered) {
-            return dbx.filesListFolder({ path: discovered.pathLower })
-            .then(res => {
-                let files = res.result.entries.filter(e => e['.tag'] === 'file' && e.name.toLowerCase().endsWith('.csv'));
+            return listAllDropboxEntries(discovered.pathLower)
+            .then(allEntries => {
+                let files = allEntries.filter(e => e['.tag'] === 'file' && e.name.toLowerCase().endsWith('.csv'));
                 if (files.length === 0) return null;
                 files.sort((a, b) => new Date(b.client_modified) - new Date(a.client_modified));
                 return dbx.filesDownload({ path: files[0].path_lower });

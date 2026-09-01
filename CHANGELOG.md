@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.18.1] - 2026-09-01
+
+### 🐛 Fixed
+
+#### Dropbox listing calls silently dropped entries past the first page
+- Backlog re-review turned up a concrete gap while looking at the still-open, reopened cross-device discovery bug: all four `dbx.filesListFolder()` call sites (backup pruning, the Versions modal, project discovery, importing a discovered project) only ever read the first page of results. Dropbox's `files/list_folder` truncates to its own per-page limit and signals more via `has_more`/`cursor` -- none of the four followed up with `files/list_folder/continue`, so a project/folder with enough entries to cross that limit silently lost everything past it.
+- Fixed with a shared `listAllDropboxEntries()` helper that walks every page via `filesListFolderContinue()` before resolving; all four call sites now go through it.
+- This closes the one concrete lead identified for the reopened discovery bug, but may not be the user's actual cause -- it only bites once an account has enough project folders to cross the page limit. The bug stays open pending the user retesting; the other live possibility (a different Dropbox account/session per browser) is still unconfirmed either way.
+- `BACKLOG.md`'s Features section also gained an explicit current-priority ordering by effort/complexity for the remaining open items (Bulk edit < Resources-as-entity < Undo/redo < Mobile/PWA), correcting the fact that Undo/redo -- self-flagged as highest risk -- had been sequenced ahead of lower-complexity items purely by creation order. Existing item numbers are left untouched (several entries cross-reference each other by number) -- this is a separate ordering note, not a renumbering.
+
+### 🧪 Testing
+- Added `tests/dropbox-pagination.spec.js`: `listAllDropboxEntries()` walking multiple pages, resolving correctly when there's only one page, a rejected continuation still propagating as a rejection (errors aren't swallowed), and `discoverDropboxProjects()` end-to-end finding a candidate project deliberately placed on the second page of a fake paginated client -- none of this needs a real Dropbox account, since `dbx` is a plain top-level variable in the page's own script that these tests substitute directly.
+- Verified the pagination/accumulation logic (multi-page, single-page, and error-propagation cases) against a mock client in Node before wiring it into the app.
+
+---
+
 ## [2.18.0] - 2026-09-01
 
 ### ✨ Added

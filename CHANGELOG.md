@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.18.0] - 2026-09-01
+
+### ✨ Added
+
+#### Label filter is now a checkbox multi-select
+- The toolbar's label filter was a single `<select>` (one label at a time). It's now a button that opens a checkbox dropdown -- check one or more labels to narrow the grid to tasks carrying **any** of them (OR, not AND: checking both "System A" and "System B" shows everything tagged either one, not just tasks tagged both).
+- The button itself reflects the current selection: "All Labels" when nothing's checked, the label's name when exactly one is, "N labels" otherwise.
+- Same underlying semantics as before otherwise: purely a display concern (never touches task data), composes with Collapse via AND, keeps a match's ancestor chain visible, resets on project switch, and "Label in chart" (still off by default) applies the same OR-across-checked-labels filter to the Gantt chart.
+- Closing behavior matches a typical dropdown: click the button to toggle it, click anywhere else to close it -- this app's other overlays are full-screen modals closed via an explicit Close button or backdrop click, but that's too heavy for a filter meant to be poked at frequently alongside the search box, so this one is a lightweight anchored popover instead.
+
+#### Resource and Labels now accept `,` or `;` interchangeably
+- Filed as a UX gap after a user typed comma-separated values into a Labels cell (expecting Resource's convention) and got one combined label instead of two, since Labels previously only split on `;`. Rather than just documenting the difference, both columns now accept either delimiter -- even mixed in the same cell (`Alice, Bob; Charlie`) -- via a new shared `splitMultiValueCell()` helper.
+- `Depends` deliberately keeps `;` only: its cycle detection and every existing test assume that single delimiter, and a Task ID can't contain a comma to begin with, so there's no real ambiguity to unify there.
+
+### 🧪 Testing
+- Rewrote `tests/labels.spec.js` for the checkbox multi-select: dropdown open/close (including click-outside-to-close), checking/unchecking one or many labels, OR-not-AND semantics, the button's text updating, comma as an alternate label separator, and everything the previous single-select version covered (ancestor visibility, Collapse composition, "Label in chart", CSV round-trip, project-switch reset, no console errors).
+- Extended `tests/workload-dashboard.spec.js` with semicolon-separated and mixed comma/semicolon Resource cells, alongside the existing comma-only case.
+
+---
+
 ## [2.17.0] - 2026-08-29
 
 ### ✨ Added

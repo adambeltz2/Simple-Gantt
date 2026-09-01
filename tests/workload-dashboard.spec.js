@@ -94,6 +94,43 @@ test('multiple comma-separated resources on one task each get counted', async ({
   );
 });
 
+test('semicolon-separated resources on one task are also accepted, same as comma', async ({ page }) => {
+  await loadTasks(page, [
+    ['1', '1', 'Pair task', 'Alice (50%); Bob (30%)', '100', '0', '2026-08-24', '1', '2026-08-24', '', ''],
+  ]);
+  await page.evaluate(() => openWorkloadModal());
+  await page.waitForTimeout(200);
+
+  const rows = await page.locator('.workload-table tbody tr').evaluateAll((trs) =>
+    trs.map((tr) => ({ name: tr.cells[0].textContent, val: tr.cells[1].textContent }))
+  );
+  expect(rows).toEqual(
+    expect.arrayContaining([
+      { name: 'Alice', val: '50%' },
+      { name: 'Bob', val: '30%' },
+    ])
+  );
+});
+
+test('mixing comma and semicolon in the same Resource cell splits on both', async ({ page }) => {
+  await loadTasks(page, [
+    ['1', '1', 'Trio task', 'Alice (50%), Bob (30%); Charlie (20%)', '100', '0', '2026-08-24', '1', '2026-08-24', '', ''],
+  ]);
+  await page.evaluate(() => openWorkloadModal());
+  await page.waitForTimeout(200);
+
+  const rows = await page.locator('.workload-table tbody tr').evaluateAll((trs) =>
+    trs.map((tr) => ({ name: tr.cells[0].textContent, val: tr.cells[1].textContent }))
+  );
+  expect(rows).toEqual(
+    expect.arrayContaining([
+      { name: 'Alice', val: '50%' },
+      { name: 'Bob', val: '30%' },
+      { name: 'Charlie', val: '20%' },
+    ])
+  );
+});
+
 test('Weekly view aggregates the max daily allocation across the week', async ({ page }) => {
   await loadTasks(page, [
     ['1', '1', 'Task A', 'Alice', '40', '0', '2026-08-24', '5', '2026-08-28', '', ''], // Mon-Fri

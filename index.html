@@ -231,6 +231,10 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="7" rx="1"></rect><rect x="14" y="4" width="7" height="7" rx="1"></rect><rect x="3" y="15" width="7" height="7" rx="1"></rect><rect x="14" y="15" width="7" height="7" rx="1"></rect><path d="M12 7.5h2M12 18.5h2M7.5 12v2M18.5 12v2"></path></svg>
                     Bulk Edit
                 </button>
+                <button class="tbtn" onclick="openResourceManagerModal()" title="Name resources ahead of time so they're a quick-pick option (the ▾ icon) on the grid's Resource column">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                    Resources
+                </button>
                 <button class="tbtn" onclick="autoFitColumns()" title="Resize columns to fit their content">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 7 5 12 9 17"></polyline><polyline points="15 7 19 12 15 17"></polyline></svg>
                     Fit columns
@@ -407,6 +411,27 @@
         </div>
     </div>
 
+    <div id="resourceManagerModal" class="modal" onclick="if(event.target===this) closeResourceManagerModal()">
+        <div class="modal-content" style="max-width: 420px; height: auto; padding: 24px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+                <h2 style="margin:0; color:#0f172a; font-size: 18px;">👤 Manage Resources</h2>
+            </div>
+            <p style="color:#64748b; font-size:12.5px; margin: 0 0 14px;">Named resources appear as a quick-pick list (the ▾ icon) when filling in the grid's Resource column. Renaming here updates every task already assigned that name; removing a name here only removes it from this list -- it doesn't clear any task already assigned it.</p>
+
+            <div style="display:flex; gap:8px; margin-bottom: 14px;">
+                <input id="newResourceNameInput" type="text" placeholder="e.g. Alice" onkeydown="if(event.key==='Enter') addNewResourceName()"
+                    style="flex:1; box-sizing:border-box; padding:7px 8px; border:1px solid #cbd5e1; border-radius:4px; font-size:13px;">
+                <button onclick="addNewResourceName()" style="padding: 7px 14px; background: #185FA5; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size:13px;">Add</button>
+            </div>
+
+            <div id="resourceManagerListContainer" style="max-height:280px; overflow-y:auto; margin-bottom: 16px;"></div>
+
+            <div style="display:flex; justify-content:flex-end; gap: 10px;">
+                <button onclick="closeResourceManagerModal()" style="padding: 8px 16px; background: #185FA5; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Done</button>
+            </div>
+        </div>
+    </div>
+
     <div id="dropboxInfoModal" class="modal" onclick="if(event.target===this) closeDropboxInfoModal()">
         <div class="modal-content" style="max-width: 480px; height: auto; padding: 30px;">
             <h2 style="margin:0 0 15px; color:#0f172a; font-size: 19px;">Dropbox is optional</h2>
@@ -496,7 +521,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.19.0";
+        const APP_VERSION = "2.20.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -515,7 +540,7 @@
         let appDB = {
             activeId: 'proj_1',
             settings: { skipWeekends: true, zoom: 'Day' },
-            projects: { 'proj_1': { name: 'Example Project', columns: [], data: sampleProjectData, collapsed: [], flagged: [] } }
+            projects: { 'proj_1': { name: 'Example Project', columns: [], data: sampleProjectData, collapsed: [], flagged: [], resources: ['Alice', 'Bob', 'Charlie'] } }
         };
 
         try {
@@ -535,6 +560,7 @@
                     if (!appDB.projects[pid].columns) appDB.projects[pid].columns = [];
                     if (!appDB.projects[pid].collapsed) appDB.projects[pid].collapsed = [];
                     if (!appDB.projects[pid].flagged) appDB.projects[pid].flagged = [];
+                    if (!appDB.projects[pid].resources) appDB.projects[pid].resources = [];
                     appDB.projects[pid].data = normalizeData(appDB.projects[pid].data, appDB.projects[pid].columns.length);
                 }
             }
@@ -597,7 +623,8 @@
                 columns: [],
                 data: [['1', '1', '', '', '100', '0', '', '', '', '', '', '']],
                 collapsed: [],
-                flagged: []
+                flagged: [],
+                resources: []
             };
             appDB.activeId = newId;
             resetGridSearch();
@@ -892,7 +919,15 @@
                 }
                 appDB.projects[appDB.activeId].columns = headers.slice(12);
             }
-            renderGrid(sanitizeImportedRows(data, headers));
+            const sanitized = sanitizeImportedRows(data, headers);
+            // Any Resource name in the imported rows that isn't already in this
+            // project's named-resource registry (backlog #12) gets added rather
+            // than silently dropped -- the CSV's Resource column itself never
+            // changes shape (still the same free-text, comma/semicolon cell it
+            // always was), only the registry that drives the grid's quick-pick
+            // list grows to cover what was actually imported.
+            mergeResourceNamesFromRows(sanitized);
+            renderGrid(sanitized);
             syncToGantt(true);
         }
 
@@ -1077,7 +1112,8 @@
                                 data: normalizeData(data, columns.length),
                                 dropboxProjectId: discovered.id,
                                 collapsed: [],
-                                flagged: []
+                                flagged: [],
+                                resources: collectResourceNamesFromRows(data)
                             };
                             resolve();
                         }});
@@ -1756,16 +1792,260 @@
         const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10, LABELS: 11 };
 
         // Labels are free-text (accepts ',' or ';' -- see splitMultiValueCell)
-        // rather than a managed/colored entity list -- matches how Resource
-        // already handles "many values in one cell" without the extra CRUD
-        // surface a first-class Label entity would need (see backlog item
-        // #12, which flags that complexity as still unresolved for Resources
-        // and deliberately left undone).
+        // rather than a managed/colored entity list -- matches how Resource's
+        // own cell storage still works even after backlog #12 (see below):
+        // both stay plain free-text cells accepting ',' or ';', without the
+        // extra CRUD surface a fully first-class entity would need.
         function parseLabelsCell(cellValue) {
             return splitMultiValueCell(cellValue);
         }
         let ganttChart; let isSyncing = false; let sheet;
         let lastSelectionRange = null; // { top, bottom } row indices, for Bulk Edit -- see onselection in sheetOptions
+
+        // ==========================================
+        // NAMED RESOURCE REGISTRY (backlog #12)
+        // ==========================================
+        // Resources can now be named ahead of time (Manage Resources modal,
+        // per-project `resources` array) and picked from the grid instead of
+        // always typed from scratch -- but the Resource cell itself is still
+        // the exact same free-text, comma/semicolon-delimited field it always
+        // was, allocation annotations ("Alice (50%)") included. That's a
+        // deliberate choice, not a shortcut: a real jexcel `dropdown` column
+        // (as Depends/Parent already use) forces every stored value to be one
+        // of its source items, which would either lose the inline allocation
+        // syntax `parseAssignments()` already depends on (tests included) or
+        // require registering "Alice (50%)" itself as a distinct resource.
+        // The registry is additive instead -- a quick-pick layer on top of the
+        // untouched text field -- so nothing about existing typing, CSV
+        // import/export, or allocation parsing changes shape.
+        //
+        // CSV import/export decision (the one backlog #12 itself flagged as
+        // needing a decision): the Resource column's CSV shape is completely
+        // unchanged, still the same free-text cell -- the registry is new
+        // per-project metadata (alongside `columns`/`collapsed`), not part of
+        // the task CSV. Importing a CSV whose Resource column mentions a name
+        // that isn't registered yet doesn't drop or block it -- it's merged
+        // into the registry (see mergeResourceNamesFromRows) so the picker
+        // stays complete without retyping every name after an import.
+        function getProjectResources() {
+            let proj = appDB.projects[appDB.activeId];
+            if (!proj.resources) proj.resources = [];
+            return proj.resources;
+        }
+
+        // Splits one Resource-cell entry like "Alice (50%)" into its bare
+        // name and verbatim allocation suffix, using the same shape
+        // parseAssignments() already parses -- kept as its own small helper
+        // (rather than changing parseAssignments itself, which is tested and
+        // load-bearing) since callers here need the suffix text verbatim, to
+        // preserve it untouched, not just the parsed percentage.
+        function splitResourceEntry(entry) {
+            const s = (entry != null ? entry.toString() : '');
+            const match = s.match(/^(.*?)((?:\s*[\(\:\@]\s*\d+\s*\%?\)?)|(?:\s+\d+\%))$/);
+            return match ? { name: match[1].trim(), suffix: match[2] } : { name: s.trim(), suffix: '' };
+        }
+
+        function collectResourceNamesFromRows(rows) {
+            const set = new Set();
+            (rows || []).forEach(row => {
+                splitMultiValueCell(row ? row[COL.RESOURCE] : '').forEach(entry => {
+                    const name = splitResourceEntry(entry).name;
+                    if (name) set.add(name);
+                });
+            });
+            return Array.from(set).sort((a, b) => a.localeCompare(b));
+        }
+
+        function mergeResourceNamesFromRows(rows) {
+            const resources = getProjectResources();
+            const known = new Set(resources.map(r => r.toLowerCase()));
+            const additions = collectResourceNamesFromRows(rows).filter(n => !known.has(n.toLowerCase()));
+            if (additions.length > 0) {
+                appDB.projects[appDB.activeId].resources = resources.concat(additions).sort((a, b) => a.localeCompare(b));
+            }
+        }
+
+        function openResourceManagerModal() {
+            renderResourceManagerList();
+            document.getElementById('resourceManagerModal').classList.add('active');
+        }
+
+        function closeResourceManagerModal() {
+            document.getElementById('resourceManagerModal').classList.remove('active');
+        }
+
+        function renderResourceManagerList() {
+            const container = document.getElementById('resourceManagerListContainer');
+            if (!container) return;
+            const resources = getProjectResources();
+            container.innerHTML = '';
+            if (resources.length === 0) {
+                const empty = document.createElement('div');
+                empty.style.cssText = 'color:#94a3b8; font-size:12.5px; padding:8px 2px;';
+                empty.textContent = 'No named resources yet -- add one above.';
+                container.appendChild(empty);
+                return;
+            }
+            resources.forEach(name => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex; align-items:center; gap:8px; padding:6px 2px; border-bottom:1px solid #e2e8f0;';
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = name;
+                input.dataset.original = name;
+                input.style.cssText = 'flex:1; box-sizing:border-box; padding:6px 7px; border:1px solid #cbd5e1; border-radius:4px; font-size:13px;';
+                input.addEventListener('change', function() { onResourceRenameCommit(this); });
+
+                const delBtn = document.createElement('button');
+                delBtn.textContent = '×';
+                delBtn.title = 'Remove from list (tasks already assigned this name keep it as free text)';
+                delBtn.style.cssText = 'padding:5px 9px; background:#fee2e2; color:#991b1b; border:none; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;';
+                delBtn.addEventListener('click', function() { deleteResourceName(name); });
+
+                row.appendChild(input);
+                row.appendChild(delBtn);
+                container.appendChild(row);
+            });
+        }
+
+        function addNewResourceName() {
+            const input = document.getElementById('newResourceNameInput');
+            const name = (input.value || '').trim();
+            if (!name) return;
+            const resources = getProjectResources();
+            if (!resources.some(r => r.toLowerCase() === name.toLowerCase())) {
+                resources.push(name);
+                resources.sort((a, b) => a.localeCompare(b));
+                saveToLocal();
+            }
+            input.value = '';
+            renderResourceManagerList();
+        }
+
+        function deleteResourceName(name) {
+            if (!confirm(`Remove "${name}" from the resource list? Tasks already assigned this name keep it as free text -- this only affects future quick-pick suggestions.`)) return;
+            appDB.projects[appDB.activeId].resources = getProjectResources().filter(r => r !== name);
+            saveToLocal();
+            renderResourceManagerList();
+        }
+
+        // Renaming a registered resource also updates every task cell already
+        // assigned that name (not just the registry entry) -- otherwise a
+        // rename would silently orphan existing assignments, which defeats
+        // the point of treating the name as a real identifier rather than
+        // disposable free text.
+        function onResourceRenameCommit(inputEl) {
+            const oldName = inputEl.dataset.original;
+            const newName = (inputEl.value || '').trim();
+            if (!newName || newName === oldName) { inputEl.value = oldName; return; }
+            const resources = getProjectResources();
+            if (resources.some(r => r !== oldName && r.toLowerCase() === newName.toLowerCase())) {
+                alert(`"${newName}" is already in the list.`);
+                inputEl.value = oldName;
+                return;
+            }
+            const idx = resources.indexOf(oldName);
+            if (idx > -1) resources[idx] = newName;
+            resources.sort((a, b) => a.localeCompare(b));
+            renameResourceInGridRows(oldName, newName);
+            saveToLocal();
+            renderResourceManagerList();
+            triggerSync();
+        }
+
+        function renameResourceInGridRows(oldName, newName) {
+            if (!sheet) return;
+            const data = sheet.getData();
+            data.forEach((row, index) => {
+                const raw = row[COL.RESOURCE];
+                if (!raw) return;
+                let changed = false;
+                const renamed = splitMultiValueCell(raw).map(entry => {
+                    const { name, suffix } = splitResourceEntry(entry);
+                    if (name.toLowerCase() !== oldName.toLowerCase()) return entry;
+                    changed = true;
+                    return newName + suffix;
+                });
+                if (changed) sheet.setValueFromCoords(COL.RESOURCE, index, renamed.join(', '), true);
+            });
+        }
+
+        // Anchored popover (same lightweight pattern as the label filter
+        // dropdown) opened from the small picker icon formatCells() appends
+        // to every Resource cell -- lets a task's resources be toggled from
+        // the registry without hand-typing, while leaving the cell itself
+        // fully editable text for anything not registered or needing an
+        // inline allocation annotation.
+        let resourcePickerPopoverEl = null;
+
+        function openResourcePickerPopover(anchorEl, row) {
+            closeResourcePickerPopover();
+            const resources = getProjectResources();
+            const popover = document.createElement('div');
+            popover.id = 'resourcePickerPopover';
+            popover.style.cssText = 'position:fixed; background:#1e293b; border:1px solid #334155; border-radius:6px; padding:8px; min-width:170px; max-height:240px; overflow-y:auto; z-index:200; box-shadow:0 8px 20px rgba(0,0,0,0.35); font-size:12.5px;';
+
+            if (resources.length === 0) {
+                const empty = document.createElement('div');
+                empty.style.cssText = 'color:#94a3b8; padding:4px 2px; white-space:nowrap; max-width:220px; white-space:normal;';
+                empty.textContent = 'No named resources yet -- add some via "Resources" in the toolbar.';
+                popover.appendChild(empty);
+            } else {
+                const rowData = sheet.getData()[row] || [];
+                const currentNames = new Set(splitMultiValueCell(rowData[COL.RESOURCE]).map(e => splitResourceEntry(e).name.toLowerCase()));
+                resources.forEach(name => {
+                    const label = document.createElement('label');
+                    label.style.cssText = 'display:flex; align-items:center; gap:8px; padding:5px 4px; color:#e2e8f0; cursor:pointer; white-space:nowrap;';
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.className = 'resourcePickerCheckbox';
+                    cb.checked = currentNames.has(name.toLowerCase());
+                    cb.addEventListener('change', function() { toggleResourceOnRow(row, name, cb.checked); });
+                    label.appendChild(cb);
+                    label.appendChild(document.createTextNode(name));
+                    popover.appendChild(label);
+                });
+            }
+
+            document.body.appendChild(popover);
+            const rect = anchorEl.getBoundingClientRect();
+            popover.style.top = (rect.bottom + 4) + 'px';
+            popover.style.left = rect.left + 'px';
+            const overflowX = rect.left + popover.offsetWidth - window.innerWidth;
+            if (overflowX > 0) popover.style.left = Math.max(4, rect.left - overflowX - 8) + 'px';
+
+            resourcePickerPopoverEl = popover;
+        }
+
+        function closeResourcePickerPopover() {
+            if (resourcePickerPopoverEl && resourcePickerPopoverEl.parentNode) {
+                resourcePickerPopoverEl.parentNode.removeChild(resourcePickerPopoverEl);
+            }
+            resourcePickerPopoverEl = null;
+        }
+
+        document.addEventListener('click', function(e) {
+            if (!resourcePickerPopoverEl) return;
+            if (resourcePickerPopoverEl.contains(e.target)) return;
+            if (e.target.classList && e.target.classList.contains('resource-picker-toggle')) return;
+            closeResourcePickerPopover();
+        });
+
+        function toggleResourceOnRow(row, name, checked) {
+            if (!sheet) return;
+            const raw = sheet.getData()[row][COL.RESOURCE];
+            const entries = splitMultiValueCell(raw);
+            let next;
+            if (checked) {
+                const already = entries.some(e => splitResourceEntry(e).name.toLowerCase() === name.toLowerCase());
+                next = already ? entries : entries.concat([name]);
+            } else {
+                next = entries.filter(e => splitResourceEntry(e).name.toLowerCase() !== name.toLowerCase());
+            }
+            sheet.setValueFromCoords(COL.RESOURCE, row, next.join(', '), true);
+            triggerSync();
+        }
 
         function shouldSkipWeekends() { return document.getElementById('skipWeekends').checked; }
 
@@ -2077,6 +2357,23 @@
                     } else {
                         cell.style.boxShadow = '';
                     }
+                }
+
+                if (col == COL.RESOURCE) {
+                    // A small quick-pick icon appended after the cell's own text --
+                    // the cell itself stays fully editable free text (see the
+                    // "NAMED RESOURCE REGISTRY" comment above splitResourceEntry for
+                    // why), this is just a faster path to it than typing.
+                    cell.innerHTML = '';
+                    cell.appendChild(document.createTextNode(val != null ? val : ''));
+                    const picker = document.createElement('span');
+                    picker.textContent = '▾';
+                    picker.title = 'Pick from named resources';
+                    picker.className = 'resource-picker-toggle';
+                    picker.style.cssText = 'cursor:pointer; user-select:none; font-size:10px; color:#94a3b8; margin-left:4px; vertical-align:middle;';
+                    picker.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+                    picker.addEventListener('click', function(e) { e.stopPropagation(); openResourcePickerPopover(picker, row); });
+                    cell.appendChild(picker);
                 }
 
                 if (col == COL.NAME) {

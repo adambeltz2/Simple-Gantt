@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.20.0] - 2026-09-02
+
+### ✨ Added
+
+#### Named resources -- a per-project registry with a quick-pick grid picker
+- Backlog #12. Resources can now be named ahead of time via a new "Resources" toolbar button/modal (add, rename, delete), and picked from the grid's Resource column instead of always typed from scratch: every Resource cell gets a small ▾ icon that opens a checkbox popover of registered names, toggled on/off for that task.
+- The Resource cell itself is deliberately left as the exact same free-text, comma/semicolon-delimited field it always was -- inline allocation annotations like `Alice (50%)` included. A real jexcel `dropdown` column (the type Depends/Parent already use) was considered and rejected: it would force every stored value to be one of its own source items, which would either break `parseAssignments()`'s existing allocation-suffix parsing (tested behavior) or require registering `"Alice (50%)"` itself as a distinct resource. The registry is purely additive on top of the untouched text field instead.
+- CSV import/export decision (the specific thing backlog #12 asked to have resolved): the Resource column's CSV shape doesn't change at all -- the registry is new per-project metadata alongside `columns`/`collapsed`, not part of the task CSV. Importing a CSV whose Resource column mentions a name that isn't registered yet merges it into the registry rather than dropping it, so the picker stays complete without retyping every name after an import.
+- Renaming a registered name in the modal also updates every task cell already assigned it, preserving any allocation suffix (`(50%)`, `:30%`, `@ 50%`, or a trailing ` 50%`) verbatim -- a rename doesn't silently orphan existing assignments. Deleting a name from the registry only affects future quick-pick suggestions; it never touches task data already carrying that name as free text.
+
+### 🧪 Testing
+- Added `tests/named-resources.spec.js`: the sample project (and any new project) seeds/starts a `resources` registry; the Resource column stays a plain `text` column type; every Resource cell gets a picker icon; the popover lists registered names pre-checked to match the cell's current content; checking/unchecking a name adds/removes just that name while preserving allocation annotations on the rest; picking into an empty cell; the popover closes on an outside click; the Manage Resources modal's add/rename/delete flows, including rename propagation and delete leaving grid data untouched; the exported CSV's headers and Resource column are unchanged in shape; importing a CSV merges an unregistered name into the registry; no console errors across the whole flow.
+- Verified with a real Playwright run against genuine vendored copies of jsuites/jexcel/frappe-gantt/papaparse (fetched from npm, served via `page.route()`), since this sandbox's outbound network blocks the live CDN hosts -- 14/14 new tests passed, plus the full existing 153-test suite re-run against the same vendored copies with no regressions (one pre-existing, unrelated failure in `row-id-backfill.spec.js` was confirmed to reproduce identically on the pre-change code, so it isn't something this change introduced).
+- `BACKLOG.md` gained a new item (#16: visually indenting Task Name in CSV export by outline depth, purely cosmetic, at the user's request) with a high-level complexity estimate, and the current priority order was re-evaluated to place it ahead of Undo/redo and Mobile/PWA.
+
+---
+
 ## [2.19.0] - 2026-09-01
 
 ### ✨ Added

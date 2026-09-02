@@ -521,7 +521,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.20.0";
+        const APP_VERSION = "2.21.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -1791,6 +1791,29 @@
         // ==========================================
         const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10, LABELS: 11 };
 
+        // Shared by formatCells' Task Name indentation and exportCSV's
+        // cosmetic outline prefix (backlog #16) -- both need the same
+        // "how many Parent links up from this row" walk, so it lives in one
+        // place rather than two copies drifting apart.
+        function computeTaskDepth(parentID, allData) {
+            let depth = 0;
+            let currentParent = parentID;
+            let loopProtect = 0;
+            while (currentParent !== "" && loopProtect < 15) {
+                depth++;
+                let pMatch = allData.find(r => r[COL.ID] == currentParent);
+                currentParent = (pMatch && pMatch[COL.PARENT] != null) ? pMatch[COL.PARENT].toString().trim() : "";
+                loopProtect++;
+            }
+            return depth;
+        }
+
+        // Spaces-per-depth-level prefix exportCSV bakes into Task Name so the
+        // grid's own parent/child indentation survives into the CSV visually.
+        // Stripped back off on import (see sanitizeImportedCell) so re-importing
+        // an already-indented export can't compound into double indentation.
+        const CSV_NAME_INDENT = '    ';
+
         // Labels are free-text (accepts ',' or ';' -- see splitMultiValueCell)
         // rather than a managed/colored entity list -- matches how Resource's
         // own cell storage still works even after backlog #12 (see below):
@@ -2285,16 +2308,8 @@
                     }
                 }
 
-                let depth = 0;
-                let currentParent = parentID;
-                let loopProtect = 0; 
-                while (currentParent !== "" && loopProtect < 15) {
-                    depth++;
-                    let pMatch = allData.find(r => r[COL.ID] == currentParent);
-                    currentParent = (pMatch && pMatch[COL.PARENT] != null) ? pMatch[COL.PARENT].toString().trim() : "";
-                    loopProtect++;
-                }
-                
+                let depth = computeTaskDepth(parentID, allData);
+
                 cell.classList.remove('readonly-cell', 'readonly');
                 if (col == COL.ID || col == COL.OUTLINE || col == COL.END) cell.classList.add('readonly-cell', 'readonly');
 
@@ -3354,16 +3369,19 @@
             try { sheet.insertRow(); } catch(e) { console.error(e); }
         }
         
-        function exportCSV() { 
-            let exportData = [...sheet.getData()];
+        function exportCSV() {
+            const rawData = sheet.getData();
             let headers = sheet.options.columns.map(c => c.title);
-            
+
             // Find date columns (START and END)
             const startIdx = headers.indexOf('Start');
             const endIdx = headers.indexOf('End');
-            
-            // Format dates properly to avoid timezone issues
-            exportData = exportData.map(row => {
+
+            // Format dates properly to avoid timezone issues, and mirror the
+            // grid's own Task Name indentation (backlog #16) -- cosmetic only,
+            // applied here to the exported copy so the live grid data (and
+            // depth computed from it) is never touched.
+            let exportData = rawData.map(row => {
                 const newRow = [...row];
                 // Ensure Start date is in YYYY-MM-DD format
                 if (startIdx >= 0 && newRow[startIdx]) {
@@ -3373,9 +3391,14 @@
                 if (endIdx >= 0 && newRow[endIdx]) {
                     newRow[endIdx] = formatDateForCSV(newRow[endIdx]);
                 }
+                if (newRow[COL.NAME]) {
+                    const parentID = (row[COL.PARENT] != null) ? row[COL.PARENT].toString().trim() : '';
+                    const depth = computeTaskDepth(parentID, rawData);
+                    if (depth > 0) newRow[COL.NAME] = CSV_NAME_INDENT.repeat(depth) + newRow[COL.NAME];
+                }
                 return newRow;
             });
-            
+
             exportData.unshift(headers);
             
             const csv = Papa.unparse(exportData);
@@ -3434,6 +3457,13 @@
             const header = (headers && headers[colIdx]) || '';
             if (header === 'Start' || header === 'End') {
                 return parseCSVDate(cellValue);
+            }
+            // Task Name may carry exportCSV's cosmetic outline-depth indent
+            // (backlog #16) -- stripped back off on the way in, since depth
+            // here is always recomputed fresh from Parent, so a leading-space
+            // prefix would otherwise compound on every export/re-import cycle.
+            if (header === 'Task Name' && typeof cellValue === 'string') {
+                cellValue = cellValue.replace(/^\s+/, '');
             }
             return typeof cellValue === 'string' ? cellValue.replace(/[<>]/g, '') : cellValue;
         }

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.21.0] - 2026-09-02
+
+### ✨ Added
+
+#### CSV export: visually indent Task Name by outline depth (backlog #16)
+- `exportCSV()` now prefixes each exported Task Name with 4 spaces per level of Parent-chain depth, mirroring the grid's own indentation (`formatCells`' `paddingLeft`/border-left treatment) so a task's place in the outline is visible at a glance in the CSV without cross-referencing the Parent column by hand. Top-level tasks (depth 0) are unaffected.
+- Purely cosmetic and export-only: hierarchy on import/re-import stays driven entirely by the Parent column, exactly as before. The depth walk itself (`computeTaskDepth`) is the same one `formatCells` already used for the grid's visual indent -- pulled out into one shared helper both call, rather than a second copy of the walk drifting from the first.
+- Decided the one open design question the backlog item flagged: the indent is stripped back off Task Name on import (`sanitizeImportedCell`), regardless of source (manual Import, Dropbox restore, Dropbox project discovery), so an export -> re-import -> re-export cycle can't compound into double indentation. Depth is always recomputed fresh from Parent, so the leading-space prefix in a raw CSV is never meaningful data to preserve.
+
+### 🧪 Testing
+- Added `tests/csv-outline-indent.spec.js`: exported Task Name is indented 4/8 spaces at depth 1/2 and left alone at depth 0; re-importing an indented export strips the prefix back off; an export -> re-import -> re-export cycle produces the same single-level indent both times rather than compounding.
+- Re-ran the existing `tests/csv-roundtrip.spec.js` and `tests/csv-sanitization.spec.js` to confirm the shared `computeTaskDepth()` refactor and the new import-side stripping don't change any existing round-trip or sanitization behavior.
+- `BACKLOG.md`'s priority-ordered item #16 is marked done.
+
+---
+
 ## [2.20.0] - 2026-09-02
 
 ### ✨ Added

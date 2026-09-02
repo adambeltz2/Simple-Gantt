@@ -39,6 +39,7 @@ async function loadRoundtripFixture(page) {
 test('exported CSV has the right headers, in order, including custom columns', async ({ page }) => {
   await loadRoundtripFixture(page);
 
+  await page.click('#exportMenuBtn');
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.click('button[onclick="exportCSV()"]'),
@@ -58,6 +59,7 @@ test('exported CSV contains correctly formatted dates and the parent rollup', as
   // independently and risking a transcription error in the test itself.
   const parentRow = await page.evaluate(() => sheet.getData().find((r) => r[0] === '1'));
 
+  await page.click('#exportMenuBtn');
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.click('button[onclick="exportCSV()"]'),
@@ -76,6 +78,7 @@ test('a full export -> re-import cycle reproduces the same data', async ({ page 
   await loadRoundtripFixture(page);
   const before = await page.evaluate(() => sheet.getData());
 
+  await page.click('#exportMenuBtn');
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.click('button[onclick="exportCSV()"]'),
@@ -102,6 +105,7 @@ test('a full export -> re-import cycle reproduces the same data', async ({ page 
 test('re-importing preserves the custom "Notes" column content and its click-to-expand treatment', async ({ page }) => {
   await loadRoundtripFixture(page);
 
+  await page.click('#exportMenuBtn');
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.click('button[onclick="exportCSV()"]'),

@@ -164,6 +164,7 @@ test('deleting a resource from the modal removes it from the registry but leaves
 
 test('Resource column CSV shape is unchanged -- still the same free-text cell, no registry column added', async ({ page }) => {
   const fs = require('fs');
+  await page.click('#exportMenuBtn');
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.click('button[onclick="exportCSV()"]'),

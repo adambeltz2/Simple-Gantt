@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.22.0] - 2026-09-02
+
+### ✨ Added
+
+#### Toolbar: Export/Import grouped behind one "Export ▾" menu (backlog #17, first cut)
+- Self-flagged toolbar review recommended collapsing the 4 always-visible export-format buttons (Import CSV, Export CSV, Export PNG, Export PDF) behind one menu as the lowest-risk, safest-first change. Implemented: a single "Export ▾" toolbar button (`#exportMenuBtn`) opens an anchored dropdown (`#exportMenuDropdown`) listing all four actions, using the exact same open/close popover pattern the label filter dropdown already established (`toggleLabelFilterDropdown`/its outside-click listener) rather than inventing a second mechanism.
+- The four action elements keep their original `onclick="exportCSV()"`, `onclick="exportImage()"`, `onclick="exportPDF()"`, and `onchange="importCSV(event)"` handlers completely unchanged -- zero behavior change to the export/import functions themselves, pure UI restructuring as the backlog item called for. The menu auto-closes after any action fires via a separate delegated click listener on the dropdown container, so none of the four handlers needed editing.
+- The other three recommendations from the same backlog item (a "View options ▾" menu for the 3 inline checkboxes, folding Fit columns/Sync Dependencies into a "More ▾" menu, and a visual-hierarchy pass on the remaining buttons) are intentionally not done here -- left for a future pass, per the item's own lowest-risk-first ordering.
+
+### 🧪 Testing
+- Added `tests/export-menu.spec.js`: the four export/import elements are no longer top-level toolbar buttons (present but hidden inside the closed dropdown); clicking "Export ▾" opens the menu showing all four actions; clicking it again or clicking outside closes it; choosing Export CSV downloads a file and closes the menu; no uncaught JS errors across the flow.
+- Updated the existing tests that clicked these buttons directly (`csv-outline-indent`, `csv-roundtrip`, `labels`, `named-resources`, `pdf-export`) to first open the Export menu (`#exportMenuBtn`) before clicking the now-nested Export CSV/PDF buttons, since Playwright's actionability checks require the button visible, not just present.
+- Verified with a real Playwright run against genuine vendored copies of jsuites/jexcel/frappe-gantt/papaparse/html2canvas/jspdf (fetched from npm, served via `page.route()`), since this sandbox's outbound network blocks the live CDN hosts -- the full 171-test existing suite plus the 6 new export-menu tests all ran for real; 176/177 passed, with the one failure (`row-id-backfill.spec.js`, unrelated to this change) a known pre-existing gap under the vendored jexcel build already called out in earlier changelog entries.
+
 ## [2.21.0] - 2026-09-02
 
 ### ✨ Added

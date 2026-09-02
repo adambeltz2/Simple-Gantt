@@ -17,8 +17,9 @@ Ordered lowest to highest risk/complexity -- roughly, how contained the change i
 2. #14 Bulk edit / multi-row select -- **done**, see below.
 3. #12 Treat Resources as first-class entity -- **done**, see below.
 4. #16 CSV export: visually indent Task Name by outline depth -- **done**, see below.
-5. #11 Undo/redo -- self-flagged highest risk below: cascading edits through dependency scheduling and parent rollup need real design before any code.
-6. #15 Mobile responsiveness + PWA -- self-flagged highest risk/complexity below: a real layout strategy and PWA plumbing, not a CSS pass.
+5. #17 Toolbar visual review, "Export ▾" menu cut -- **done**, see below.
+6. #11 Undo/redo -- self-flagged highest risk below: cascading edits through dependency scheduling and parent rollup need real design before any code.
+7. #15 Mobile responsiveness + PWA -- self-flagged highest risk/complexity below: a real layout strategy and PWA plumbing, not a CSS pass.
 
 (#11 was sequenced before #12/#14 by creation order, not by complexity -- this list corrects that for planning purposes without renumbering the entries themselves.)
 
@@ -46,7 +47,7 @@ Ordered lowest to highest risk/complexity -- roughly, how contained the change i
     - **Fold rarely-touched actions (Fit columns, Sync Dependencies) into the same overflow/"More ▾" menu** rather than permanent top-level buttons -- both are recovery/utility actions, not everyday ones.
     - **Give the remaining always-visible buttons a visual hierarchy** -- e.g. Add row and Back up as filled/primary, navigation (Start/Today) and view-mode (Grid/Split/Chart) as a lighter segmented-control style, everything else as plain ghost buttons -- instead of every button sharing one `.tbtn` treatment regardless of frequency of use.
     - Net effect: collapse ~26 top-level controls down to roughly 10-12 (nav/search/view-mode/Add row/a couple of menus/Back up/Versions), which should also remove the need for `flex-wrap` to silently spill onto a second row on laptop-width screens.
-    Not implemented -- this entry is the recommendation only, per the scope-management rule (log, don't build on the fly). Needs a decision on which grouping to start with (Export menu is the safest first cut) before any code changes; no persisted state or scheduling-engine impact either way, this is pure `index.html` markup/CSS + the `onclick` wiring already in place.
+    **First cut done:** the Export menu grouping shipped -- Import CSV / Export CSV / Export PNG / Export PDF collapsed behind one "Export ▾" toolbar button (`#exportMenuBtn`/`#exportMenuDropdown` in `index.html`), same anchored-popover open/close pattern already used by the label filter dropdown (`toggleLabelFilterDropdown`/its outside-click listener). The four action buttons keep their original `onclick="exportCSV()"` etc. attributes unchanged -- a separate delegated click listener on the dropdown closes the menu after any action fires, rather than editing each handler, so nothing about the export/import functions themselves changed. The other three recommendations (View options ▾ for the 3 inline checkboxes, folding Fit columns/Sync Dependencies into a More ▾ menu, and a visual-hierarchy pass on the remaining always-visible buttons) are **not** done -- left here for a future pass, still lowest-risk-first.
 
 ## Tech debt / follow-ups from the repo review
 

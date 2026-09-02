@@ -36,6 +36,7 @@ async function loadNestedFixture(page) {
 }
 
 async function exportAndRead(page) {
+  await page.click('#exportMenuBtn');
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.click('button[onclick="exportCSV()"]'),
@@ -87,6 +88,7 @@ test('exportCSV indents Task Name by outline depth, top-level rows unindented', 
 test('re-importing an indented export strips the indent back off Task Name', async ({ page }) => {
   await loadNestedFixture(page);
 
+  await page.click('#exportMenuBtn');
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.click('button[onclick="exportCSV()"]'),
@@ -112,6 +114,7 @@ test('export -> re-import -> re-export does not compound the indent', async ({ p
   await loadNestedFixture(page);
 
   const csvBuffer1 = fs.readFileSync((await (async () => {
+    await page.click('#exportMenuBtn');
     const [download] = await Promise.all([
       page.waitForEvent('download'),
       page.click('button[onclick="exportCSV()"]'),

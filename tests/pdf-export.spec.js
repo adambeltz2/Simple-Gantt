@@ -75,6 +75,7 @@ test('Export PDF downloads a valid, non-empty PDF file', async ({ page }) => {
     ['1', '1', 'Task A', 'Alice', '100', '0', '2026-08-24', '2', '2026-08-25', '', ''],
   ]);
 
+  await page.click('#exportMenuBtn');
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.click('button[onclick="exportPDF()"]'),
@@ -92,6 +93,7 @@ test('the download filename matches the project name', async ({ page }) => {
   ]);
   await page.evaluate(() => { appDB.projects[appDB.activeId].name = 'My Test Project'; });
 
+  await page.click('#exportMenuBtn');
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.click('button[onclick="exportPDF()"]'),
@@ -106,6 +108,7 @@ test('a normal-sized chart fits on the page count the tiling formula predicts', 
     ['2', '1', 'Task B', 'Bob', '100', '0', '2026-08-26', '3', '2026-08-28', '', ''],
   ]);
 
+  await page.click('#exportMenuBtn');
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.click('button[onclick="exportPDF()"]'),
@@ -124,6 +127,7 @@ test('a wide timeline (long project duration) paginates across multiple pages', 
     ['1', '1', 'Very long task', 'Alice', '100', '0', '2026-08-24', '400', '', '', ''],
   ]);
 
+  await page.click('#exportMenuBtn');
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.click('button[onclick="exportPDF()"]'),
@@ -143,6 +147,7 @@ test('exporting an empty project (no tasks) does not crash', async ({ page }) =>
     ['1', '1', 'Untimed task', '', '', '0', '', '', '', '', ''],
   ]);
 
+  await page.click('#exportMenuBtn');
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.click('button[onclick="exportPDF()"]'),
@@ -159,6 +164,7 @@ test('no uncaught JS errors during PDF export', async ({ page }) => {
     ['2', '1.1', 'Child', 'Alice', '100', '0', '2026-08-24', '2', '2026-08-25', '', '1'],
   ]);
 
+  await page.click('#exportMenuBtn');
   await Promise.all([
     page.waitForEvent('download'),
     page.click('button[onclick="exportPDF()"]'),

@@ -235,6 +235,7 @@ test('switching projects resets the label filter', async ({ page }) => {
 
 test('Labels round-trips through CSV export/import', async ({ page }) => {
   const fs = require('fs');
+  await page.click('#exportMenuBtn');
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.click('button[onclick="exportCSV()"]'),

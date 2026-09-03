@@ -243,23 +243,32 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36M20.49 15a9 9 0 0 1-14.85 3.36"></path></svg>
                     Sync Dependencies
                 </button>
-                <label class="tbtn file-btn">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-                    Import
-                    <input type="file" id="csvFile" accept=".csv" onchange="importCSV(event)">
-                </label>
-                <button class="tbtn" onclick="exportCSV()">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    Export CSV
-                </button>
-                <button class="tbtn" onclick="exportImage()">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                    Export PNG
-                </button>
-                <button class="tbtn" onclick="exportPDF()" title="Paginated PDF of the Gantt chart, one page per horizontal slice for wide timelines">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><text x="6.5" y="18" font-size="7" stroke="none" fill="currentColor" font-family="sans-serif" font-weight="bold">PDF</text></svg>
-                    Export PDF
-                </button>
+                <div style="position:relative; display:inline-block;">
+                    <button id="exportMenuBtn" type="button" class="tbtn" onclick="toggleExportMenu(event)" title="Import a CSV, or export the project as CSV/PNG/PDF">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        Export
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <div id="exportMenuDropdown" style="display:none; position:absolute; top:100%; left:0; margin-top:4px; background:#1e293b; border:1px solid #334155; border-radius:6px; padding:6px; min-width:170px; z-index:50; box-shadow:0 8px 20px rgba(0,0,0,0.35);">
+                        <label class="tbtn file-btn" style="width:100%; box-sizing:border-box; justify-content:flex-start;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                            Import CSV
+                            <input type="file" id="csvFile" accept=".csv" onchange="importCSV(event)">
+                        </label>
+                        <button class="tbtn" style="width:100%; box-sizing:border-box; justify-content:flex-start; margin-top:4px;" onclick="exportCSV()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Export CSV
+                        </button>
+                        <button class="tbtn" style="width:100%; box-sizing:border-box; justify-content:flex-start; margin-top:4px;" onclick="exportImage()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                            Export PNG
+                        </button>
+                        <button class="tbtn" style="width:100%; box-sizing:border-box; justify-content:flex-start; margin-top:4px;" onclick="exportPDF()" title="Paginated PDF of the Gantt chart, one page per horizontal slice for wide timelines">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><text x="6.5" y="18" font-size="7" stroke="none" fill="currentColor" font-family="sans-serif" font-weight="bold">PDF</text></svg>
+                            Export PDF
+                        </button>
+                    </div>
+                </div>
             </div>
             <div class="toolbar-group">
                 <button id="btnDbxSave" class="tbtn tbtn-cloud" onclick="backupToDropbox(false)">
@@ -521,7 +530,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.21.0";
+        const APP_VERSION = "2.22.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -2625,6 +2634,38 @@
             if (!dropdown || dropdown.style.display === 'none' || !dropdown.style.display) return;
             if (dropdown.contains(e.target) || (btn && btn.contains(e.target))) return;
             dropdown.style.display = 'none';
+        });
+
+        // Export toolbar menu -- groups Import CSV / Export CSV / Export PNG /
+        // Export PDF behind one dropdown (backlog #17), same anchored-popover
+        // pattern as the label filter dropdown above.
+        function toggleExportMenu(event) {
+            if (event) event.stopPropagation();
+            const dropdown = document.getElementById('exportMenuDropdown');
+            if (!dropdown) return;
+            dropdown.style.display = (dropdown.style.display === 'none' || !dropdown.style.display) ? 'block' : 'none';
+        }
+
+        function closeExportMenu() {
+            const dropdown = document.getElementById('exportMenuDropdown');
+            if (dropdown) dropdown.style.display = 'none';
+        }
+
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('exportMenuDropdown');
+            const btn = document.getElementById('exportMenuBtn');
+            if (!dropdown || dropdown.style.display === 'none' || !dropdown.style.display) return;
+            if (dropdown.contains(e.target) || (btn && btn.contains(e.target))) return;
+            dropdown.style.display = 'none';
+        });
+
+        // Closes the menu once one of its own actions has been clicked (this
+        // bubble listener runs after the target's own onclick, so the action
+        // itself has already fired) -- kept as a separate listener rather than
+        // appended to each button's onclick so the action functions' own
+        // onclick attributes stay exactly `exportCSV()` etc.
+        document.getElementById('exportMenuDropdown').addEventListener('click', function(e) {
+            if (e.target.closest('button, label.file-btn')) closeExportMenu();
         });
 
         function resetLabelFilter() {

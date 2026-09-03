@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.23.0] - 2026-09-03
+
+### ✨ Added
+
+#### Undo / Redo (backlog #11)
+- New Undo/Redo toolbar buttons (Ctrl+Z / Ctrl+Y also work, intercepted ahead of jexcel's own document-level keydown handler so its per-cell history is bypassed entirely -- that per-cell history is exactly what the README's old "just use the browser's Ctrl+Z" advice was calling out as unreliable for a JS grid). Both are disabled/greyed whenever there's nothing to undo/redo.
+- Undo/redo is whole-snapshot, not a per-cell diff or command log. A single cell edit here can cascade through dependency scheduling and parent rollup -- a changed Start/Duration recomputes End, which recomputes a parent's rolled-up Start/End/% Done, all the way up through grandparents -- so reverting just the one cell a user touched would leave every computed field downstream of it stale and inconsistent, exactly the failure mode this backlog item called out as the reason it needed real design before any code. Instead, undo/redo restores a full prior snapshot of the task data and feeds it back through the existing render+sync pipeline (`renderGrid` + `syncToGantt(true)`), so Outline numbers, computed dates, and parent rollups all come back correct together rather than needing their own separate revert logic.
+- Deliberately scoped to the task data grid only -- it does not cover custom column add/rename/delete, the Resources registry, or collapse/label-filter UI state. Logged as a known limitation in `BACKLOG.md` rather than silently under-scoped.
+- History is per-project and in-memory only (not persisted to localStorage or Dropbox), capped at 50 steps; switching projects can't cross-contaminate undo stacks, and a page reload clears history like most apps' undo does.
+- Along the way, found and fixed a real correctness gap in two existing multi-cell operations that would otherwise have produced multiple undo steps for what should be one atomic action: Bulk Edit's per-row `setValueFromCoords` calls, and renaming a registered resource (which rewrites every task cell already assigned that name) each independently fire the grid's own per-cell change hook, which would otherwise call `triggerSync()` -- and therefore save/snapshot -- once per row instead of once for the whole operation. Both are now wrapped so only one sync/save (and therefore one undo step) fires per user action, matching how "Add row" already needed the same guard.
+
+### 🧪 Testing
+- Added `tests/undo-redo.spec.js`: buttons start disabled with no history; a cell edit enables Undo and reverts correctly; Redo re-applies; a Duration change's cascade onto a dependent task's Start is correctly restored on undo (not just the raw Duration cell); a child's % Done edit and the resulting parent rollup are both correctly reverted together; a multi-row Bulk Edit undoes as a single step; a new edit after Undo clears the Redo stack; Ctrl+Z/Ctrl+Y work inside the grid; Ctrl+Z while typing in the Bulk Edit modal's text field does *not* trigger grid-level undo (native text-field undo is left alone); undo/redo history is kept separate per project; no console errors across a full cycle.
+- Verified with a real Playwright run against genuine vendored copies of jsuites/jexcel/frappe-gantt/papaparse (this sandbox's outbound network blocks the live CDN hosts the app normally loads them from) -- all 11 new tests passed for real, including the first run that caught the Bulk Edit multi-step bug above (fixed, then reverified green).
+
+## [2.22.1] - 2026-09-03
+
+### 🐛 Fixed
+
+#### Grid-typed or Bulk-Edited Resource names weren't reaching the named-resources registry
+- The named-resources registry (backlog #12) only picked up a new name via CSV import's merge step -- typing a not-yet-registered name directly into a grid Resource cell, or setting one via Bulk Edit, assigned it to the task fine but never added it to the Resource Manager or the cell's own quick-pick popover, so it wasn't available as a quick-pick option until a CSV round-trip.
+- Fixed with `mergeResourceNamesFromValue()`, run from the grid's own cell-change handler for the Resource column (both a direct edit and Bulk Edit's per-row writes go through the same `onchange` hook), doing the same additive merge CSV import already did for a whole file, but for one cell's value.
+- Also swapped the Resource cell's quick-pick toggle from a low-contrast bare "▾" glyph to a small filled circular badge, so it reads as a clickable control at a glance.
+
+### 🧪 Testing
+- Extended `tests/named-resources.spec.js` and `tests/bulk-edit.spec.js` with coverage for a name reaching the registry via direct typing and via Bulk Edit, respectively, not just CSV import.
+
 ## [2.22.0] - 2026-09-02
 
 ### ✨ Added

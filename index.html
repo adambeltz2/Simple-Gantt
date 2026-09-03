@@ -39,6 +39,8 @@
 
         .tbtn { background: #1e293b; color: #e2e8f0; border: none; padding: 7px 11px; border-radius: 6px; cursor: pointer; font-size: 12.5px; font-weight: 500; display: flex; align-items: center; gap: 6px; white-space: nowrap; transition: background 0.15s; }
         .tbtn:hover { background: #334155; }
+        .tbtn:disabled { opacity: 0.35; cursor: not-allowed; }
+        .tbtn:disabled:hover { background: #1e293b; }
         .tbtn svg { flex-shrink: 0; }
         .tbtn.file-btn input { display: none; }
 
@@ -107,6 +109,11 @@
 
         .jexcel_row { cursor: grab !important; }
         .jexcel_row:active { cursor: grabbing !important; }
+
+        /* Resource cell's quick-pick toggle -- a filled badge rather than a bare
+           glyph so it reads as a clickable control at a glance, not stray text. */
+        .resource-picker-toggle { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 5px; border-radius: 50%; background: #64748b; color: #fff; font-size: 9px; line-height: 1; vertical-align: middle; cursor: pointer; user-select: none; flex: none; }
+        .resource-picker-toggle:hover { background: #2563eb; }
 
         .header-btn { padding: 6px 10px !important; background: transparent; color: #94a3b8; border: 0.5px solid #334155; border-radius: 6px; font-size: 12.5px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 5px; }
         .header-btn:hover { background: #1e293b; color: #e2e8f0; }
@@ -223,6 +230,14 @@
                 </button>
             </div>
             <div class="toolbar-group">
+                <button id="btnUndo" class="tbtn" onclick="undo()" title="Undo the last change (Ctrl+Z)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path></svg>
+                    Undo
+                </button>
+                <button id="btnRedo" class="tbtn" onclick="redo()" title="Redo the last undone change (Ctrl+Y)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"></path><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"></path></svg>
+                    Redo
+                </button>
                 <button class="tbtn" onclick="addRow()">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                     Add row
@@ -530,7 +545,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.22.0";
+        const APP_VERSION = "2.23.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -617,6 +632,7 @@
                 appDB.activeId = val;
                 resetGridSearch();
                 resetLabelFilter();
+                updateUndoRedoButtons();
                 renderGrid();
                 syncToGantt(true);
             }
@@ -639,6 +655,7 @@
             resetGridSearch();
             resetLabelFilter();
             updateProjectDropdown();
+            updateUndoRedoButtons();
             renderGrid();
             syncToGantt(true);
         }
@@ -661,12 +678,15 @@
             if (!confirm(`Are you sure you want to delete '${project.name}'?`)) return;
 
             const dropboxProjectId = project.dropboxProjectId;
+            const deletedId = appDB.activeId;
 
-            delete appDB.projects[appDB.activeId];
+            delete appDB.projects[deletedId];
             appDB.activeId = Object.keys(appDB.projects)[0];
+            clearUndoHistory(deletedId);
             resetGridSearch();
             resetLabelFilter();
             updateProjectDropdown();
+            updateUndoRedoButtons();
             renderGrid();
             syncToGantt(true);
             saveToLocal();
@@ -731,7 +751,19 @@
 
         function saveToLocal() {
             if(!sheet) return;
-            appDB.projects[appDB.activeId].data = sheet.getData();
+            const projId = appDB.activeId;
+            const newData = sheet.getData();
+            // Every task-data-changing action in the app funnels through here
+            // eventually (a cell edit, bulk edit, add/delete/move row, CSV
+            // import, project restore...), which makes this the one place to
+            // snapshot for Undo/Redo rather than instrumenting every call site
+            // separately. isRestoringHistory is set by undo()/redo() themselves
+            // while they're putting a past/future snapshot back on the grid, so
+            // restoring history never re-records itself as a new undoable step.
+            if (!isRestoringHistory) {
+                pushUndoSnapshot(projId, appDB.projects[projId].data, newData);
+            }
+            appDB.projects[projId].data = newData;
             appDB.settings.skipWeekends = document.getElementById('skipWeekends').checked;
             appDB.settings.zoom = document.getElementById('zoomScale').value;
             try {
@@ -746,6 +778,111 @@
                 showStatus("✗ Save failed -- storage may be full", "#ef4444");
             }
         }
+
+        // ==========================================
+        // UNDO / REDO (backlog #11)
+        // ==========================================
+        // Undo/redo works on whole-project snapshots of the task data array,
+        // not a diff/command log of individual cell edits. A cell edit here can
+        // cascade through dependency scheduling and parent rollup (a changed
+        // Start/Dur recomputes End, which recomputes a parent's rolled-up
+        // Start/End/% Done, all the way up through grandparents) -- reverting
+        // just the one cell a user touched would leave every computed field
+        // downstream of it stale and inconsistent. Restoring a full prior
+        // snapshot and letting the existing sync pipeline (renderGrid +
+        // syncToGantt(true)) recompute everything fresh sidesteps that
+        // entirely, at the cost of only ever undoing "the whole grid, one step
+        // back" rather than one field in isolation -- an intentional trade in
+        // favor of a state that's always internally consistent.
+        //
+        // Stacks are per-project and in-memory only (not persisted): keyed by
+        // project id so switching projects can't cross-contaminate undo
+        // history, and reset on page reload like most apps' undo history.
+        let undoStacks = {};
+        let redoStacks = {};
+        let isRestoringHistory = false;
+        const MAX_UNDO_HISTORY = 50;
+
+        function deepCloneRows(rows) { return JSON.parse(JSON.stringify(rows || [])); }
+
+        function pushUndoSnapshot(projId, prevData, newData) {
+            if (JSON.stringify(prevData) === JSON.stringify(newData)) return; // no real change (e.g. Sync Dependencies with nothing to do)
+            if (!undoStacks[projId]) undoStacks[projId] = [];
+            undoStacks[projId].push(deepCloneRows(prevData));
+            if (undoStacks[projId].length > MAX_UNDO_HISTORY) undoStacks[projId].shift();
+            redoStacks[projId] = [];
+            updateUndoRedoButtons();
+        }
+
+        function clearUndoHistory(projId) {
+            delete undoStacks[projId];
+            delete redoStacks[projId];
+            updateUndoRedoButtons();
+        }
+
+        function updateUndoRedoButtons() {
+            const undoBtn = document.getElementById('btnUndo');
+            const redoBtn = document.getElementById('btnRedo');
+            if (!undoBtn || !redoBtn) return;
+            undoBtn.disabled = !(undoStacks[appDB.activeId] || []).length;
+            redoBtn.disabled = !(redoStacks[appDB.activeId] || []).length;
+        }
+
+        // Restores a snapshot from `fromStack` (pushing the current state onto
+        // `toStack` first) by feeding it back through the normal render+sync
+        // pipeline, exactly as if it had just been loaded from disk -- this is
+        // what guarantees Outline numbers, computed End dates, and parent
+        // rollups all come back consistent with the restored data rather than
+        // whatever they happened to be right before the undo/redo.
+        function restoreSnapshot(fromStack, toStack) {
+            if (!sheet) return false;
+            const projId = appDB.activeId;
+            const stack = fromStack[projId];
+            if (!stack || stack.length === 0) return false;
+            if (!toStack[projId]) toStack[projId] = [];
+            toStack[projId].push(deepCloneRows(appDB.projects[projId].data));
+            const restoredData = stack.pop();
+            isRestoringHistory = true;
+            appDB.projects[projId].data = restoredData;
+            renderGrid(restoredData);
+            syncToGantt(true);
+            isRestoringHistory = false;
+            updateUndoRedoButtons();
+            return true;
+        }
+
+        function undo() {
+            if (restoreSnapshot(undoStacks, redoStacks)) showStatus("↩ Undo", "#10b981");
+            else showStatus("Nothing to undo", "#64748b");
+        }
+
+        function redo() {
+            if (restoreSnapshot(redoStacks, undoStacks)) showStatus("↪ Redo", "#10b981");
+            else showStatus("Nothing to redo", "#64748b");
+        }
+
+        // Captured on the document in the capture phase so this runs before
+        // jexcel's own document-level keydown handler, which otherwise treats
+        // Ctrl+Z/Ctrl+Y as its own per-cell history -- exactly the "browser's
+        // Ctrl+Z isn't reliable for a JS grid" gap this backlog item exists to
+        // close. stopImmediatePropagation() keeps jexcel's handler from ever
+        // seeing the keystroke. Text entry outside the grid (the Notes modal,
+        // a rename prompt, Bulk Edit's inputs) is deliberately left alone so
+        // native undo still works while typing there.
+        document.addEventListener('keydown', function(e) {
+            const isUndo = (e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z';
+            const isRedo = (e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'));
+            if (!isUndo && !isRedo) return;
+
+            const active = document.activeElement;
+            const inGrid = active && document.getElementById('spreadsheet').contains(active);
+            const isTextEntry = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+            if (isTextEntry && !inGrid) return; // let native undo run in modal/toolbar text fields
+
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            if (isUndo) undo(); else redo();
+        }, true);
 
         // ==========================================
         // DROPBOX CONFIGURATION
@@ -1897,6 +2034,31 @@
             }
         }
 
+        // Same additive merge as mergeResourceNamesFromRows(), but for one
+        // Resource-cell commit (direct typing in the grid, or a Bulk Edit
+        // application -- both land here via the grid's own onchange, one
+        // call per cell) rather than a whole CSV import. Without this, a
+        // name typed straight into the grid would assign fine but never
+        // show up in the Resource Manager or the quick-pick popover, since
+        // mergeResourceNamesFromRows() only ran on import.
+        function mergeResourceNamesFromValue(value) {
+            const names = splitMultiValueCell(value).map(entry => splitResourceEntry(entry).name).filter(Boolean);
+            if (names.length === 0) return;
+            const resources = getProjectResources();
+            const known = new Set(resources.map(r => r.toLowerCase()));
+            const additions = [];
+            names.forEach(name => {
+                const key = name.toLowerCase();
+                if (!known.has(key)) {
+                    known.add(key);
+                    additions.push(name);
+                }
+            });
+            if (additions.length > 0) {
+                appDB.projects[appDB.activeId].resources = resources.concat(additions).sort((a, b) => a.localeCompare(b));
+            }
+        }
+
         function openResourceManagerModal() {
             renderResourceManagerList();
             document.getElementById('resourceManagerModal').classList.add('active');
@@ -1980,10 +2142,17 @@
             const idx = resources.indexOf(oldName);
             if (idx > -1) resources[idx] = newName;
             resources.sort((a, b) => a.localeCompare(b));
+            // Suppress the per-cell triggerSync() each setValueFromCoords call
+            // inside renameResourceInGridRows would otherwise fire (see the
+            // comment in applyBulkEdit for why), so a rename touching N tasks
+            // is one save/undo step, not N. The one syncToGantt(true) below
+            // persists both this registry change and the renamed grid cells
+            // together, so a separate saveToLocal() here isn't needed.
+            isSyncing = true;
             renameResourceInGridRows(oldName, newName);
-            saveToLocal();
+            isSyncing = false;
             renderResourceManagerList();
-            triggerSync();
+            syncToGantt(true);
         }
 
         function renameResourceInGridRows(oldName, newName) {
@@ -2394,7 +2563,6 @@
                     picker.textContent = '▾';
                     picker.title = 'Pick from named resources';
                     picker.className = 'resource-picker-toggle';
-                    picker.style.cssText = 'cursor:pointer; user-select:none; font-size:10px; color:#94a3b8; margin-left:4px; vertical-align:middle;';
                     picker.addEventListener('mousedown', function(e) { e.stopPropagation(); });
                     picker.addEventListener('click', function(e) { e.stopPropagation(); openResourcePickerPopover(picker, row); });
                     cell.appendChild(picker);
@@ -2851,7 +3019,7 @@
                 allowInsertColumn: true,
                 allowDeleteColumn: true,
                 updateTable: formatCells,
-                onchange: triggerSync,
+                onchange: onGridCellChange,
                 onmoverow: triggerSync,
                 oninsertcolumn: syncColumnsToDB,
                 ondeletecolumn: syncColumnsToDB,
@@ -2868,8 +3036,13 @@
                     setTimeout(() => {
                         let data = sheet.getData();
                         let maxId = Math.max(0, ...data.map(r => parseInt(r[COL.ID]) || 0));
+                        // Suppressed so the ID/Alloc auto-assignment below and the
+                        // row insert itself land as one undo step (see the same
+                        // comment on applyBulkEdit), not two separate ones.
+                        isSyncing = true;
                         sheet.setValueFromCoords(COL.ID, rowNumber, (maxId + 1).toString(), true);
                         sheet.setValueFromCoords(COL.ALLOC, rowNumber, '100', true);
+                        isSyncing = false;
                         triggerSync();
                     }, 0);
                 },
@@ -2961,6 +3134,15 @@
         function forceRecalc() { syncToGantt(true); }
         function triggerSync() { if (!isSyncing) syncToGantt(); }
 
+        // jspreadsheet fires onchange once per cell for both a direct edit
+        // and a programmatic setValueFromCoords(..., true) call, so this
+        // one hook also covers applyBulkEdit()'s per-row Resource writes --
+        // no separate wiring needed there.
+        function onGridCellChange(el, cell, x, y, value) {
+            if (parseInt(x, 10) === COL.RESOURCE) mergeResourceNamesFromValue(value);
+            triggerSync();
+        }
+
         function moveRow(rowIndex, direction) {
             if (!sheet) return;
             let data = sheet.getData();
@@ -3041,15 +3223,25 @@
                 value = document.getElementById('bulkEditValueText').value;
             }
 
+            // setValueFromCoords(..., true) still fires onGridCellChange per cell
+            // (see the comment on that function), which would otherwise trigger
+            // its own full triggerSync() -- and therefore its own saveToLocal()/
+            // undo-snapshot -- after every single row in the loop below, turning
+            // one Bulk Edit into N separate undo steps. isSyncing is the same
+            // flag syncToGantt() itself uses to block reentrant syncs; holding it
+            // true for the whole loop suppresses all of those, so only the one
+            // syncToGantt(true) after the loop actually runs and saves.
+            isSyncing = true;
             let applied = 0, skipped = 0;
             for (let row = top; row <= bottom; row++) {
                 if (sheet.isReadOnly([col, row])) { skipped++; continue; }
                 sheet.setValueFromCoords(col, row, value, true);
                 applied++;
             }
+            isSyncing = false;
 
             closeBulkEditModal();
-            triggerSync();
+            syncToGantt(true);
             showStatus(
                 skipped > 0 ? `✓ Bulk-updated ${applied} row${applied === 1 ? '' : 's'} (${skipped} skipped, read-only)` : `✓ Bulk-updated ${applied} row${applied === 1 ? '' : 's'}`,
                 '#10b981'
@@ -3532,7 +3724,8 @@
         updateProjectDropdown();
         renderGrid();
         syncToGantt();
-        
+        updateUndoRedoButtons();
+
         setTimeout(jumpToProjectStart, 500);
     </script>
 </body>

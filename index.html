@@ -108,6 +108,11 @@
         .jexcel_row { cursor: grab !important; }
         .jexcel_row:active { cursor: grabbing !important; }
 
+        /* Resource cell's quick-pick toggle -- a filled badge rather than a bare
+           glyph so it reads as a clickable control at a glance, not stray text. */
+        .resource-picker-toggle { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 5px; border-radius: 50%; background: #64748b; color: #fff; font-size: 9px; line-height: 1; vertical-align: middle; cursor: pointer; user-select: none; flex: none; }
+        .resource-picker-toggle:hover { background: #2563eb; }
+
         .header-btn { padding: 6px 10px !important; background: transparent; color: #94a3b8; border: 0.5px solid #334155; border-radius: 6px; font-size: 12.5px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 5px; }
         .header-btn:hover { background: #1e293b; color: #e2e8f0; }
         .header-btn.btn-danger { color: #F09595; border-color: #E24B4A; }
@@ -1897,6 +1902,31 @@
             }
         }
 
+        // Same additive merge as mergeResourceNamesFromRows(), but for one
+        // Resource-cell commit (direct typing in the grid, or a Bulk Edit
+        // application -- both land here via the grid's own onchange, one
+        // call per cell) rather than a whole CSV import. Without this, a
+        // name typed straight into the grid would assign fine but never
+        // show up in the Resource Manager or the quick-pick popover, since
+        // mergeResourceNamesFromRows() only ran on import.
+        function mergeResourceNamesFromValue(value) {
+            const names = splitMultiValueCell(value).map(entry => splitResourceEntry(entry).name).filter(Boolean);
+            if (names.length === 0) return;
+            const resources = getProjectResources();
+            const known = new Set(resources.map(r => r.toLowerCase()));
+            const additions = [];
+            names.forEach(name => {
+                const key = name.toLowerCase();
+                if (!known.has(key)) {
+                    known.add(key);
+                    additions.push(name);
+                }
+            });
+            if (additions.length > 0) {
+                appDB.projects[appDB.activeId].resources = resources.concat(additions).sort((a, b) => a.localeCompare(b));
+            }
+        }
+
         function openResourceManagerModal() {
             renderResourceManagerList();
             document.getElementById('resourceManagerModal').classList.add('active');
@@ -2394,7 +2424,6 @@
                     picker.textContent = '▾';
                     picker.title = 'Pick from named resources';
                     picker.className = 'resource-picker-toggle';
-                    picker.style.cssText = 'cursor:pointer; user-select:none; font-size:10px; color:#94a3b8; margin-left:4px; vertical-align:middle;';
                     picker.addEventListener('mousedown', function(e) { e.stopPropagation(); });
                     picker.addEventListener('click', function(e) { e.stopPropagation(); openResourcePickerPopover(picker, row); });
                     cell.appendChild(picker);
@@ -2851,7 +2880,7 @@
                 allowInsertColumn: true,
                 allowDeleteColumn: true,
                 updateTable: formatCells,
-                onchange: triggerSync,
+                onchange: onGridCellChange,
                 onmoverow: triggerSync,
                 oninsertcolumn: syncColumnsToDB,
                 ondeletecolumn: syncColumnsToDB,
@@ -2960,6 +2989,15 @@
 
         function forceRecalc() { syncToGantt(true); }
         function triggerSync() { if (!isSyncing) syncToGantt(); }
+
+        // jspreadsheet fires onchange once per cell for both a direct edit
+        // and a programmatic setValueFromCoords(..., true) call, so this
+        // one hook also covers applyBulkEdit()'s per-row Resource writes --
+        // no separate wiring needed there.
+        function onGridCellChange(el, cell, x, y, value) {
+            if (parseInt(x, 10) === COL.RESOURCE) mergeResourceNamesFromValue(value);
+            triggerSync();
+        }
 
         function moveRow(rowIndex, direction) {
             if (!sheet) return;

@@ -102,6 +102,23 @@ test('bulk-setting Resource applies the same value to every selected row', async
   expect(page.consoleErrors).toEqual([]);
 });
 
+test('bulk-setting Resource to a name not yet in the registry adds it, same as typing it in directly', async ({ page }) => {
+  await loadTasks(page, [
+    row('1', '1', 'Task A', 'Alice', '100', '0', '2026-08-24', '1', '2026-08-24', '', ''),
+    row('2', '2', 'Task B', 'Bob', '100', '0', '2026-08-25', '1', '2026-08-25', '', ''),
+  ]);
+  await page.evaluate(() => { appDB.projects[appDB.activeId].resources = ['Alice', 'Bob']; });
+  await selectRows(page, 0, 1);
+  await page.evaluate(() => openBulkEditModal());
+  await page.selectOption('#bulkEditField', 'RESOURCE');
+  await page.fill('#bulkEditValueText', 'Dave');
+  await page.click('button[onclick="applyBulkEdit()"]');
+  await page.waitForTimeout(200);
+
+  const resources = await page.evaluate(() => appDB.projects[appDB.activeId].resources);
+  expect(resources).toContain('Dave');
+});
+
 test('bulk-setting % Done validates the value is a number 0-100', async ({ page }) => {
   await loadTasks(page, [
     row('1', '1', 'Task A', 'Alice', '100', '0', '2026-08-24', '1', '2026-08-24', '', ''),

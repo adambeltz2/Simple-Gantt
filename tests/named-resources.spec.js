@@ -175,6 +175,18 @@ test('Resource column CSV shape is unchanged -- still the same free-text cell, n
   expect(content).toContain('Alice (50%)');
 });
 
+test('typing a new name directly into the grid Resource cell registers it too, not just names that arrive via CSV import', async ({ page }) => {
+  await page.evaluate((COL) => sheet.setValueFromCoords(COL.RESOURCE, 1, 'Frank', true), COL);
+  await page.waitForTimeout(200);
+
+  const resources = await page.evaluate(() => appDB.projects[appDB.activeId].resources);
+  expect(resources).toContain('Frank');
+
+  await page.locator('.resource-picker-toggle').nth(1).click();
+  const labels = await page.locator('#resourcePickerPopover label').allTextContents();
+  expect(labels.map((l) => l.trim())).toContain('Frank');
+});
+
 test('importing a CSV merges any not-yet-registered resource name into the registry instead of dropping it', async ({ page }) => {
   const fs = require('fs');
   const csv = 'ID,Outline,Task Name,Resource,Def. Alloc,% Done,Start,Dur.,End,Depends,Parent,Labels\n' +

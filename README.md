@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.20.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-2.23.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
 
@@ -18,6 +18,7 @@ A lightweight, browser-based Gantt chart and task management tool. No server req
 - **Labels** – Tag any row with one or more free-text labels (comma or semicolon-separated). The toolbar's label filter is a checkbox multi-select: check one or more to narrow the grid to tasks carrying any of them; an opt-in "Label in chart" toggle applies that same filter to the Gantt chart
 - **Bulk Edit** – Click and drag to select 2 or more rows, click "Bulk Edit," and apply one Resource/% Done/Parent value to the whole selection at once; a row where that field is read-only (e.g. % Done on a parent task) is skipped and called out separately
 - **Named Resources** – Define resource names ahead of time via the "Resources" toolbar button, then pick them from a quick-pick ▾ icon on any grid Resource cell instead of typing from scratch. The Resource cell stays free text underneath (comma/semicolon-separated, allocation annotations like `Alice (50%)` included) -- the registry is just a faster way to fill it in. Renaming a registered name updates every task already assigned it; deleting one only affects future suggestions
+- **Undo / Redo** – Toolbar buttons plus Ctrl/Cmd+Z and Ctrl/Cmd+Y (or Ctrl/Cmd+Shift+Z). Reverting a change correctly recalculates anything that cascaded from it too -- a dependent task's Start, a parent's rolled-up % Done -- not just the one cell you touched. Per-project, capped at 50 steps, cleared on reload
 - **Resource Color-Coding** – Each resource gets a deterministic color, shown as a stripe on the left edge of its bars (first-listed resource wins on multi-resource tasks) and listed in the chart legend; complements the Workload dashboard's per-resource view
 - **Critical Path Highlighting** – Opt-in toolbar toggle ("Critical path", off by default) that runs the chain of zero-slack tasks determining the project's overall end date through a standard CPM pass over the Depends graph. Critical tasks get a small ⚡ next to their name in the grid and an outlined bar in the chart; parallel branches with float are correctly left unmarked. Suppressed while a dependency cycle exists, since a cycle has no well-defined critical path.
 - **Progress Tracking** – Mark tasks as not started, in progress, complete, or overdue
@@ -232,6 +233,8 @@ Select different project from dropdown at top-left
 | **Enter** | Confirm edit, move down |
 | **Esc** | Cancel edit |
 | **Right-click** | Context menu (add/delete row/col) |
+| **Ctrl/Cmd + Z** | Undo the last change |
+| **Ctrl/Cmd + Y** (or **Ctrl/Cmd + Shift + Z**) | Redo |
 
 ---
 
@@ -328,6 +331,8 @@ Select different project from dropdown at top-left
 
 ```
 F12              Open DevTools (to see console logs)
+Ctrl/Cmd+Z       Undo the last change
+Ctrl/Cmd+Y       Redo (Ctrl/Cmd+Shift+Z also works)
 Ctrl/Cmd+E       Export CSV (if keyboard-enabled)
 Ctrl/Cmd+I       Import CSV (if keyboard-enabled)
 Tab              Next cell in grid
@@ -455,7 +460,7 @@ A: Not directly, but the CSV format is compatible with most project tools (Excel
 A: Not yet. Each user has their own local version. Share via CSV exports.
 
 **Q: What if I accidentally delete something?**  
-A: If using Dropbox, click "Versions" to restore. If offline-only, use browser's undo (Ctrl+Z) immediately after.
+A: Click Undo (or Ctrl/Cmd+Z) right away -- it reverts the last change and correctly recalculates any dependent dates or parent rollups that cascaded from it, not just the raw cell. If you need to go back further than your current session's undo history, and you're using Dropbox, click "Versions" to restore an earlier backup instead.
 
 ---
 

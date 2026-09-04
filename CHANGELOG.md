@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.25.0] - 2026-09-04
+
+### ✨ Added
+
+#### Two small UI additions, bundled as one item (backlog #19)
+
+**(a) 100%-done checkmark.** A task at 100% now gets a small ✓ next to its name in the spreadsheet grid, in the same slot the critical-path ⚡ icon already uses (the two can show together on the same row). Grid-only, like the In Progress flag and Late indicator -- no effect on the Gantt chart, CSV export, or Dropbox backups. Applies to parent rows too, since a parent's % Done is itself a live, duration-weighted rollup of its children rather than a value anyone types directly.
+
+**(b) Project-level Notes.** A single Markdown note for the whole project -- distinct from the existing per-task "Notes" custom column, which gives each *row* its own note. Opened via a new "Notes" toolbar button next to Resources, reusing the exact same click-to-expand-and-edit modal UX and Markdown renderer (`renderNotesMarkdown()`) the per-task Notes column already uses, rather than building a second one. Stored as `projectNotes` on the project object, same tier as the named-resources registry, collapse state, and the in-progress flag: localStorage only. It deliberately does not round-trip through CSV export (there's no row for a project-wide field to belong to) or Dropbox backup -- Dropbox backup itself is a CSV export of the grid data plus a small `meta.json`, not a JSON dump of the project object, so the named-resources registry and collapse state don't survive it either; project notes are consistent with that existing tier, not a new exception.
+
+### 🐛 Fixed
+
+#### A stale icon could stick next to a task's name after the condition that added it stopped being true
+Found while implementing the checkmark above, and it was a real pre-existing bug in the critical-path icon too, just never exercised by a test: `formatCells()`'s Task Name rendering only cleared and rebuilt the cell's icon content (`cell.innerHTML = ''`) on the render pass where at least one icon needed to show. Toggling the condition back off (% Done edited down from 100, or Critical Path turned off) never re-entered that branch, so the cell kept whatever icon HTML a previous render had left in the DOM -- jexcel does not reset a cell's markup on its own between edits. The Name cell now always rebuilds its icon/text content on every `formatCells` pass, regardless of whether any icon applies that time.
+
+### 🧪 Testing
+- Added `tests/done-checkmark.spec.js`: a leaf task shows the checkmark at 100% and not otherwise; editing % Done live-adds and live-removes it (the regression case for the bug above); a parent shows it once its rolled-up % Done reaches 100, not before; no effect on the Gantt chart, the underlying grid data, or CSV headers; coexists with the critical-path icon on the same row; no console errors.
+- Added `tests/project-notes.spec.js`: the toolbar button opens a modal titled with the project name; an empty note shows a placeholder; edit/save persists to `appDB.projects[id].projectNotes` and re-renders the Markdown; Cancel discards edits; typed HTML is escaped, not executed; closing and reopening shows the saved state, not stale edit-mode UI; the note persists across a reload; notes are per-project, not shared globally; no footprint in CSV export headers; no console errors.
+- Extended `tests/critical-path.spec.js` with a regression test for the stale-icon bug: toggling Critical Path off clears an already-rendered ⚡, not just skips adding a new one.
+- Verified with a real Playwright run (224 tests total) against genuine vendored copies of jsuites/jexcel/papaparse/frappe-gantt/html2canvas/jspdf/the Dropbox SDK, fetched from their real npm-published tarballs and routed in via `page.route()` in a throwaway test harness (this sandbox's outbound network blocks the live CDN hosts the app normally loads them from) -- including a full run of the entire existing suite to confirm no regressions from the shared `formatCells()` Name-cell rewrite. One pre-existing, unrelated test/vendored-build interaction (`row-id-backfill.spec.js`, the same synchronous-onchange timing quirk already documented against this vendored jexcel build in the 2.24.0 entry below) reproduces identically and is unrelated to this change.
+
 ## [2.24.0] - 2026-09-04
 
 ### ✨ Added

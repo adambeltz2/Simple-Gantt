@@ -4,9 +4,10 @@ const { test, expect } = require('@playwright/test');
 // Covers the Notes feature: a custom column literally named "Notes" (case
 // insensitive) renders as a small click-to-expand flag instead of raw
 // inline text, opens a modal with a self-contained Markdown subset
-// (bold/italic/links/lists), is readOnly at the cell level (editing only
-// happens through the modal), and round-trips through CSV like any other
-// custom column since the underlying stored value is still plain text.
+// (headers/bold/italic/links/lists), is readOnly at the cell level (editing
+// only happens through the modal), and round-trips through CSV like any
+// other custom column since the underlying stored value is still plain
+// text.
 
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10, LABELS: 11 };
 const NOTES_COL = 12;
@@ -59,6 +60,19 @@ test('clicking the flag opens a modal titled with the task name, rendering the M
   await expect(page.locator('#notesModal')).toHaveClass(/active/);
   await expect(page.locator('#notesModalTitle')).toHaveText('Notes — Task with a note');
   await expect(page.locator('#notesBody strong')).toHaveText('note');
+});
+
+test('a leading "#" renders as a real heading, one level per extra "#" up to h6', async ({ page }) => {
+  await setupWithNotesColumn(page);
+  await page.locator('.notes-flag').nth(1).click(); // the empty one
+  await page.click('#notesEditBtn');
+  await page.fill('#notesEditTextarea', '# Title\n## Subtitle\n###### Smallest\nRegular paragraph');
+  await page.click('#notesSaveBtn');
+
+  await expect(page.locator('#notesBody h1')).toHaveText('Title');
+  await expect(page.locator('#notesBody h2')).toHaveText('Subtitle');
+  await expect(page.locator('#notesBody h6')).toHaveText('Smallest');
+  await expect(page.locator('#notesBody p')).toHaveText('Regular paragraph');
 });
 
 test('an empty note shows a placeholder, not a blank modal', async ({ page }) => {

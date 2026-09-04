@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.24.0] - 2026-09-04
+
+### ✨ Added
+
+#### Type an explicit End date directly on a leaf task (backlog #18)
+- The End column was unconditionally read-only for every row, always derived forward from Start + Duration via `calculateEndDate()`. A leaf task (no children) now accepts a direct End edit; Duration is back-solved from Start + End via `calculateWorkingDays()` -- already used for parent rollup, and an exact inverse of `calculateEndDate()` -- so Start/Duration/End stay internally consistent. A parent task's End is completely unaffected: still read-only, still driven purely by the rollup of its children's dates.
+- No new propagation logic was needed for the cascade: `syncToGantt()` already runs a dependency-successor pass (down, to whatever depends on this task) and a parent-rollup pass (up, to whatever this task is a child of) on every sync -- the same two passes "Sync Dependencies" triggers manually. A direct End edit just feeds into that same pipeline like any other cell edit already does.
+- The one real wrinkle: `syncToGantt()` unconditionally recomputes every leaf task's End from Start+Duration on every single sync, which would otherwise clobber a just-typed End immediately. Back-solving Duration from the typed End at edit time (in `onGridCellChange`, guarded by `!isSyncing` so the sync loop's own programmatic End writes -- already consistent by construction -- don't re-enter this) makes that recompute a no-op, since `calculateEndDate()`/`calculateWorkingDays()` are exact inverses: the round-trip reproduces the same End.
+- **CSV import got the same gap, found while implementing this:** `importCSV()` always calls `syncToGantt(true)` (forced recompute), which was silently discarding any explicit End value a CSV actually carried, overwriting it from Start+Duration on every import -- even though End is a real exported column. A new `reconcileImportedEndDates()` runs once before that sync: a leaf row with both Start and End present gets Duration back-solved from them, same "End is authoritative" rule a direct grid edit gets. A parent row's own End (if a CSV somehow carries one) is still always ignored -- rollup wins there regardless, exactly as before.
+- Gaining/losing children is handled entirely by existing mechanisms, not special-cased: a task that gains a child is excluded from the leaf loop and picked up by rollup on the very next sync (a hand-typed End is superseded immediately); a task that loses its last child re-enters the ordinary leaf computation, driven by whatever Start/Duration it was last left with.
+
+### 🧪 Testing
+- Added `tests/leaf-end-date.spec.js`: a direct End edit back-solves Duration correctly; an ordinary Duration edit still forward-computes End unaffected; a parent's End cell is read-only and a programmatic write to it is overwritten by the next rollup; a leaf's End cell is not read-only; a direct End edit cascades down to a dependent's Start and up to a parent's rollup, matching what Sync Dependencies would produce; a task gaining a child loses direct End-editability and picks up the rollup value; a task losing its last child regains it; CSV import honors an explicit leaf End (back-solving Duration) and still ignores a parent row's own End; no console errors across the whole scenario set.
+- Verified with a real Playwright run against genuine vendored copies of jsuites/jexcel/papaparse/frappe-gantt (this sandbox's outbound network blocks the live CDN hosts the app normally loads them from) -- including re-running the full existing suite (178 tests across all spec files) against the same vendored copies to confirm no regressions; one pre-existing, unrelated test flake (`row-id-backfill.spec.js`, a synchronous-onchange timing quirk in the vendored jexcel build) was confirmed to reproduce identically against the unmodified `index.html`, ruling it out as caused by this change.
+
+## [2.23.1] - 2026-09-04
+
+### 🐛 Fixed
+
+#### A resource assigned to a not-yet-scheduled task silently vanished from the Workload dashboard
+- The named-resources registry itself was already correct -- a name typed straight into a grid Resource cell was reaching `appDB.projects[...].resources` and the Resource Manager modal fine (verified with a real Playwright run against vendored jsuites/jexcel, simulating an actual click-and-type in the grid). The confusion was one level up: the Resource Workload Dashboard (`renderWorkloadTable()`) plots utilization across a date range, so it silently drops any task missing a Start date or Duration -- same exclusion parent/summary rows already got -- with no indication of *why* a just-assigned resource wasn't showing up there.
+- `renderWorkloadTable()` now tracks resource names that are assigned only to such not-yet-scheduled tasks and surfaces them: the empty-state message names them directly when nothing else has a valid schedule yet, and a small note is appended below the table itself when some tasks do render (e.g. "Also assigned but not shown above (no Start date/Duration yet): Adam Beltz").
+
+### 🧪 Testing
+- Extended `tests/workload-dashboard.spec.js` with coverage for a resource assigned to a task with no Start/Duration: it's named in the empty state, and still called out below the table once another, fully-scheduled task gives the table something to render.
+- Verified with a real Playwright run against genuine vendored copies of jsuites/jexcel (this sandbox's outbound network blocks the live CDN hosts the app normally loads them from), reproducing the exact reported scenario (a resource typed into the grid for a task with blank Start/Dur./End).
+
 ## [2.23.0] - 2026-09-03
 
 ### ✨ Added

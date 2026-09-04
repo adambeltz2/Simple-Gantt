@@ -545,7 +545,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.23.0";
+        const APP_VERSION = "2.24.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -1073,8 +1073,34 @@
             // always was), only the registry that drives the grid's quick-pick
             // list grows to cover what was actually imported.
             mergeResourceNamesFromRows(sanitized);
+            reconcileImportedEndDates(sanitized);
             renderGrid(sanitized);
             syncToGantt(true);
+        }
+
+        // CSV import always follows with syncToGantt(true) (forceRecalculateDates),
+        // which -- same as a direct grid edit would without this step -- treats
+        // every leaf task's End as purely derived from Start+Duration and
+        // overwrites it, silently discarding whatever End the file actually
+        // carried. Run once, before that sync, so an imported leaf row with a
+        // Start and an End both present gets the same "End is authoritative"
+        // treatment a direct edit gets (backlog #18): Duration is back-solved
+        // from Start+End via calculateWorkingDays() rather than the other way
+        // around. Parent rows are skipped -- their End is always a rollup of
+        // children, never something a CSV row itself should drive.
+        function reconcileImportedEndDates(rows) {
+            const parentIds = new Set(
+                rows.map(r => (r[COL.PARENT] != null ? r[COL.PARENT].toString().trim() : '')).filter(p => p !== '')
+            );
+            rows.forEach(row => {
+                const id = (row[COL.ID] != null) ? row[COL.ID].toString().trim() : '';
+                if (id && parentIds.has(id)) return;
+                const start = row[COL.START];
+                const end = row[COL.END];
+                if (!start || !end) return;
+                const newDur = calculateWorkingDays(start, end);
+                if (newDur > 0) row[COL.DUR] = newDur;
+            });
         }
 
         function formatBackupTimestamp(iso) {
@@ -1757,19 +1783,39 @@
             let minDate = null;
             let maxDate = null;
 
-            let workingTasks = rawData.map(r => {
+            let assignedTasks = rawData.map(r => {
                 let dur = parseInt(r[COL.DUR]) || 0;
                 let rawAlloc = r[COL.ALLOC] !== "" ? parseInt(r[COL.ALLOC]) : 100;
                 let assigns = parseAssignments(r[COL.RESOURCE], rawAlloc);
                 let start = r[COL.START];
                 let isParent = rawData.some(row => row[COL.PARENT] == r[COL.ID] && row[COL.ID] !== "");
-                
+
                 return { isParent, assigns, start, dur };
-            }).filter(t => !t.isParent && t.assigns.length > 0 && t.start && t.dur > 0);
+            }).filter(t => !t.isParent && t.assigns.length > 0);
+
+            // This dashboard plots utilization across a date range, so a task
+            // assigned a resource but missing a Start date or Duration has no
+            // day to be plotted on -- it's excluded below just like a parent
+            // row is. Track which resource names only ever show up on such
+            // tasks so the empty/table state can say why they're missing
+            // instead of silently vanishing (this is exactly what happens
+            // when a resource is added via the grid to a not-yet-scheduled
+            // task and then "isn't appearing" here).
+            let workingTasks = assignedTasks.filter(t => t.start && t.dur > 0);
+            let unscheduledTasks = assignedTasks.filter(t => !(t.start && t.dur > 0));
+            let scheduledNames = new Set();
+            workingTasks.forEach(t => t.assigns.forEach(a => scheduledNames.add(a.name)));
+            let unscheduledNames = Array.from(new Set(
+                unscheduledTasks.flatMap(t => t.assigns.map(a => a.name)).filter(n => !scheduledNames.has(n))
+            )).sort((a, b) => a.localeCompare(b));
 
             if(workingTasks.length === 0) {
-                document.getElementById('workloadTableContainer').innerHTML = 
-                    "<div style='padding: 30px; color: #64748b; text-align: center; font-size: 16px; margin-top: 100px;'>No assigned tasks with durations found. Add resources and durations to tasks to view workload.</div>";
+                let msg = "No assigned tasks with durations found. Add resources and durations to tasks to view workload.";
+                if (unscheduledNames.length > 0) {
+                    msg = `${escapeHtml(unscheduledNames.join(', '))} ${unscheduledNames.length === 1 ? 'is' : 'are'} assigned, but ${unscheduledNames.length === 1 ? 'its task doesn\'t' : 'their tasks don\'t'} have both a Start date and a Duration set yet -- fill those in on the affected task(s) to see workload here.`;
+                }
+                document.getElementById('workloadTableContainer').innerHTML =
+                    `<div style='padding: 30px; color: #64748b; text-align: center; font-size: 16px; margin-top: 100px;'>${msg}</div>`;
                 return;
             }
 
@@ -1900,6 +1946,9 @@
                 html += `</tr>`;
             });
             html += '</tbody></table>';
+            if (unscheduledNames.length > 0) {
+                html += `<div style="padding:10px 4px; color:#64748b; font-size:12.5px;">Also assigned but not shown above (no Start date/Duration yet): ${escapeHtml(unscheduledNames.join(', '))}</div>`;
+            }
             document.getElementById('workloadTableContainer').innerHTML = html;
         }
 
@@ -2489,7 +2538,10 @@
                 let depth = computeTaskDepth(parentID, allData);
 
                 cell.classList.remove('readonly-cell', 'readonly');
-                if (col == COL.ID || col == COL.OUTLINE || col == COL.END) cell.classList.add('readonly-cell', 'readonly');
+                if (col == COL.ID || col == COL.OUTLINE) cell.classList.add('readonly-cell', 'readonly');
+                // End is only read-only for a parent row (its End is a rollup
+                // of children -- see the isParent block below); a leaf task's
+                // End is directly editable (backlog #18).
 
                 if (col == COL.END) {
                     const pct = parseInt(rowData[COL.PCT]) || 0;
@@ -2990,7 +3042,7 @@
                 { type: 'numeric', title: '% Done', width: 50, align: 'center' },
                 { type: 'calendar', title: 'Start', width: 85, options: { format: 'YYYY-MM-DD' }, align: 'center' },
                 { type: 'numeric', title: 'Dur.', width: 40, align: 'center' },
-                { type: 'calendar', title: 'End', width: 85, readOnly: true, options: { format: 'YYYY-MM-DD' }, align: 'center' },
+                { type: 'calendar', title: 'End', width: 85, options: { format: 'YYYY-MM-DD' }, align: 'center' },
                 { type: 'dropdown', title: 'Depends', width: 70, source: [], autocomplete: true, multiple: true, align: 'left' },
                 { type: 'dropdown', title: 'Parent', width: 60, source: [], autocomplete: true, align: 'left' },
                 { type: 'text', title: 'Labels', width: 110, align: 'left' }
@@ -3139,7 +3191,42 @@
         // one hook also covers applyBulkEdit()'s per-row Resource writes --
         // no separate wiring needed there.
         function onGridCellChange(el, cell, x, y, value) {
-            if (parseInt(x, 10) === COL.RESOURCE) mergeResourceNamesFromValue(value);
+            const col = parseInt(x, 10);
+            if (col === COL.RESOURCE) mergeResourceNamesFromValue(value);
+
+            // A direct edit to End on a leaf task (backlog #18) makes it the
+            // authoritative date for that row -- back-solve Duration from
+            // Start+End with calculateWorkingDays() (the same inverse of
+            // calculateEndDate() parent rollup already uses) so it takes over
+            // the schedule instead of being silently clobbered on the very
+            // next sync by the unconditional Start+Duration -> End recompute
+            // every leaf task still gets below. From there the normal
+            // dependency-successor and parent-rollup passes in syncToGantt --
+            // the same ones "Sync Dependencies" runs -- cascade the change
+            // down to dependents and up to parents with no extra code here.
+            // !isSyncing excludes the sync loop's own programmatic End writes
+            // (already consistent with Duration by construction, so
+            // back-solving would just reproduce the same value) -- without
+            // it, every routine Start/Duration-driven End update would also
+            // re-enter this block. Wrapped in the same isSyncing-as-guard
+            // pattern applyBulkEdit()/onResourceRenameCommit() already use so
+            // the Duration write below doesn't fire its own separate
+            // triggerSync() ahead of this handler's own call at the bottom --
+            // one user edit, one sync/undo step.
+            if (col === COL.END && !isSyncing) {
+                const row = parseInt(y, 10);
+                const rowData = sheet.getData()[row];
+                const start = rowData ? rowData[COL.START] : '';
+                if (start && value) {
+                    const newDur = calculateWorkingDays(start, value);
+                    if (newDur > 0) {
+                        isSyncing = true;
+                        sheet.setValueFromCoords(COL.DUR, row, newDur, true);
+                        isSyncing = false;
+                    }
+                }
+            }
+
             triggerSync();
         }
 

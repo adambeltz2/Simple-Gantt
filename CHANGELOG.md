@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.28.0] - 2026-09-04
+
+### ✨ Added
+
+#### Global "Clear filters" toolbar button
+User-requested: a single button in the header, next to Search/Labels/Filters, that clears all three filtering mechanisms at once -- Grid Search, the Label filter, and the structured Filters dropdown (Resource/% Done/Start/End) -- instead of needing to open and clear each one individually. Composes the existing per-mechanism reset functions (`clearGridSearch()`, `resetLabelFilter()`, `resetStructuredFilters()`) rather than duplicating their state-clearing logic, and refreshes the Gantt chart afterward in case the Label filter's "Label in chart" option was narrowing it. The button itself stays disabled whenever none of the three has anything active, following the same disabled-state pattern already used for Undo/Redo.
+
+### 🧪 Testing
+- Added `tests/clear-all-filters.spec.js`: the button starts disabled; each of the three filter mechanisms enables it and is cleared by it individually; one click clears all three together; no console errors.
+- Verified with a real Playwright run against genuine vendored copies of jsuites/jexcel/papaparse/frappe-gantt/html2canvas/jspdf, fetched from their real npm-published tarballs and routed in via `page.route()` in a throwaway test harness (this sandbox's outbound network currently blocks every CDN host the app normally loads them from, `cdn.jsdelivr.net` included, not just the unpinned jsuites/jexcel hosts) -- including a full run of `structured-filters.spec.js`, `labels.spec.js`, and `grid-search.spec.js` (48 tests) to confirm no regressions from the new `applyRowVisibility()` call added to `resetLabelFilter()`.
+
+---
+
 ## [2.27.0] - 2026-09-04
 
 ### ✨ Added

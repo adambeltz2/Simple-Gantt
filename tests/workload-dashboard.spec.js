@@ -170,3 +170,37 @@ test('no assigned tasks shows a helpful empty state, not a crash', async ({ page
   await expect(page.locator('#workloadTableContainer')).toContainText('No assigned tasks');
   expect(page.consoleErrors).toEqual([]);
 });
+
+// A resource assigned via the grid but whose task has no Start date/Duration
+// yet has no day to be plotted on in this date-driven dashboard, so it's
+// silently excluded from the table -- same as a bare "no assigned tasks"
+// state would be. Without naming the resource, that reads as "the resource I
+// just added isn't showing up" rather than "this task isn't scheduled yet".
+test('a resource assigned to a not-yet-scheduled task is named in the empty state instead of silently vanishing', async ({ page }) => {
+  await loadTasks(page, [
+    ['1', '1', 'Pin Data Load Process', 'Adam Beltz', '100', '0', '', '', '', '', ''],
+  ]);
+  await page.evaluate(() => openWorkloadModal());
+  await page.waitForTimeout(200);
+
+  const text = await page.locator('#workloadTableContainer').innerText();
+  expect(text).toContain('Adam Beltz');
+  expect(text).toMatch(/Start date/);
+  expect(page.consoleErrors).toEqual([]);
+});
+
+test('a resource on an unscheduled task is also called out below the table when other rows do have schedule', async ({ page }) => {
+  await loadTasks(page, [
+    ['1', '1', 'Pin Data Load Process', 'Adam Beltz', '100', '0', '', '', '', '', ''],
+    ['2', '2', 'Scheduled Task', 'Zoe', '100', '0', '2026-08-24', '2', '2026-08-25', '', ''],
+  ]);
+  await page.evaluate(() => openWorkloadModal());
+  await page.waitForTimeout(200);
+
+  const names = await page.locator('.workload-table tbody td:first-child').allTextContents();
+  expect(names).toEqual(['Zoe']); // Adam Beltz has no schedule, so no plottable row
+
+  const text = await page.locator('#workloadTableContainer').innerText();
+  expect(text).toContain('Adam Beltz');
+  expect(page.consoleErrors).toEqual([]);
+});

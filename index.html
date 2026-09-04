@@ -545,7 +545,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.23.0";
+        const APP_VERSION = "2.23.1";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -1757,19 +1757,39 @@
             let minDate = null;
             let maxDate = null;
 
-            let workingTasks = rawData.map(r => {
+            let assignedTasks = rawData.map(r => {
                 let dur = parseInt(r[COL.DUR]) || 0;
                 let rawAlloc = r[COL.ALLOC] !== "" ? parseInt(r[COL.ALLOC]) : 100;
                 let assigns = parseAssignments(r[COL.RESOURCE], rawAlloc);
                 let start = r[COL.START];
                 let isParent = rawData.some(row => row[COL.PARENT] == r[COL.ID] && row[COL.ID] !== "");
-                
+
                 return { isParent, assigns, start, dur };
-            }).filter(t => !t.isParent && t.assigns.length > 0 && t.start && t.dur > 0);
+            }).filter(t => !t.isParent && t.assigns.length > 0);
+
+            // This dashboard plots utilization across a date range, so a task
+            // assigned a resource but missing a Start date or Duration has no
+            // day to be plotted on -- it's excluded below just like a parent
+            // row is. Track which resource names only ever show up on such
+            // tasks so the empty/table state can say why they're missing
+            // instead of silently vanishing (this is exactly what happens
+            // when a resource is added via the grid to a not-yet-scheduled
+            // task and then "isn't appearing" here).
+            let workingTasks = assignedTasks.filter(t => t.start && t.dur > 0);
+            let unscheduledTasks = assignedTasks.filter(t => !(t.start && t.dur > 0));
+            let scheduledNames = new Set();
+            workingTasks.forEach(t => t.assigns.forEach(a => scheduledNames.add(a.name)));
+            let unscheduledNames = Array.from(new Set(
+                unscheduledTasks.flatMap(t => t.assigns.map(a => a.name)).filter(n => !scheduledNames.has(n))
+            )).sort((a, b) => a.localeCompare(b));
 
             if(workingTasks.length === 0) {
-                document.getElementById('workloadTableContainer').innerHTML = 
-                    "<div style='padding: 30px; color: #64748b; text-align: center; font-size: 16px; margin-top: 100px;'>No assigned tasks with durations found. Add resources and durations to tasks to view workload.</div>";
+                let msg = "No assigned tasks with durations found. Add resources and durations to tasks to view workload.";
+                if (unscheduledNames.length > 0) {
+                    msg = `${escapeHtml(unscheduledNames.join(', '))} ${unscheduledNames.length === 1 ? 'is' : 'are'} assigned, but ${unscheduledNames.length === 1 ? 'its task doesn\'t' : 'their tasks don\'t'} have both a Start date and a Duration set yet -- fill those in on the affected task(s) to see workload here.`;
+                }
+                document.getElementById('workloadTableContainer').innerHTML =
+                    `<div style='padding: 30px; color: #64748b; text-align: center; font-size: 16px; margin-top: 100px;'>${msg}</div>`;
                 return;
             }
 
@@ -1900,6 +1920,9 @@
                 html += `</tr>`;
             });
             html += '</tbody></table>';
+            if (unscheduledNames.length > 0) {
+                html += `<div style="padding:10px 4px; color:#64748b; font-size:12.5px;">Also assigned but not shown above (no Start date/Duration yet): ${escapeHtml(unscheduledNames.join(', '))}</div>`;
+            }
             document.getElementById('workloadTableContainer').innerHTML = html;
         }
 

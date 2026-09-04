@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.23.1] - 2026-09-04
+
+### 🐛 Fixed
+
+#### A resource assigned to a not-yet-scheduled task silently vanished from the Workload dashboard
+- The named-resources registry itself was already correct -- a name typed straight into a grid Resource cell was reaching `appDB.projects[...].resources` and the Resource Manager modal fine (verified with a real Playwright run against vendored jsuites/jexcel, simulating an actual click-and-type in the grid). The confusion was one level up: the Resource Workload Dashboard (`renderWorkloadTable()`) plots utilization across a date range, so it silently drops any task missing a Start date or Duration -- same exclusion parent/summary rows already got -- with no indication of *why* a just-assigned resource wasn't showing up there.
+- `renderWorkloadTable()` now tracks resource names that are assigned only to such not-yet-scheduled tasks and surfaces them: the empty-state message names them directly when nothing else has a valid schedule yet, and a small note is appended below the table itself when some tasks do render (e.g. "Also assigned but not shown above (no Start date/Duration yet): Adam Beltz").
+
+### 🧪 Testing
+- Extended `tests/workload-dashboard.spec.js` with coverage for a resource assigned to a task with no Start/Duration: it's named in the empty state, and still called out below the table once another, fully-scheduled task gives the table something to render.
+- Verified with a real Playwright run against genuine vendored copies of jsuites/jexcel (this sandbox's outbound network blocks the live CDN hosts the app normally loads them from), reproducing the exact reported scenario (a resource typed into the grid for a task with blank Start/Dur./End).
+
 ## [2.23.0] - 2026-09-03
 
 ### ✨ Added

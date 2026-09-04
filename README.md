@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.23.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-2.24.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
 
@@ -19,6 +19,7 @@ A lightweight, browser-based Gantt chart and task management tool. No server req
 - **Bulk Edit** – Click and drag to select 2 or more rows, click "Bulk Edit," and apply one Resource/% Done/Parent value to the whole selection at once; a row where that field is read-only (e.g. % Done on a parent task) is skipped and called out separately
 - **Named Resources** – Define resource names ahead of time via the "Resources" toolbar button, then pick them from a quick-pick ▾ icon on any grid Resource cell instead of typing from scratch. The Resource cell stays free text underneath (comma/semicolon-separated, allocation annotations like `Alice (50%)` included) -- the registry is just a faster way to fill it in. Renaming a registered name updates every task already assigned it; deleting one only affects future suggestions
 - **Undo / Redo** – Toolbar buttons plus Ctrl/Cmd+Z and Ctrl/Cmd+Y (or Ctrl/Cmd+Shift+Z). Reverting a change correctly recalculates anything that cascaded from it too -- a dependent task's Start, a parent's rolled-up % Done -- not just the one cell you touched. Per-project, capped at 50 steps, cleared on reload
+- **Type an explicit End date on a leaf task** – A task with no children now accepts a direct edit to its End date, back-solving Duration from Start + End instead of only deriving End forward from Start + Duration. A task with children still gets its End rolled up from them and stays read-only. CSV import honors an explicit End on a leaf row the same way
 - **Resource Color-Coding** – Each resource gets a deterministic color, shown as a stripe on the left edge of its bars (first-listed resource wins on multi-resource tasks) and listed in the chart legend; complements the Workload dashboard's per-resource view
 - **Critical Path Highlighting** – Opt-in toolbar toggle ("Critical path", off by default) that runs the chain of zero-slack tasks determining the project's overall end date through a standard CPM pass over the Depends graph. Critical tasks get a small ⚡ next to their name in the grid and an outlined bar in the chart; parallel branches with float are correctly left unmarked. Suppressed while a dependency cycle exists, since a cycle has no well-defined critical path.
 - **Progress Tracking** – Mark tasks as not started, in progress, complete, or overdue
@@ -93,7 +94,7 @@ No server, no npm, no build step required.
 - **% Done** – Progress (0-100)
 - **Start** – Begin date (YYYY-MM-DD format)
 - **Dur.** – Duration in days
-- **End** – Completion date (YYYY-MM-DD format)
+- **End** – Completion date (YYYY-MM-DD format). Editable directly on a leaf task (no children) -- Duration is back-solved from Start + End. A task with children keeps its End read-only and rolled up from its children instead
 - **Depends** – Parent task IDs (comma-separated)
 - **Parent** – Read-only; set via "Depends"
 

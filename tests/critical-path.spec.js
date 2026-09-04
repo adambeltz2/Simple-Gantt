@@ -179,6 +179,17 @@ test('the legend shows a Critical path entry only when the toggle is on and a pa
   expect(await page.locator('#ganttLegend').textContent()).not.toContain('Critical path');
 });
 
+test('toggling critical path off clears an already-rendered icon, not just skips adding a new one', async ({ page }) => {
+  await loadTasks(page, [
+    ['1', '1', 'Solo task', '', '', '0', '2026-08-24', '3', '', '', ''],
+  ]);
+  await setCriticalPathToggle(page, true);
+  expect(await nameCellHasIcon(page, 0)).toBe(true);
+
+  await setCriticalPathToggle(page, false);
+  expect(await nameCellHasIcon(page, 0)).toBe(false);
+});
+
 test('no uncaught JS errors while toggling critical path on and off', async ({ page }) => {
   await loadTasks(page, PARALLEL_ROWS);
   await setCriticalPathToggle(page, true);

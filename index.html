@@ -250,6 +250,10 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                     Resources
                 </button>
+                <button id="btnProjectNotes" class="tbtn" onclick="openProjectNotesModal()" title="Project-wide notes (Markdown) -- context, scope, decisions -- separate from any one task">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="13" y2="17"></line></svg>
+                    Notes
+                </button>
                 <button class="tbtn" onclick="autoFitColumns()" title="Resize columns to fit their content">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 7 5 12 9 17"></polyline><polyline points="15 7 19 12 15 17"></polyline></svg>
                     Fit columns
@@ -502,6 +506,21 @@
         </div>
     </div>
 
+    <div id="projectNotesModal" class="modal" onclick="if(event.target===this) closeProjectNotesModal()">
+        <div class="modal-content" style="max-width: 560px; height: 65vh; padding: 25px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+                <h2 id="projectNotesModalTitle" style="margin:0; color:#0f172a; font-size: 17px;">Project Notes</h2>
+                <button onclick="closeProjectNotesModal()" style="padding: 6px 15px; background: #ef4444; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Close</button>
+            </div>
+            <div id="projectNotesBody" style="flex:1; overflow:auto; font-size: 14px; color:#1e293b; line-height:1.5;"></div>
+            <div style="display:flex; justify-content:flex-end; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #e2e8f0;">
+                <button id="projectNotesCancelBtn" onclick="cancelProjectNotesEdit()" style="display:none; padding: 8px 16px; background: #e2e8f0; color: #334155; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Cancel</button>
+                <button id="projectNotesEditBtn" onclick="enterProjectNotesEditMode()" style="padding: 8px 16px; background: #185FA5; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Edit</button>
+                <button id="projectNotesSaveBtn" onclick="saveProjectNotesEdit()" style="display:none; padding: 8px 16px; background: #10b981; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Save</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         function format(d) {
             if (!d) return '';
@@ -545,7 +564,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.24.0";
+        const APP_VERSION = "2.25.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -564,7 +583,7 @@
         let appDB = {
             activeId: 'proj_1',
             settings: { skipWeekends: true, zoom: 'Day' },
-            projects: { 'proj_1': { name: 'Example Project', columns: [], data: sampleProjectData, collapsed: [], flagged: [], resources: ['Alice', 'Bob', 'Charlie'] } }
+            projects: { 'proj_1': { name: 'Example Project', columns: [], data: sampleProjectData, collapsed: [], flagged: [], resources: ['Alice', 'Bob', 'Charlie'], projectNotes: '' } }
         };
 
         try {
@@ -649,7 +668,8 @@
                 data: [['1', '1', '', '', '100', '0', '', '', '', '', '', '']],
                 collapsed: [],
                 flagged: [],
-                resources: []
+                resources: [],
+                projectNotes: ''
             };
             appDB.activeId = newId;
             resetGridSearch();
@@ -1285,7 +1305,8 @@
                                 dropboxProjectId: discovered.id,
                                 collapsed: [],
                                 flagged: [],
-                                resources: collectResourceNamesFromRows(data)
+                                resources: collectResourceNamesFromRows(data),
+                                projectNotes: ''
                             };
                             resolve();
                         }});
@@ -2432,6 +2453,17 @@
             return icon;
         }
 
+        // Grid-only marker for a task at 100% -- like the critical-path
+        // icon it sits next to, this has no effect on the Gantt chart or CSV
+        // export (backlog #19a).
+        function completeCheckmarkIcon() {
+            const icon = document.createElement('span');
+            icon.textContent = '✓';
+            icon.title = 'Complete (100%)';
+            icon.style.cssText = 'display:inline-block; margin-right:3px; font-size:11px; font-weight:bold; color:#16a34a; vertical-align:middle;';
+            return icon;
+        }
+
         // Inverse of calculateEndDate: given the last (inclusive) day of work
         // and a working-day duration, find the first day of work.
         function subtractWorkingDays(endDate, durationDays) {
@@ -2632,26 +2664,32 @@
                     }
 
                     let isCritical = isCriticalPathViewOn() && criticalPathIds.has(rowID);
+                    let isComplete = (parseInt(rowData[COL.PCT]) || 0) === 100;
 
-                    if (isParent && rowID !== '') {
-                        let collapsed = isCollapsed(rowID);
+                    // Always rebuilt from scratch, regardless of which (if
+                    // any) icons apply this pass -- a cell that showed an
+                    // icon on a previous render must not keep showing it
+                    // once the condition that added it stops being true
+                    // (e.g. % Done edited back down from 100, or Critical
+                    // Path toggled off).
+                    if (rowID !== '') {
                         cell.innerHTML = '';
-                        let toggle = document.createElement('span');
-                        toggle.textContent = collapsed ? '▶' : '▼';
-                        toggle.title = collapsed ? 'Expand' : 'Collapse';
-                        toggle.className = 'row-collapse-toggle';
-                        toggle.style.cssText = 'display:inline-block; width:13px; margin-right:4px; cursor:pointer; user-select:none; color:#64748b; font-size:9px; vertical-align:middle;';
-                        // Stop at mousedown so jexcel's own cell-selection/edit handling
-                        // (bound at the document level) never sees this click -- otherwise
-                        // toggling collapse would also select/open-edit the Name cell.
-                        toggle.addEventListener('mousedown', function(e) { e.stopPropagation(); });
-                        toggle.addEventListener('click', function(e) { e.stopPropagation(); toggleCollapse(rowID); });
-                        cell.appendChild(toggle);
+                        if (isParent) {
+                            let collapsed = isCollapsed(rowID);
+                            let toggle = document.createElement('span');
+                            toggle.textContent = collapsed ? '▶' : '▼';
+                            toggle.title = collapsed ? 'Expand' : 'Collapse';
+                            toggle.className = 'row-collapse-toggle';
+                            toggle.style.cssText = 'display:inline-block; width:13px; margin-right:4px; cursor:pointer; user-select:none; color:#64748b; font-size:9px; vertical-align:middle;';
+                            // Stop at mousedown so jexcel's own cell-selection/edit handling
+                            // (bound at the document level) never sees this click -- otherwise
+                            // toggling collapse would also select/open-edit the Name cell.
+                            toggle.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+                            toggle.addEventListener('click', function(e) { e.stopPropagation(); toggleCollapse(rowID); });
+                            cell.appendChild(toggle);
+                        }
                         if (isCritical) cell.appendChild(criticalPathIcon());
-                        cell.appendChild(document.createTextNode(val != null ? val : ''));
-                    } else if (isCritical && rowID !== '') {
-                        cell.innerHTML = '';
-                        cell.appendChild(criticalPathIcon());
+                        if (isComplete) cell.appendChild(completeCheckmarkIcon());
                         cell.appendChild(document.createTextNode(val != null ? val : ''));
                     }
                 }
@@ -3000,6 +3038,75 @@
                     sheet.rows[index].style.backgroundColor = flaggedSet.has(id) ? '#f3e8ff' : '';
                 }
             });
+        }
+
+        // ==========================================
+        // PROJECT-LEVEL NOTES (Markdown, behind a click-to-expand modal)
+        // ==========================================
+        // Distinct from the per-task "Notes" custom column above -- this is
+        // one Markdown note for the whole project, not tied to any row.
+        // Stored on the project object itself, same tier as `flagged`/
+        // `resources`/`collapsed`: localStorage only, never part of CSV
+        // export (there's no row for it to belong to) and never part of a
+        // Dropbox backup (which is a CSV export of the grid data plus a
+        // small meta.json -- see backupToDropbox()). Reuses
+        // renderNotesMarkdown()/escapeHtml() rather than a second renderer.
+        function getProjectNotes() {
+            let proj = appDB.projects[appDB.activeId];
+            if (proj.projectNotes == null) proj.projectNotes = '';
+            return proj.projectNotes;
+        }
+
+        function setProjectNotes(text) {
+            appDB.projects[appDB.activeId].projectNotes = text;
+            saveToLocal();
+        }
+
+        function openProjectNotesModal() {
+            const proj = appDB.projects[appDB.activeId];
+            document.getElementById('projectNotesModalTitle').innerText = `Project Notes — ${proj.name}`;
+            renderProjectNotesView(getProjectNotes());
+            document.getElementById('projectNotesModal').classList.add('active');
+        }
+
+        function closeProjectNotesModal() {
+            document.getElementById('projectNotesModal').classList.remove('active');
+        }
+
+        function renderProjectNotesView(text) {
+            const body = document.getElementById('projectNotesBody');
+            const rendered = renderNotesMarkdown(text);
+            body.innerHTML = rendered || '<p style="color:#94a3b8;">No project notes yet. Click Edit to add some.</p>';
+            document.getElementById('projectNotesEditBtn').style.display = '';
+            document.getElementById('projectNotesSaveBtn').style.display = 'none';
+            document.getElementById('projectNotesCancelBtn').style.display = 'none';
+        }
+
+        function enterProjectNotesEditMode() {
+            const val = getProjectNotes();
+            const body = document.getElementById('projectNotesBody');
+            body.innerHTML = '';
+            const textarea = document.createElement('textarea');
+            textarea.id = 'projectNotesEditTextarea';
+            textarea.value = val;
+            textarea.placeholder = 'Markdown supported: **bold**, *italic*, [link](https://...), - bullets, 1. numbered lists';
+            textarea.style.cssText = 'width:100%; height:100%; min-height:260px; box-sizing:border-box; font-family:ui-monospace,monospace; font-size:13px; padding:10px; border:1px solid #cbd5e1; border-radius:4px; resize:vertical;';
+            body.appendChild(textarea);
+            document.getElementById('projectNotesEditBtn').style.display = 'none';
+            document.getElementById('projectNotesSaveBtn').style.display = '';
+            document.getElementById('projectNotesCancelBtn').style.display = '';
+            textarea.focus();
+        }
+
+        function saveProjectNotesEdit() {
+            const textarea = document.getElementById('projectNotesEditTextarea');
+            const newVal = textarea ? textarea.value : '';
+            setProjectNotes(newVal);
+            renderProjectNotesView(newVal);
+        }
+
+        function cancelProjectNotesEdit() {
+            renderProjectNotesView(getProjectNotes());
         }
 
         // "Depends" tasks are scheduled to start the day their dependency's

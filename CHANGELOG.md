@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.27.0] - 2026-09-04
+
+### ✨ Added
+
+#### Markdown headers in Notes (both the per-task Notes column and Project Notes)
+User-requested: a line starting with `#` through `######` now renders as a real `<h1>`-`<h6>`, one level per extra `#` (e.g. `# Title` → h1, `## Subtitle` → h2), same convention as CommonMark ATX headings -- a `#` needs a following space to count as a heading, so a stray `#` or a hashtag-style word doesn't get misread as one. Added to the same shared `renderNotesMarkdown()` renderer both Notes features already use, so both pick it up automatically with no separate change needed.
+
+### 🧪 Testing
+- Extended `tests/notes-field.spec.js` with a regression test for Markdown headers: `#` through `######` render as real `h1`-`h6` elements, and a line without one still renders as a plain paragraph.
+- Verified with a real Playwright run against genuine vendored copies of jsuites/jexcel/papaparse/frappe-gantt/html2canvas/jspdf/the Dropbox SDK, fetched from their real npm-published tarballs and routed in via `page.route()` in a throwaway test harness (this sandbox's outbound network currently blocks every CDN host the app normally loads them from, `cdn.jsdelivr.net` included, not just the unpinned jsuites/jexcel hosts) -- including a full run of the entire existing suite (269 tests) to confirm no regressions. One pre-existing, unrelated test/vendored-build interaction (`row-id-backfill.spec.js`, the same synchronous-onchange timing quirk already documented against this vendored jexcel build in the 2.24.0 entry below) reproduces identically and is unrelated to this change.
+
+---
+
+## [2.26.0] - 2026-09-04
+
+### ✨ Added
+
+#### Structured, per-column filters: Resource, % Done, Start, End (backlog #20)
+Four dedicated filter widgets, distinct from the existing free-text Grid Search (which substring-matches every column) and the checkbox Label filter -- collapsed behind one new "Filters" toolbar button so they don't add four more always-visible controls to an already-dense toolbar (same overflow-menu instinct as the "Export ▾" menu from backlog #17).
+
+- **Resource** -- a checkbox multi-select sourced from the named-resources registry (backlog #12), same OR-within-a-field semantics the Label filter already uses.
+- **% Done** -- three preset buckets (Not started / In progress / Complete) rather than a numeric min/max, since the meaningful states are discrete, not a continuous range.
+- **Start** and **End** -- each an optional From/To date range; either bound alone leaves that side open-ended.
+
+All four compose with each other, with Grid Search, with the Label filter, and with Collapse via AND -- exactly how Search and Labels already composed with each other: a matched row's ancestors stay visible for outline context, and a manual collapse always wins regardless of what matches underneath it. A single "Clear filters" link resets all four at once. Entirely view-only, like every other filter in this app -- never touches task data, CSV export, or the Gantt chart.
+
+### 🧪 Testing
+- Added `tests/structured-filters.spec.js`: the Filters dropdown lists every registered resource; each of the four filter types narrows the grid correctly on its own (including OR-within-a-field for Resource and % Done, and open-ended date ranges); all four compose together via AND; composition with existing Grid Search, the Label filter, and Collapse; "Clear filters" resets everything at once; the dropdown closes on outside click; switching projects resets all four; no footprint in the Gantt chart or the underlying task data; no console errors.
+- Verified with a real Playwright run against genuine vendored copies of jsuites/jexcel/papaparse/frappe-gantt/html2canvas/jspdf/the Dropbox SDK, fetched from their real npm-published tarballs and routed in via `page.route()` in a throwaway test harness (this sandbox's outbound network currently blocks every CDN host the app normally loads them from, `cdn.jsdelivr.net` included, not just the unpinned jsuites/jexcel hosts) -- including a full run of the entire existing suite to confirm no regressions. One pre-existing, unrelated test/vendored-build interaction (`row-id-backfill.spec.js`, the same synchronous-onchange timing quirk already documented against this vendored jexcel build in the 2.24.0 entry below) reproduces identically and is unrelated to this change.
+
+---
+
 ## [2.25.0] - 2026-09-04
 
 ### ✨ Added

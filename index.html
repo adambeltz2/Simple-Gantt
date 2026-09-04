@@ -206,6 +206,46 @@
                         <div id="labelFilterOptions"></div>
                     </div>
                 </div>
+                <div style="position:relative; display:inline-block;">
+                    <button id="filtersBtn" type="button" onclick="toggleFiltersDropdown(event)"
+                        title="Structured filters by Resource, % Done, Start date and End date -- composes with Search and Labels above"
+                        style="background:#1e293b; color:#e2e8f0; border:0.5px solid #334155; border-radius:6px; padding:6px 10px; font-size:12.5px; outline:none; cursor:pointer; display:flex; align-items:center; gap:6px; white-space:nowrap;">
+                        Filters
+                        <span id="filtersBadge" style="display:none; background:#3b82f6; color:#fff; border-radius:9px; padding:0 6px; font-size:11px; line-height:16px; min-width:16px; text-align:center;"></span>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <div id="filtersDropdown" style="display:none; position:absolute; top:100%; left:0; margin-top:4px; background:#1e293b; border:1px solid #334155; border-radius:6px; padding:10px; width:250px; max-height:420px; overflow-y:auto; z-index:50; box-shadow:0 8px 20px rgba(0,0,0,0.35);">
+                        <div style="font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:0.03em; margin-bottom:6px;">Resource</div>
+                        <div id="resourceFilterOptions" style="margin-bottom:10px;"></div>
+
+                        <div style="font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:0.03em; margin-bottom:6px;">% Done</div>
+                        <div style="margin-bottom:10px;">
+                            <label style="display:flex; align-items:center; gap:8px; padding:4px 2px; font-size:12.5px; color:#e2e8f0; cursor:pointer;">
+                                <input type="checkbox" class="pctFilterCheckbox" value="none" onchange="onPctFilterCheckboxChange()"> Not started (0%)
+                            </label>
+                            <label style="display:flex; align-items:center; gap:8px; padding:4px 2px; font-size:12.5px; color:#e2e8f0; cursor:pointer;">
+                                <input type="checkbox" class="pctFilterCheckbox" value="partial" onchange="onPctFilterCheckboxChange()"> In progress (1-99%)
+                            </label>
+                            <label style="display:flex; align-items:center; gap:8px; padding:4px 2px; font-size:12.5px; color:#e2e8f0; cursor:pointer;">
+                                <input type="checkbox" class="pctFilterCheckbox" value="done" onchange="onPctFilterCheckboxChange()"> Complete (100%)
+                            </label>
+                        </div>
+
+                        <div style="font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:0.03em; margin-bottom:6px;">Start date</div>
+                        <div style="display:flex; gap:6px; margin-bottom:10px;">
+                            <input id="startFilterFrom" type="date" title="From" onchange="onDateRangeFilterChange('start')" style="flex:1; min-width:0; background:#0f172a; color:#e2e8f0; border:0.5px solid #334155; border-radius:4px; padding:4px; font-size:12px;">
+                            <input id="startFilterTo" type="date" title="To" onchange="onDateRangeFilterChange('start')" style="flex:1; min-width:0; background:#0f172a; color:#e2e8f0; border:0.5px solid #334155; border-radius:4px; padding:4px; font-size:12px;">
+                        </div>
+
+                        <div style="font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:0.03em; margin-bottom:6px;">End date</div>
+                        <div style="display:flex; gap:6px; margin-bottom:10px;">
+                            <input id="endFilterFrom" type="date" title="From" onchange="onDateRangeFilterChange('end')" style="flex:1; min-width:0; background:#0f172a; color:#e2e8f0; border:0.5px solid #334155; border-radius:4px; padding:4px; font-size:12px;">
+                            <input id="endFilterTo" type="date" title="To" onchange="onDateRangeFilterChange('end')" style="flex:1; min-width:0; background:#0f172a; color:#e2e8f0; border:0.5px solid #334155; border-radius:4px; padding:4px; font-size:12px;">
+                        </div>
+
+                        <a href="#" onclick="event.preventDefault(); resetStructuredFilters();" style="display:block; text-align:right; font-size:11.5px; color:#93c5fd; text-decoration:none;">Clear filters</a>
+                    </div>
+                </div>
             </div>
             <div class="toolbar-group">
                 <select id="zoomScale" class="tbtn-select" onchange="changeZoom()">
@@ -564,7 +604,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.25.0";
+        const APP_VERSION = "2.27.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -651,6 +691,7 @@
                 appDB.activeId = val;
                 resetGridSearch();
                 resetLabelFilter();
+                resetStructuredFilters();
                 updateUndoRedoButtons();
                 renderGrid();
                 syncToGantt(true);
@@ -674,6 +715,7 @@
             appDB.activeId = newId;
             resetGridSearch();
             resetLabelFilter();
+            resetStructuredFilters();
             updateProjectDropdown();
             updateUndoRedoButtons();
             renderGrid();
@@ -705,6 +747,7 @@
             clearUndoHistory(deletedId);
             resetGridSearch();
             resetLabelFilter();
+            resetStructuredFilters();
             updateProjectDropdown();
             updateUndoRedoButtons();
             renderGrid();
@@ -1325,9 +1368,10 @@
         // ==========================================
         // NOTES (Markdown, behind a click-to-expand modal)
         // ==========================================
-        // A small, self-contained Markdown subset -- bold, italic, links,
-        // and bullet/numbered lists -- deliberately not a full CommonMark
-        // library, so this doesn't add another CDN dependency to pin/hash.
+        // A small, self-contained Markdown subset -- headers (#-######),
+        // bold, italic, links, and bullet/numbered lists -- deliberately not
+        // a full CommonMark library, so this doesn't add another CDN
+        // dependency to pin/hash.
         // Always escapes first, so user text can never inject real HTML;
         // only the tags this function inserts itself ever reach the DOM.
         function renderNotesMarkdown(text) {
@@ -1349,10 +1393,17 @@
             let out = ''; let listType = null;
             const closeList = () => { if (listType) { out += listType === 'ul' ? '</ul>' : '</ol>'; listType = null; } };
 
+            const headingSizes = { 1: '20px', 2: '17px', 3: '15px', 4: '13.5px', 5: '13px', 6: '12.5px' };
+
             lines.forEach(line => {
+                const heading = /^\s*(#{1,6})\s+(.*)$/.exec(line);
                 const bullet = /^\s*[-*]\s+(.*)$/.exec(line);
                 const numbered = /^\s*\d+\.\s+(.*)$/.exec(line);
-                if (bullet) {
+                if (heading) {
+                    closeList();
+                    const level = heading[1].length;
+                    out += `<h${level} style="margin:10px 0 4px; font-size:${headingSizes[level]}; font-weight:700; line-height:1.3;">${heading[2]}</h${level}>`;
+                } else if (bullet) {
                     if (listType !== 'ul') { closeList(); out += '<ul style="margin:4px 0; padding-left:20px;">'; listType = 'ul'; }
                     out += `<li>${bullet[1]}</li>`;
                 } else if (numbered) {
@@ -2943,6 +2994,129 @@
             if (dropdown) dropdown.style.display = 'none';
         }
 
+        // ==========================================
+        // STRUCTURED FILTERS: Resource / % Done / Start / End (backlog #20)
+        // ==========================================
+        // Distinct from Grid Search (one free-text box substring-matching every
+        // column) and the Label filter above -- these are dedicated, structured
+        // widgets per field. Resource and % Done are checkbox multi-selects with
+        // the same OR-within-a-field semantics the Label filter already uses;
+        // Start/End are each an optional From/To date range. All four compose
+        // with each other, with Search, and with Labels via AND (same as Search
+        // and Labels already compose with each other) -- applyRowVisibility()
+        // below is the single place all of it comes together. View-only, like
+        // every other filter here: never mutates task data.
+        let resourceFilterValues = new Set();
+        let pctFilterBuckets = new Set(); // subset of 'none' | 'partial' | 'done'
+        let startFilterFrom = '', startFilterTo = '';
+        let endFilterFrom = '', endFilterTo = '';
+
+        // Sourced from the named-resources registry (backlog #12), per this
+        // item's own suggestion -- the registry is already kept in sync with
+        // every Resource cell ever typed (mergeResourceNamesFromValue/Rows), so
+        // it's a complete, stable list rather than re-deriving one from the
+        // grid's current data on every render.
+        function refreshResourceFilterOptions() {
+            const container = document.getElementById('resourceFilterOptions');
+            if (!container) return;
+            const resources = getProjectResources();
+            resourceFilterValues = new Set(Array.from(resourceFilterValues).filter(r => resources.includes(r)));
+            container.innerHTML = resources.length === 0
+                ? '<div style="color:#64748b; font-size:12px; padding:4px 2px;">No named resources yet</div>'
+                : resources.map(r => `
+                    <label style="display:flex; align-items:center; gap:8px; padding:4px 2px; font-size:12.5px; color:#e2e8f0; cursor:pointer; white-space:nowrap;">
+                        <input type="checkbox" class="resourceFilterCheckbox" value="${escapeHtml(r)}" ${resourceFilterValues.has(r) ? 'checked' : ''} onchange="onResourceFilterCheckboxChange()">
+                        ${escapeHtml(r)}
+                    </label>
+                `).join('');
+        }
+
+        function onResourceFilterCheckboxChange() {
+            const checked = Array.from(document.querySelectorAll('.resourceFilterCheckbox:checked')).map(cb => cb.value);
+            resourceFilterValues = new Set(checked);
+            updateFiltersButtonBadge();
+            applyRowVisibility();
+        }
+
+        function onPctFilterCheckboxChange() {
+            const checked = Array.from(document.querySelectorAll('.pctFilterCheckbox:checked')).map(cb => cb.value);
+            pctFilterBuckets = new Set(checked);
+            updateFiltersButtonBadge();
+            applyRowVisibility();
+        }
+
+        function pctFilterBucket(pct) {
+            if (pct >= 100) return 'done';
+            if (pct <= 0) return 'none';
+            return 'partial';
+        }
+
+        function onDateRangeFilterChange(which) {
+            if (which === 'start') {
+                startFilterFrom = document.getElementById('startFilterFrom').value;
+                startFilterTo = document.getElementById('startFilterTo').value;
+            } else {
+                endFilterFrom = document.getElementById('endFilterFrom').value;
+                endFilterTo = document.getElementById('endFilterTo').value;
+            }
+            updateFiltersButtonBadge();
+            applyRowVisibility();
+        }
+
+        // Plain string comparison is safe here since Start/End cells are always
+        // the jexcel calendar column's own 'YYYY-MM-DD' format -- fixed-width
+        // ISO dates sort lexicographically the same as chronologically.
+        function dateInRange(dateStr, from, to) {
+            const d = (dateStr != null ? dateStr.toString().trim() : '');
+            if (!d) return false;
+            if (from && d < from) return false;
+            if (to && d > to) return false;
+            return true;
+        }
+
+        function updateFiltersButtonBadge() {
+            const badge = document.getElementById('filtersBadge');
+            if (!badge) return;
+            const n = resourceFilterValues.size + pctFilterBuckets.size
+                + ((startFilterFrom || startFilterTo) ? 1 : 0)
+                + ((endFilterFrom || endFilterTo) ? 1 : 0);
+            badge.textContent = n > 0 ? n.toString() : '';
+            badge.style.display = n > 0 ? 'inline-block' : 'none';
+        }
+
+        function toggleFiltersDropdown(event) {
+            if (event) event.stopPropagation();
+            const dropdown = document.getElementById('filtersDropdown');
+            if (!dropdown) return;
+            const opening = (dropdown.style.display === 'none' || !dropdown.style.display);
+            if (opening) refreshResourceFilterOptions();
+            dropdown.style.display = opening ? 'block' : 'none';
+        }
+
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('filtersDropdown');
+            const btn = document.getElementById('filtersBtn');
+            if (!dropdown || dropdown.style.display === 'none' || !dropdown.style.display) return;
+            if (dropdown.contains(e.target) || (btn && btn.contains(e.target))) return;
+            dropdown.style.display = 'none';
+        });
+
+        function resetStructuredFilters() {
+            resourceFilterValues = new Set();
+            pctFilterBuckets = new Set();
+            startFilterFrom = ''; startFilterTo = '';
+            endFilterFrom = ''; endFilterTo = '';
+            document.querySelectorAll('.resourceFilterCheckbox, .pctFilterCheckbox').forEach(cb => { cb.checked = false; });
+            ['startFilterFrom', 'startFilterTo', 'endFilterFrom', 'endFilterTo'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            updateFiltersButtonBadge();
+            const dropdown = document.getElementById('filtersDropdown');
+            if (dropdown) dropdown.style.display = 'none';
+            applyRowVisibility();
+        }
+
         // Hides/shows grid rows (via jexcel's own hideRow/showRow) for any task
         // with a collapsed ancestor, and/or that doesn't match the active search
         // (search keeps a matched row's ancestors visible too, for outline
@@ -2996,6 +3170,28 @@
                 keepForLabel = collectMatchesWithAncestors(row => parseLabelsCell(row[COL.LABELS]).some(l => labelFilterValues.has(l)));
             }
 
+            let keepForResource = null;
+            if (resourceFilterValues.size > 0) {
+                keepForResource = collectMatchesWithAncestors(row =>
+                    splitMultiValueCell(row[COL.RESOURCE]).some(entry => resourceFilterValues.has(splitResourceEntry(entry).name))
+                );
+            }
+
+            let keepForPct = null;
+            if (pctFilterBuckets.size > 0) {
+                keepForPct = collectMatchesWithAncestors(row => pctFilterBuckets.has(pctFilterBucket(parseInt(row[COL.PCT]) || 0)));
+            }
+
+            let keepForStart = null;
+            if (startFilterFrom || startFilterTo) {
+                keepForStart = collectMatchesWithAncestors(row => dateInRange(row[COL.START], startFilterFrom, startFilterTo));
+            }
+
+            let keepForEnd = null;
+            if (endFilterFrom || endFilterTo) {
+                keepForEnd = collectMatchesWithAncestors(row => dateInRange(row[COL.END], endFilterFrom, endFilterTo));
+            }
+
             data.forEach((row, index) => {
                 const id = (row[COL.ID] != null) ? row[COL.ID].toString().trim() : '';
                 let hiddenByCollapse = false;
@@ -3008,7 +3204,11 @@
                 }
                 const hiddenBySearch = keepForSearch !== null && !keepForSearch.has(index);
                 const hiddenByLabel = keepForLabel !== null && !keepForLabel.has(index);
-                if (hiddenByCollapse || hiddenBySearch || hiddenByLabel) sheet.hideRow(index); else sheet.showRow(index);
+                const hiddenByResource = keepForResource !== null && !keepForResource.has(index);
+                const hiddenByPct = keepForPct !== null && !keepForPct.has(index);
+                const hiddenByStart = keepForStart !== null && !keepForStart.has(index);
+                const hiddenByEnd = keepForEnd !== null && !keepForEnd.has(index);
+                if (hiddenByCollapse || hiddenBySearch || hiddenByLabel || hiddenByResource || hiddenByPct || hiddenByStart || hiddenByEnd) sheet.hideRow(index); else sheet.showRow(index);
             });
         }
 

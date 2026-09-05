@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.28.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-2.29.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
 
@@ -84,7 +84,7 @@ No server, no npm, no build step required.
 | **Add Task** | Click "➕ Add row" button or right-click → Add row |
 | **Edit Cell** | Double-click any cell in the grid |
 | **Delete Task** | Right-click row → Delete row |
-| **Reorder Tasks** | Drag rows up/down |
+| **Reorder Tasks** | Drag rows up/down, or right-click a row → "Move to Task ID..." to jump it next to a specific task by ID (also reparents it to match, so it lands at the right outline depth) |
 | **Add Column** | Right-click column header → Add column |
 
 ### Setting Task Dates

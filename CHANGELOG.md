@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.29.0] - 2026-09-05
+
+### ✨ Added
+
+#### Move a task to a specific Task ID (backlog #21)
+- New "🎯 Move to Task ID..." entry in the grid's row right-click menu, next to the existing Move row up/down. Opens a small modal: pick a target task (the same `{id, name}` dropdown source Depends/Parent already use, minus the row itself) and Before/After, then Move.
+- Moving also reparents the moved task to match the target's own Parent -- one action, not two. WBS/Outline numbering (`syncToGantt()`) groups purely by each row's own Parent field, not by array position, so a repositioned row whose Parent still pointed elsewhere would show at the wrong outline depth for where it now visually sits. This mirrors what a manual drag-to-reposition followed by a manual Parent edit would already accomplish together.
+- Guards against the one real way this could corrupt the hierarchy: moving a task next to one of its own descendants (which would make it a child of its own child). Rejected with a clear message before anything changes, via an ancestor-chain walk over the target's Parent lineage.
+- Like a plain row drag, moves only the one row -- a moved parent's children stay where they were. Same limitation jexcel's own row drag already has, not a new one.
+- **Found and fixed a real pre-existing bug while building this:** `moveRow()` (the existing Move row up/down) wrote the reordered data into `appDB.projects[...].data` *before* calling `syncToGantt()`, so by the time `saveToLocal()` ran its before/after diff to decide whether to push an Undo snapshot, "before" and "after" were already the same object -- silently dropping every row-swap from Undo history since Undo/Redo shipped in v2.23.0. Fixed by leaving that assignment to `saveToLocal()` itself, the same fix applied to this feature's own move function.
+
+### 🧪 Testing
+- Added `tests/move-task-to-id.spec.js`: the target dropdown excludes the source task; moving after/before a same-parent target reorders correctly with Parent unchanged; moving next to a target under a different parent reparents to match and recomputes Outline correctly; self-move, a nonexistent target, and moving onto a descendant are all rejected with clear errors and no data change; a move is a single Undo step reverting both the position and the reparent together (this is what caught the `moveRow()` Undo-history bug above); the context menu carries the new entry; Cancel changes nothing; no console errors.
+- Verified with a real Playwright run against genuine vendored copies of jsuites/jexcel/frappe-gantt/papaparse (this sandbox's outbound network blocks the live CDN hosts) -- all 11 new tests passed for real, including the first run, which caught the Undo-history bug (fixed, then reverified green).
+
 ## [2.28.0] - 2026-09-04
 
 ### ✨ Added

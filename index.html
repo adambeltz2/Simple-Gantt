@@ -484,6 +484,30 @@
         </div>
     </div>
 
+    <div id="moveTaskModal" class="modal" onclick="if(event.target===this) closeMoveTaskModal()">
+        <div class="modal-content" style="max-width: 420px; height: auto; padding: 24px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+                <h2 style="margin:0; color:#0f172a; font-size: 18px;">🎯 Move Task</h2>
+            </div>
+            <p style="color:#64748b; font-size:12.5px; margin: 0 0 14px;">Moving <strong id="moveTaskSourceLabel"></strong> next to a target task also reparents it to match the target's own parent, so its position and its place in the outline stay consistent -- the same as dragging it there and fixing up Parent by hand.</p>
+
+            <label style="display:block; font-size:12.5px; color:#334155; font-weight:600; margin-bottom:4px;">Target task</label>
+            <select id="moveTaskTargetId" style="width:100%; box-sizing:border-box; padding:7px 8px; border:1px solid #cbd5e1; border-radius:4px; font-size:13px; margin-bottom:14px;">
+            </select>
+
+            <label style="display:block; font-size:12.5px; color:#334155; font-weight:600; margin-bottom:6px;">Position</label>
+            <div style="display:flex; gap:16px; margin-bottom: 18px;">
+                <label style="font-size:13px; color:#334155; display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="radio" name="moveTaskPosition" value="before"> Before target</label>
+                <label style="font-size:13px; color:#334155; display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="radio" name="moveTaskPosition" value="after" checked> After target</label>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap: 10px;">
+                <button onclick="closeMoveTaskModal()" style="padding: 8px 16px; background: #e2e8f0; color: #334155; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Cancel</button>
+                <button onclick="applyMoveTask()" style="padding: 8px 16px; background: #185FA5; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Move</button>
+            </div>
+        </div>
+    </div>
+
     <div id="resourceManagerModal" class="modal" onclick="if(event.target===this) closeResourceManagerModal()">
         <div class="modal-content" style="max-width: 420px; height: auto; padding: 24px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
@@ -609,7 +633,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.28.0";
+        const APP_VERSION = "2.29.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -3503,6 +3527,7 @@
                         let rowCount = sheet.getData().length;
                         items.push({ title: '⬆️ Move row up', disabled: rowIdx === 0, onclick: () => moveRow(rowIdx, -1) });
                         items.push({ title: '⬇️ Move row down', disabled: rowIdx === rowCount - 1, onclick: () => moveRow(rowIdx, 1) });
+                        items.push({ title: '🎯 Move to Task ID...', onclick: () => openMoveTaskModal(rowIdx) });
                         items.push({ title: 'Insert row above', onclick: () => sheet.insertRow(1, parseInt(y), 1) });
                         items.push({ title: 'Insert row below', onclick: () => sheet.insertRow(1, parseInt(y), 0) });
                         items.push({ title: 'Delete row', onclick: () => sheet.deleteRow(parseInt(y), 1) });
@@ -3590,10 +3615,113 @@
             data[rowIndex] = data[targetIndex];
             data[targetIndex] = temp;
 
-            appDB.projects[appDB.activeId].data = data;
+            // Deliberately NOT setting appDB.projects[...].data here first --
+            // saveToLocal() (called from syncToGantt()'s finally block) needs
+            // to see the *old* data still in appDB at the moment it runs, so
+            // its own diff against the new data is what pushes this move onto
+            // the Undo stack. Overwriting it early would make that diff a
+            // no-op, silently dropping the move from Undo history.
             renderGrid(data);
             syncToGantt(true);
-            saveToLocal();
+        }
+
+        // ==========================================
+        // MOVE TASK TO A SPECIFIC TASK ID (backlog #21)
+        // ==========================================
+        // Moving relative to a target also reparents the moved task to match
+        // the target's own Parent -- treated as one action, not two, since a
+        // repositioned row whose Parent still points elsewhere would show at
+        // the wrong outline depth for where it now visually sits (WBS/Outline
+        // numbering, computed in syncToGantt(), groups purely by each row's
+        // own Parent field, not by array adjacency). This mirrors what a
+        // manual drag-to-reposition followed by a manual Parent edit would
+        // already accomplish together. Like a plain drag, it moves only the
+        // one row -- a moved parent's children stay where they were, exactly
+        // the same limitation jexcel's own row drag already has.
+        let moveTaskContext = null;
+
+        function openMoveTaskModal(rowIndex) {
+            if (!sheet) return;
+            const data = sheet.getData();
+            const sourceRow = data[rowIndex];
+            const sourceId = (sourceRow[COL.ID] || '').toString().trim();
+            if (!sourceId) { alert("This row doesn't have a Task ID yet -- give it one first."); return; }
+
+            moveTaskContext = { rowIndex, sourceId };
+            document.getElementById('moveTaskSourceLabel').innerText = `${sourceId} - ${sourceRow[COL.NAME] || ''}`;
+
+            const source = (sheet.options.columns[COL.PARENT].source || []).filter(s => s.id !== sourceId);
+            const targetSelect = document.getElementById('moveTaskTargetId');
+            targetSelect.innerHTML = source.map(s => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`).join('');
+            document.querySelector('input[name="moveTaskPosition"][value="after"]').checked = true;
+
+            document.getElementById('moveTaskModal').classList.add('active');
+        }
+
+        function closeMoveTaskModal() {
+            document.getElementById('moveTaskModal').classList.remove('active');
+            moveTaskContext = null;
+        }
+
+        function applyMoveTask() {
+            if (!sheet || !moveTaskContext) { closeMoveTaskModal(); return; }
+            const targetId = document.getElementById('moveTaskTargetId').value;
+            const position = document.querySelector('input[name="moveTaskPosition"]:checked').value;
+            if (!targetId) { alert("Pick a target task first."); return; }
+
+            const result = moveTaskRelativeToId(moveTaskContext.sourceId, targetId, position);
+            if (!result.ok) { alert(result.error); return; }
+
+            closeMoveTaskModal();
+            showStatus(`✓ Moved ${result.sourceId} ${position} ${targetId}`, '#10b981');
+        }
+
+        // Walks a task's Parent chain upward (capped, same iteration-limit
+        // convention syncToGantt()'s own fixed-point loop uses) collecting
+        // every ancestor's ID, to detect a move that would make a task its
+        // own descendant's child.
+        function collectAncestorIds(startParentId, dataById) {
+            const ancestors = new Set();
+            let current = startParentId;
+            let guard = 100;
+            while (current && dataById[current] && guard-- > 0) {
+                if (ancestors.has(current)) break; // an existing cycle elsewhere -- don't loop forever
+                ancestors.add(current);
+                current = (dataById[current][COL.PARENT] || '').toString().trim();
+            }
+            return ancestors;
+        }
+
+        function moveTaskRelativeToId(sourceId, targetId, position) {
+            let data = sheet.getData();
+            if (sourceId === targetId) return { ok: false, error: "A task can't be moved relative to itself." };
+
+            const dataById = {};
+            data.forEach(row => { const id = (row[COL.ID] || '').toString().trim(); if (id) dataById[id] = row; });
+            if (!dataById[targetId]) return { ok: false, error: "Target task not found." };
+
+            const newParentId = (dataById[targetId][COL.PARENT] || '').toString().trim();
+            const wouldCycle = newParentId === sourceId || collectAncestorIds(newParentId, dataById).has(sourceId);
+            if (wouldCycle) {
+                return { ok: false, error: "Can't move this task there -- the target is one of this task's own descendants, which would make it a child of itself." };
+            }
+
+            const sourceIndex = data.findIndex(r => (r[COL.ID] || '').toString().trim() === sourceId);
+            const [sourceRow] = data.splice(sourceIndex, 1);
+            sourceRow[COL.PARENT] = newParentId;
+
+            const targetIndex = data.findIndex(r => (r[COL.ID] || '').toString().trim() === targetId);
+            const insertAt = position === 'before' ? targetIndex : targetIndex + 1;
+            data.splice(insertAt, 0, sourceRow);
+
+            // Deliberately NOT setting appDB.projects[...].data here first --
+            // see the identical comment on moveRow() for why: saveToLocal()
+            // needs to still see the pre-move data in appDB when it runs, so
+            // its diff against the post-move data is what pushes this onto
+            // the Undo stack as one step.
+            renderGrid(data);
+            syncToGantt(true);
+            return { ok: true, sourceId };
         }
 
         // ==========================================

@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers the Resource Workload Dashboard: daily/weekly/monthly aggregation,
 // percentage vs hours units, overallocation highlighting, parent-task
@@ -8,13 +8,6 @@ const { test, expect } = require('@playwright/test');
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10 };
 
 test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
   // Weekends off is on by default; turn it off so Mon-start day math in
   // these tests isn't sensitive to which day of the week "today" is.
   await page.evaluate(() => { document.getElementById('skipWeekends').checked = false; });
@@ -168,7 +161,6 @@ test('no assigned tasks shows a helpful empty state, not a crash', async ({ page
   await page.waitForTimeout(200);
 
   await expect(page.locator('#workloadTableContainer')).toContainText('No assigned tasks');
-  expect(page.consoleErrors).toEqual([]);
 });
 
 // A resource assigned via the grid but whose task has no Start date/Duration
@@ -186,7 +178,6 @@ test('a resource assigned to a not-yet-scheduled task is named in the empty stat
   const text = await page.locator('#workloadTableContainer').innerText();
   expect(text).toContain('Adam Beltz');
   expect(text).toMatch(/Start date/);
-  expect(page.consoleErrors).toEqual([]);
 });
 
 test('a resource on an unscheduled task is also called out below the table when other rows do have schedule', async ({ page }) => {
@@ -202,5 +193,4 @@ test('a resource on an unscheduled task is also called out below the table when 
 
   const text = await page.locator('#workloadTableContainer').innerText();
   expect(text).toContain('Adam Beltz');
-  expect(page.consoleErrors).toEqual([]);
 });

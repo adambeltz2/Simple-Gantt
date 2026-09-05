@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers backlog #13, Label functionality on a row (Msft Planner style): a
 // row can carry many labels or none (free-text, accepts ',' or ';' as a
@@ -15,14 +15,6 @@ const { test, expect } = require('@playwright/test');
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10, LABELS: 11 };
 
 test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
-
   await page.evaluate((COL) => {
     const data = [];
     data[0] = Array(12).fill('');
@@ -254,16 +246,4 @@ test('Labels round-trips through CSV export/import', async ({ page }) => {
 
   const row = await page.evaluate(() => sheet.getData().find((r) => r[0] === '2'));
   expect(row[COL.LABELS]).toBe('System A;Urgent');
-});
-
-test('no uncaught JS errors while filtering by label', async ({ page }) => {
-  await setLabelChecked(page, 'System A', true);
-  await setLabelChecked(page, 'System B', true);
-  await page.check('#applyLabelToChart');
-  await page.waitForTimeout(200);
-  await setLabelChecked(page, 'System A', false);
-  await setLabelChecked(page, 'System B', false);
-  await page.waitForTimeout(200);
-
-  expect(page.consoleErrors).toEqual([]);
 });

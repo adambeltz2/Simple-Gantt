@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers backlog #14, Bulk edit / multi-row select: select 2+ rows in the
 // grid and apply a single Resource/% Done/Parent value to all of them at
@@ -12,14 +12,7 @@ const { test, expect } = require('@playwright/test');
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10, LABELS: 11 };
 
 test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
   page.on('dialog', (dialog) => { page.lastDialogMessage = dialog.message(); dialog.accept(); });
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
 });
 
 async function loadTasks(page, rows) {
@@ -99,7 +92,6 @@ test('bulk-setting Resource applies the same value to every selected row', async
   expect(data[1][COL.RESOURCE]).toBe('Dave');
   expect(data[2][COL.RESOURCE]).toBe('Dave');
   await expect(page.locator('#bulkEditModal')).not.toHaveClass(/active/);
-  expect(page.consoleErrors).toEqual([]);
 });
 
 test('bulk-setting Resource to a name not yet in the registry adds it, same as typing it in directly', async ({ page }) => {
@@ -227,7 +219,7 @@ test('Cancel closes the modal without applying any change', async ({ page }) => 
   expect(data[1][COL.RESOURCE]).toBe('Bob');
 });
 
-test('bulk edit updates the Gantt chart, no console errors', async ({ page }) => {
+test('bulk edit updates the Gantt chart', async ({ page }) => {
   await loadTasks(page, [
     row('1', '1', 'Task A', 'Alice', '100', '0', '2026-08-24', '1', '2026-08-24', '', ''),
     row('2', '2', 'Task B', 'Bob', '100', '0', '2026-08-25', '1', '2026-08-25', '', ''),
@@ -241,5 +233,4 @@ test('bulk edit updates the Gantt chart, no console errors', async ({ page }) =>
 
   const bars = await page.locator('.gantt .bar-wrapper').count();
   expect(bars).toBeGreaterThan(0);
-  expect(page.consoleErrors).toEqual([]);
 });

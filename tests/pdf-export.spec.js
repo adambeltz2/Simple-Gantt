@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 const fs = require('fs');
 
 // Covers PDF export (backlog item: PDF export). Reuses the same
@@ -21,14 +21,6 @@ const PAGE_WIDTH_PT = 841.89; // jsPDF 'a4' landscape
 const PAGE_HEIGHT_PT = 595.28;
 
 test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
-
   // Spy on html2canvas so tests can read the exact canvas dimensions
   // exportPDF() itself rasterized, without duplicating a second real
   // html2canvas call (which would be slow and could differ slightly).
@@ -155,20 +147,4 @@ test('exporting an empty project (no tasks) does not crash', async ({ page }) =>
   const buffer = fs.readFileSync(await download.path());
 
   expect(buffer.slice(0, 5).toString('latin1')).toBe('%PDF-');
-  expect(page.consoleErrors).toEqual([]);
-});
-
-test('no uncaught JS errors during PDF export', async ({ page }) => {
-  await loadTasks(page, [
-    ['1', '1', 'Parent', '', '', '0', '', '', '', '', ''],
-    ['2', '1.1', 'Child', 'Alice', '100', '0', '2026-08-24', '2', '2026-08-25', '', '1'],
-  ]);
-
-  await page.click('#exportMenuBtn');
-  await Promise.all([
-    page.waitForEvent('download'),
-    page.click('button[onclick="exportPDF()"]'),
-  ]);
-
-  expect(page.consoleErrors).toEqual([]);
 });

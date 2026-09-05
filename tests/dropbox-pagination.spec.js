@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers a real gap found while investigating the reopened Dropbox
 // cross-device discovery bug: every dbx.filesListFolder() call site only
@@ -10,16 +10,6 @@ const { test, expect } = require('@playwright/test');
 // None of this needs a real Dropbox account or network access -- `dbx` is a
 // plain top-level variable in the page's own script, so these tests inject a
 // fake paginated client directly and call the real app functions against it.
-
-test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
-});
 
 test('listAllDropboxEntries walks every page via filesListFolderContinue', async ({ page }) => {
   const result = await page.evaluate(() => {
@@ -91,17 +81,4 @@ test('discoverDropboxProjects finds a candidate project sitting on the second pa
   });
 
   expect(discovered.map((d) => d.id)).toEqual(['missing-project-id']);
-});
-
-test('no uncaught JS errors exercising the paginated Dropbox listing path', async ({ page }) => {
-  await page.evaluate(() => {
-    dbx = {
-      filesListFolder: () => Promise.resolve({ result: { entries: [], has_more: true, cursor: 'c1' } }),
-      filesListFolderContinue: () => Promise.resolve({ result: { entries: [], has_more: false } }),
-    };
-    return listAllDropboxEntries('/empty');
-  });
-  await page.waitForTimeout(150);
-
-  expect(page.consoleErrors).toEqual([]);
 });

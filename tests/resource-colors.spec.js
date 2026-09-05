@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers resource color-coding on the Gantt bars: a deterministic
 // alphabetical name -> color mapping, a thin left-edge stripe appended to
@@ -8,16 +8,6 @@ const { test, expect } = require('@playwright/test');
 // matching resource/color section appended to the chart legend.
 
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10 };
-
-test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
-});
 
 async function loadTasks(page, rows) {
   await page.evaluate((rows) => {
@@ -149,15 +139,4 @@ test('resource names with special characters render safely in the legend (no HTM
   await expect(page.locator('#ganttLegend b')).toHaveCount(0);
   const legendLabels = await page.locator('#ganttLegend .legend-item').allTextContents();
   expect(legendLabels.some((s) => s.includes('<b>Eve</b>'))).toBe(true);
-});
-
-test('no uncaught JS errors when rendering resource stripes and legend', async ({ page }) => {
-  await loadTasks(page, [
-    ['1', '1', 'Parent', '', '', '0', '', '', '', '', ''],
-    ['2', '1.1', 'Kickoff', 'Alice', '100', '0', '2026-08-24', '0', '2026-08-24', '', '1'],
-    ['3', '1.2', 'Build', 'Bob (50%), Charlie (50%)', '100', '0', '2026-08-24', '2', '2026-08-25', '', '1'],
-    ['4', '1.3', 'Ship', '', '', '0', '2026-08-26', '1', '2026-08-26', '', '1'],
-  ]);
-
-  expect(page.consoleErrors).toEqual([]);
 });

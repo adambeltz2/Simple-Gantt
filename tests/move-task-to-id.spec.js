@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers backlog #21, moving a task relative to a specific Task ID (via the
 // grid's row right-click menu -> "Move to Task ID..."), rather than only
@@ -12,14 +12,7 @@ const { test, expect } = require('@playwright/test');
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10, LABELS: 11 };
 
 test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
   page.on('dialog', (dialog) => { page.lastDialogMessage = dialog.message(); dialog.accept(); });
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
 });
 
 function row(id, outline, name, resource, alloc, pct, start, dur, end, dep, parent) {
@@ -180,19 +173,4 @@ test('Cancel closes the modal without moving anything', async ({ page }) => {
   await page.click('button[onclick="closeMoveTaskModal()"]');
   await expect(page.locator('#moveTaskModal')).not.toHaveClass(/active/);
   expect(await idOrder(page)).toEqual(['1', '2']);
-});
-
-test('no console errors while opening, moving, and undoing', async ({ page }) => {
-  await loadTasks(page, [
-    row('1', '1', 'Task A', 'Alice', '100', '0', '2026-08-24', '1', '2026-08-24', '', ''),
-    row('2', '2', 'Task B', 'Bob', '100', '0', '2026-08-25', '1', '2026-08-25', '', ''),
-    row('3', '3', 'Task C', 'Carol', '100', '0', '2026-08-26', '1', '2026-08-26', '', ''),
-  ]);
-  await page.evaluate(() => openMoveTaskModal(0));
-  await page.selectOption('#moveTaskTargetId', '3');
-  await page.click('button[onclick="applyMoveTask()"]');
-  await page.waitForTimeout(200);
-  await page.click('#btnUndo');
-  await page.waitForTimeout(200);
-  expect(page.consoleErrors).toEqual([]);
 });

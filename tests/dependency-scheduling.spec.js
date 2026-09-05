@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers the two scheduling relationships and the "Sync Dependencies" button:
 //
@@ -19,16 +19,6 @@ const { test, expect } = require('@playwright/test');
 // gone for good.
 
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10 };
-
-test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
-});
 
 test('a dependent task starts the working day after its dependency\'s (inclusive) end date', async ({ page }) => {
   // Sample data: task 3 (UI Design) Depends on task 2 (Discovery), which is
@@ -96,12 +86,11 @@ test('parent dates roll up from children live, without the button', async ({ pag
   expect(new Date(parent.end).getTime()).toBe(Math.max(...childEnds));
 });
 
-test('Sync Dependencies forces a resync and reports success, with no errors', async ({ page }) => {
+test('Sync Dependencies forces a resync and reports success', async ({ page }) => {
   await page.click('button[onclick="syncDependencies()"]');
   await page.waitForTimeout(300);
 
   await expect(page.locator('#saveStatusText')).toHaveText('Dates recalculated');
-  expect(page.consoleErrors).toEqual([]);
 });
 
 test('Sync Dependencies is idempotent on already-converged data', async ({ page }) => {

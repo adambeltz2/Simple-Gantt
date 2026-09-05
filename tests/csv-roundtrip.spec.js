@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 const fs = require('fs');
 
 // Covers exporting to CSV and re-importing it: headers match the live
@@ -11,13 +11,6 @@ const fs = require('fs');
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10 };
 
 test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
   await page.evaluate(() => { document.getElementById('skipWeekends').checked = false; });
 });
 
@@ -136,7 +129,6 @@ test('importing a CSV with no header row falls back gracefully instead of crashi
   });
   await page.waitForTimeout(400);
 
-  expect(page.consoleErrors).toEqual([]);
   const row = await page.evaluate(() => sheet.getData()[0]);
   expect(row[COL.NAME]).toBe('Headerless Task');
 });

@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers the 100%-done checkmark (backlog #19a): a task at 100% gets a
 // small ✓ marker next to its name in the spreadsheet grid, in the same
@@ -9,16 +9,6 @@ const { test, expect } = require('@playwright/test');
 // itself a live weighted rollup of their children.
 
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10, LABELS: 11 };
-
-test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
-});
 
 async function loadTasks(page, rows) {
   await page.evaluate((rows) => {
@@ -123,16 +113,4 @@ test('checkmark and the critical-path icon can both show on the same row', async
   const text = await page.evaluate(() => sheet.records[0][2].textContent);
   expect(text).toContain('⚡');
   expect(text).toContain('✓');
-});
-
-test('no uncaught JS errors while toggling % Done to and from 100', async ({ page }) => {
-  await loadTasks(page, [
-    ['1', '1', 'Task', '', '', '50', '2026-08-24', '1', '2026-08-24', '', '', ''],
-  ]);
-  await page.evaluate(() => sheet.setValueFromCoords(5, 0, '100', true));
-  await page.waitForTimeout(200);
-  await page.evaluate(() => sheet.setValueFromCoords(5, 0, '0', true));
-  await page.waitForTimeout(200);
-
-  expect(page.consoleErrors).toEqual([]);
 });

@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers a UI bug: formatCells() indents Task Name purely by outline depth
 // (steps up the Parent chain), which is correct -- but only a row that is
@@ -11,16 +11,6 @@ const { test, expect } = require('@playwright/test');
 // rows share the exact same Parent and outline depth.
 
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10 };
-
-test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
-});
 
 test('a childless row aligns its Task Name text with a sibling that has children', async ({ page }) => {
   // Root (1) has two children at the same depth: 2 (which itself has a

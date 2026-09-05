@@ -1,20 +1,10 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers the manual "in progress" flag: a per-row toggle in the Task ID
 // column that tints the grid row purple. Per the feature request, this must
 // have zero effect on the Gantt chart and zero footprint in exported/backed
 // up data -- it's a pure grid-view annotation, stored outside sheet data.
-
-test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
-});
 
 test('every row gets a flag toggle in the Task ID column', async ({ page }) => {
   await expect(page.locator('.row-flag-toggle')).toHaveCount(5);
@@ -95,13 +85,4 @@ test('CSV export is unaffected by flag state', async ({ page }) => {
     'Task ID', 'Outline', 'Task Name', 'Resource', 'Def. Alloc',
     '% Done', 'Start', 'Dur.', 'End', 'Depends', 'Parent', 'Labels',
   ]);
-});
-
-test('no uncaught JS errors while flagging/unflagging', async ({ page }) => {
-  await page.locator('.row-flag-toggle').nth(0).click();
-  await page.waitForTimeout(200);
-  await page.locator('.row-flag-toggle').nth(0).click();
-  await page.waitForTimeout(200);
-
-  expect(page.consoleErrors).toEqual([]);
 });

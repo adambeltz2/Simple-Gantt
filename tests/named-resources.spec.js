@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers backlog #12, Resources as a first-class entity: resources can be
 // named ahead of time (a per-project `resources` registry, managed via the
@@ -17,14 +17,6 @@ const { test, expect } = require('@playwright/test');
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10, LABELS: 11 };
 
 test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
-
   await page.evaluate((COL) => {
     const data = [];
     data[0] = Array(12).fill('');
@@ -199,17 +191,4 @@ test('importing a CSV merges any not-yet-registered resource name into the regis
 
   const resources = await page.evaluate(() => appDB.projects[appDB.activeId].resources);
   expect(resources).toEqual(expect.arrayContaining(['Alice', 'Bob', 'Charlie', 'Zoe']));
-});
-
-test('no uncaught JS errors while adding, renaming, deleting, and picking resources', async ({ page }) => {
-  await page.click('button[onclick="openResourceManagerModal()"]');
-  await page.fill('#newResourceNameInput', 'Eve');
-  await page.click('button[onclick="addNewResourceName()"]');
-  await page.click('button[onclick="closeResourceManagerModal()"]');
-
-  await page.locator('.resource-picker-toggle').first().click();
-  await page.locator('.resourcePickerCheckbox').last().check();
-  await page.waitForTimeout(200);
-
-  expect(page.consoleErrors).toEqual([]);
 });

@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // `new Date("YYYY-MM-DD")` is parsed as UTC midnight per the ECMAScript
 // spec. In any timezone behind UTC (most of the Americas), reading it back
@@ -19,16 +19,6 @@ const { test, expect } = require('@playwright/test');
 // which is exactly how this bug went unnoticed for so long.
 
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10 };
-
-test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
-});
 
 test('the test browser is actually running in a non-UTC, behind-UTC timezone', async ({ page }) => {
   // Sanity check on the test setup itself: if this ever reports UTC, every

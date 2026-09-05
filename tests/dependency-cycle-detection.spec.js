@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers explicit dependency cycle detection (backlog item #3): a task
 // depending on itself is already stripped elsewhere in syncToGantt, but a
@@ -11,16 +11,6 @@ const { test, expect } = require('@playwright/test');
 // mutation of the Depends column.
 
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10 };
-
-test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
-});
 
 async function loadTasks(page, rows) {
   await page.evaluate((rows) => {
@@ -136,21 +126,4 @@ test('fixing the cycle (removing one link) clears the outline and status', async
   const styleB = await idCellStyle(page, 1);
   expect(styleA.boxShadow).toBe('');
   expect(styleB.boxShadow).toBe('');
-});
-
-test('no uncaught JS errors while detecting, displaying, and resolving a cycle', async ({ page }) => {
-  await loadTasks(page, [
-    ['1', '1', 'Task A', '', '', '0', '2026-08-24', '1', '2026-08-24', '2', ''],
-    ['2', '1', 'Task B', '', '', '0', '2026-08-24', '1', '2026-08-24', '1', ''],
-  ]);
-  await page.evaluate((COL) => {
-    const data = sheet.getData();
-    data[1][COL.DEP] = '';
-    appDB.projects[appDB.activeId].data = data;
-    renderGrid(data);
-    syncToGantt(true);
-  }, COL);
-  await page.waitForTimeout(300);
-
-  expect(page.consoleErrors).toEqual([]);
 });

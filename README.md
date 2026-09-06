@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.30.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-2.31.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
 
@@ -39,13 +39,14 @@ A lightweight, browser-based Gantt chart and task management tool. No server req
 ### 🌐 Flexible Deployment
 - **100% Browser-Based** – No server, no installation. Just open the HTML file.
 - **Fully Offline** – All data stored in browser's local storage
+- **Installable PWA** – Add it to your home screen or desktop from a browser tab; a service worker caches the app shell and libraries so it keeps working (including on repeat visits with no connection) after the first successful load
 - **Dropbox Integration** – Optional backup and sync across devices
 - **CSV Import/Export** – Move data in and out easily
 - **PNG / Paginated PDF Export** – Export the Gantt chart as a PNG, or as a PDF that automatically tiles a long timeline across as many landscape pages as needed (each page a full-height vertical slice, left to right) rather than shrinking it illegibly onto one page
 
 ### 📱 User Experience
-- **Responsive Design** – Works on desktop, tablet, and mobile
-- **Split-View** – Adjustable grid/chart split (or show one side only)
+- **Responsive Design** – Below a phone/tablet-width breakpoint, the grid and chart become a single full-width pane you switch between (same Grid/Split/Chart buttons as desktop) instead of an unusably narrow side-by-side split, with touch-sized toolbar buttons and full-screen modals
+- **Split-View** – Adjustable grid/chart split (or show one side only) on wider screens
 - **Multiple Zoom Levels** – Day, Week, or Month view
 - **Resource Workload Dashboard** – See who's overallocated at a glance
 - **Dark Mode Header** – Clean, modern interface
@@ -304,7 +305,7 @@ Select different project from dropdown at top-left
 | Chrome/Edge (latest) | ✅ Full |
 | Firefox (latest) | ✅ Full |
 | Safari (latest) | ✅ Full |
-| Mobile browsers | ✅ Works but limited (small screens) |
+| Mobile browsers | ✅ Full -- single-pane responsive layout, installable as a PWA |
 | Internet Explorer | ❌ Not supported |
 
 ---

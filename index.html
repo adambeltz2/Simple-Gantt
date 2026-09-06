@@ -4,7 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Simple Gantt</title>
-    
+
+    <!-- PWA: installable app shell (manifest + icons + service worker,
+         registered near the end of the page script) -- backlog #15. -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Simple Gantt">
+
     <!-- MATCHING V4 LIBRARIES: Guaranteed stable initialization -->
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js" integrity="sha384-D/t0ZMqQW31H3az8ktEiNb39wyKnS82iFY52QPACM+IjKW3jDUhyIgh2PApRqJZs" crossorigin="anonymous"></script>
     <!-- TODO(security): jsuites.js / jexcel.js are loaded unpinned (no version, no SRI) --
@@ -132,6 +144,38 @@
         .cell-ok { background-color: #d1fae5; color: #065f46; font-weight: 500;}
         .cell-over { background-color: #fee2e2; color: #991b1b; font-weight: 800; }
         .cell-empty { color: #94a3b8; }
+
+        /* ===== Narrow-viewport layout (backlog #15: mobile responsiveness) =====
+           Below this width, side-by-side grid/chart panes stop being usable --
+           there isn't room to read either one at a useful size. The workspace
+           becomes a single active pane instead, switched by the same existing
+           Grid/Split/Chart toolbar buttons (`snapPanes()`): whichever pane's
+           share is >=50% is shown full-width, the other is hidden, tracked via
+           `.workspace`'s `data-mobile-pane` attribute rather than a second set
+           of mobile-only controls. Everything else here is the same layout,
+           just with bigger touch targets and full-screen modals. */
+        @media (max-width: 860px) {
+            header { padding: 10px 12px 8px; }
+            .header-top { flex-wrap: wrap; row-gap: 8px; }
+            .toolbar-group { padding: 4px 8px; row-gap: 6px; }
+
+            .tbtn, .toggle-label, select.tbtn-select, .header-btn,
+            #labelFilterBtn, #filtersBtn, #clearAllFiltersBtn, #gridSearchClear {
+                min-height: 40px;
+                box-sizing: border-box;
+                padding-top: 9px;
+                padding-bottom: 9px;
+                font-size: 13.5px;
+            }
+            #gridSearchInput { width: 130px; min-height: 40px; box-sizing: border-box; }
+
+            .resizer { display: none; }
+            .grid-panel, .chart-panel { width: 100% !important; flex: 1 1 100%; min-width: 0; }
+            .workspace[data-mobile-pane="chart"] .grid-panel { display: none; }
+            .workspace[data-mobile-pane="grid"] .chart-panel { display: none; }
+
+            .modal-content { width: 100%; height: 100%; max-width: none; max-height: none; border-radius: 0; padding: 14px; }
+        }
     </style>
 </head>
 <body>
@@ -633,7 +677,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.30.0";
+        const APP_VERSION = "2.31.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -1837,7 +1881,16 @@
 
         const divider = document.getElementById('dragDivider');
         const gridPanel = document.getElementById('gridPanel');
+        const workspaceEl = document.querySelector('.workspace');
         let isResizing = false;
+
+        // Below the narrow-viewport breakpoint (see the matching @media block),
+        // only one pane is shown at a time -- whichever the grid/chart split
+        // currently favors. Harmless no-op above the breakpoint: the CSS rules
+        // reading this attribute only exist inside that @media block.
+        function updateMobilePaneVisibility(gridPercent) {
+            workspaceEl.dataset.mobilePane = gridPercent >= 50 ? 'grid' : 'chart';
+        }
 
         divider.addEventListener('mousedown', function(e) {
             isResizing = true;
@@ -1851,6 +1904,7 @@
             let newWidth = (e.clientX / window.innerWidth) * 100;
             if (newWidth > 15 && newWidth < 85) {
                 gridPanel.style.width = newWidth + '%';
+                updateMobilePaneVisibility(newWidth);
             }
         });
 
@@ -1866,10 +1920,12 @@
         function snapPanes(gridPercent) {
             gridPanel.style.width = gridPercent + '%';
             localStorage.setItem('simple_gantt_pane_width', gridPercent + '%');
+            updateMobilePaneVisibility(gridPercent);
         }
 
         const savedPaneWidth = localStorage.getItem('simple_gantt_pane_width');
         if (savedPaneWidth) gridPanel.style.width = savedPaneWidth;
+        updateMobilePaneVisibility(parseFloat(gridPanel.style.width) || 55);
 
         // ==========================================
         // RESOURCE WORKLOAD DASHBOARD
@@ -4336,6 +4392,16 @@
         updateUndoRedoButtons();
 
         setTimeout(jumpToProjectStart, 500);
+
+        // PWA install + offline support (backlog #15). Guarded on http(s) --
+        // service workers are refused on file:// (opening index.html directly
+        // off disk, per the README's "Option 2: Download & Open Locally"),
+        // and registration would just throw there.
+        if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(() => {});
+            });
+        }
     </script>
 </body>
 </html>

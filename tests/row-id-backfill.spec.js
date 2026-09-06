@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Regression coverage for a reported bug: right-click "Insert row" already
 // auto-assigns a Task ID (see oninsertrow), but pasting a block of data over
@@ -9,16 +9,6 @@ const { test, expect } = require('@playwright/test');
 // populated again, no matter how many further edits were made to it.
 // syncToGantt() now backfills any blank Task ID on every sync, not just at
 // insert time, so a row can never get permanently stuck without one.
-
-test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
-});
 
 test('inserting a row via the context-menu path auto-assigns a Task ID and Outline', async ({ page }) => {
   await page.evaluate(() => sheet.insertRow(1, 0, 0));
@@ -74,14 +64,4 @@ test('backfilled Task IDs are unique when more than one row is blanked at once',
   expect(new Set(ids).size).toBe(ids.length); // no duplicates
   expect(data[1][0]).not.toBe('');
   expect(data[2][0]).not.toBe('');
-});
-
-test('no uncaught JS errors while backfilling a blanked Task ID', async ({ page }) => {
-  await page.evaluate(() => sheet.insertRow(1, 0, 0));
-  await page.waitForTimeout(200);
-  await page.evaluate(() => sheet.setValueFromCoords(0, 1, '', true));
-  await page.evaluate(() => { if (typeof forceRecalc === 'function') forceRecalc(); });
-  await page.waitForTimeout(200);
-
-  expect(page.consoleErrors).toEqual([]);
 });

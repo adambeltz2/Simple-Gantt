@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers the system/project-level Notes field (backlog #19b): a single
 // Markdown note for the whole project, not tied to any task row. Distinct
@@ -11,16 +11,6 @@ const { test, expect } = require('@playwright/test');
 // registry and the "in progress" flag -- not part of CSV export (there's no
 // row for it to belong to) and not part of a Dropbox backup (which is a CSV
 // export of the grid data, not a JSON dump of the project object).
-
-test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
-});
 
 test('the toolbar button opens a modal titled with the project name', async ({ page }) => {
   await page.click('#btnProjectNotes');
@@ -69,7 +59,6 @@ test('user-typed HTML in the project note is escaped, not executed', async ({ pa
   expect(imgCount).toBe(0);
   const bodyText = await page.locator('#projectNotesBody').textContent();
   expect(bodyText).toContain('<img src=x onerror=alert(1)>');
-  expect(page.consoleErrors).toEqual([]);
 });
 
 test('Close then reopening shows the saved note, not stale edit-mode state', async ({ page }) => {
@@ -127,14 +116,4 @@ test('project notes have no footprint in CSV export headers', async ({ page }) =
     'Task ID', 'Outline', 'Task Name', 'Resource', 'Def. Alloc',
     '% Done', 'Start', 'Dur.', 'End', 'Depends', 'Parent', 'Labels',
   ]);
-});
-
-test('no uncaught JS errors while opening, editing, saving, and closing project notes', async ({ page }) => {
-  await page.click('#btnProjectNotes');
-  await page.click('#projectNotesEditBtn');
-  await page.fill('#projectNotesEditTextarea', 'Some note');
-  await page.click('#projectNotesSaveBtn');
-  await page.click('button[onclick="closeProjectNotesModal()"]');
-
-  expect(page.consoleErrors).toEqual([]);
 });

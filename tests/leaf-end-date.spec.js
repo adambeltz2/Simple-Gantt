@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers backlog #18: typing an explicit End date directly on a leaf task
 // (no children), instead of only ever deriving it from Duration.
@@ -21,13 +21,6 @@ const { test, expect } = require('@playwright/test');
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10 };
 
 test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
   // Weekends off, same reasoning as the other date-math specs: Mon-start day
   // math shouldn't be sensitive to which day of the week "today" happens to be.
   await page.evaluate(() => { document.getElementById('skipWeekends').checked = false; });
@@ -212,18 +205,4 @@ test('CSV import still ignores a parent row\'s own End value -- rollup always wi
 
   const parentRow = await page.evaluate(() => sheet.getData().find((r) => r[0] === '1'));
   expect(parentRow[COL.END]).toBe('2026-08-25'); // the child's End, not the CSV's bogus one
-});
-
-test('no console errors across typing, cascading, gaining/losing children, and CSV import', async ({ page }) => {
-  await loadTasks(page, [
-    ['1', '1', 'Parent', '', '', '0', '', '', '', '', ''],
-    ['2', '1.1', 'Child', 'Alice', '100', '0', '2026-08-24', '2', '2026-08-25', '', '1'],
-    ['3', '2', 'Dependent', 'Bob', '100', '0', '2026-08-26', '1', '2026-08-26', '2', ''],
-  ]);
-  await page.evaluate((COL) => sheet.setValueFromCoords(COL.END, 1, '2026-08-29', true), COL);
-  await page.waitForTimeout(300);
-  await page.evaluate((COL) => sheet.setValueFromCoords(COL.PARENT, 1, '', true), COL);
-  await page.waitForTimeout(300);
-
-  expect(page.consoleErrors).toEqual([]);
 });

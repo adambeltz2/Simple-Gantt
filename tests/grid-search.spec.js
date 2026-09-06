@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers the grid search/filter: matches any column's value (not just Task
 // Name/Resource -- also % Done, dates, and custom columns) case-insensitively,
@@ -14,14 +14,6 @@ const { test, expect } = require('@playwright/test');
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10 };
 
 test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
-
   await page.evaluate(() => {
     const data = [
       ['1', '1', 'Parent Project', '', '', '0', '', '', '', '', ''],
@@ -179,13 +171,4 @@ test('matching by a custom column value filters correctly', async ({ page }) => 
   expect(await visibleRowCount(page)).toBe(2); // Parent Project + Kickoff Meeting
   const buildRowHidden = await page.evaluate(() => sheet.rows[2].style.display);
   expect(buildRowHidden).toBe('none');
-});
-
-test('no uncaught JS errors while searching and clearing', async ({ page }) => {
-  await page.fill('#gridSearchInput', 'bob');
-  await page.waitForTimeout(150);
-  await page.click('#gridSearchClear');
-  await page.waitForTimeout(150);
-
-  expect(page.consoleErrors).toEqual([]);
 });

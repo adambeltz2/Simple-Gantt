@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers the CSV sanitization gap from the repo review: Task Name, Resource,
 // and custom-column text were passed through raw from imported CSVs, relying
@@ -11,16 +11,6 @@ const { test, expect } = require('@playwright/test');
 
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10 };
 const HEADER_ROW = ['ID', 'Outline', 'Task Name', 'Resource', 'Def. Alloc', '% Done', 'Start', 'Dur.', 'End', 'Depends', 'Parent'];
-
-test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
-});
 
 test('applyImportedCSVData strips angle brackets from Task Name and Resource (the restoreBackup path)', async ({ page }) => {
   const result = await page.evaluate((HEADER_ROW) => {
@@ -82,5 +72,4 @@ test('end-to-end: importing a CSV file via the Import button sanitizes on the wa
   const row = await page.evaluate(() => sheet.getData().find((r) => r[0] === '50'));
   expect(row[2]).not.toContain('<');
   expect(row[3]).not.toContain('<');
-  expect(page.consoleErrors).toEqual([]);
 });

@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers the header's global "Clear filters" button -- a single click that
 // resets Grid Search, the Label filter, and the structured Filters dropdown
@@ -10,14 +10,6 @@ const { test, expect } = require('@playwright/test');
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10, LABELS: 11 };
 
 test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
-
   await page.evaluate((COL) => {
     const data = [];
     data[0] = Array(12).fill('');
@@ -111,13 +103,4 @@ test('one click clears Search, Labels, and structured Filters together', async (
   expect(await page.textContent('#labelFilterBtnText')).toBe('All Labels');
   expect(await page.textContent('#filtersBadge')).toBe('');
   expect(await visibleRowCount(page)).toBe(3);
-});
-
-test('no uncaught JS errors while using the global Clear filters button', async ({ page }) => {
-  await page.fill('#gridSearchInput', 'Kickoff');
-  await page.waitForTimeout(150);
-  await page.click('#clearAllFiltersBtn');
-  await page.waitForTimeout(200);
-
-  expect(page.consoleErrors).toEqual([]);
 });

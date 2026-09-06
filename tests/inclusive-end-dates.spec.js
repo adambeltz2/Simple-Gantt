@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // End is inclusive: it's the last day of work, not the day after. This was
 // found from a real bug report -- a multi-level parent (itself a child of a
@@ -16,16 +16,6 @@ const { test, expect } = require('@playwright/test');
 // rollup scenario from the bug report, and the Gantt bar width.
 
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10 };
-
-test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
-});
 
 test('calculateEndDate is inclusive: a 1-day task has End === Start', async ({ page }) => {
   const end = await page.evaluate(() => calculateEndDate('2026-08-20', 1));

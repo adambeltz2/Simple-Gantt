@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers the Notes feature: a custom column literally named "Notes" (case
 // insensitive) renders as a small click-to-expand flag instead of raw
@@ -25,16 +25,6 @@ async function setupWithNotesColumn(page) {
   }, COL);
   await page.waitForTimeout(300);
 }
-
-test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
-});
 
 test('a column named "Notes" shows an icon flag instead of raw text', async ({ page }) => {
   await setupWithNotesColumn(page);
@@ -124,7 +114,6 @@ test('user-typed HTML in a note is escaped, not executed', async ({ page }) => {
   expect(imgCount).toBe(0);
   const bodyText = await page.locator('#notesBody').textContent();
   expect(bodyText).toContain('<img src=x onerror=alert(1)>'); // visible as literal text
-  expect(page.consoleErrors).toEqual([]);
 });
 
 test('a custom column NOT named "Notes" is unaffected', async ({ page }) => {

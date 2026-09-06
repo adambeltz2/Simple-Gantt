@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers backlog #17's first cut, "Export ▾" menu: Import CSV / Export CSV /
 // Export PNG / Export PDF are grouped behind one anchored-popover dropdown
@@ -7,16 +7,6 @@ const { test, expect } = require('@playwright/test');
 // four always-visible toolbar buttons. The action buttons themselves keep
 // their original onclick="exportCSV()" etc. handlers unchanged -- a separate
 // delegated listener on the dropdown closes it after any action fires.
-
-test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
-});
 
 test('the four export/import actions are not top-level toolbar buttons', async ({ page }) => {
   await expect(page.locator('.toolbar button[onclick="exportCSV()"]')).toHaveCount(1);
@@ -59,16 +49,4 @@ test('choosing Export CSV downloads a file and closes the menu', async ({ page }
   ]);
   expect(download.suggestedFilename()).toMatch(/\.csv$/);
   await expect(page.locator('#exportMenuDropdown')).toBeHidden();
-});
-
-test('no uncaught JS errors while opening, closing, and using the export menu', async ({ page }) => {
-  await page.click('#exportMenuBtn');
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.click('button[onclick="exportCSV()"]'),
-  ]);
-  expect(download).toBeTruthy();
-  await page.click('#exportMenuBtn');
-  await page.click('#exportMenuBtn');
-  expect(page.consoleErrors).toEqual([]);
 });

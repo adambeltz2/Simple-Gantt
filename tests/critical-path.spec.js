@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers Critical Path Highlighting (backlog item #5): an opt-in toolbar
 // toggle ("Critical path", off by default) that runs a standard CPM
@@ -13,13 +13,6 @@ const { test, expect } = require('@playwright/test');
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10 };
 
 test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
   // Weekends off, so calendar days == working days -- keeps the expected
   // dates in these tests simple regardless of which day of the week the
   // fixture's anchor date falls on.
@@ -188,13 +181,4 @@ test('toggling critical path off clears an already-rendered icon, not just skips
 
   await setCriticalPathToggle(page, false);
   expect(await nameCellHasIcon(page, 0)).toBe(false);
-});
-
-test('no uncaught JS errors while toggling critical path on and off', async ({ page }) => {
-  await loadTasks(page, PARALLEL_ROWS);
-  await setCriticalPathToggle(page, true);
-  await setCriticalPathToggle(page, false);
-  await setCriticalPathToggle(page, true);
-
-  expect(page.consoleErrors).toEqual([]);
 });

@@ -1,24 +1,10 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers the parent/child collapse-expand feature: the toggle on a parent
 // row, the Expand All / Collapse All toolbar buttons, and the invariant
 // that collapsing is a pure view concern -- it must never remove or alter
 // the underlying task data, and it must persist per project across reloads.
-
-test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  // jexcel's own row/cell construction and the app's initial syncToGantt()
-  // pass both run synchronously in the same tick that creates this element,
-  // so by the time it's queryable, both have already finished; this is just
-  // a small cushion for frappe-gantt's one-frame label-position rAF.
-  await page.waitForTimeout(150);
-});
 
 function visibleRowCount(page) {
   return page.evaluate(() => sheet.rows.filter((r) => r.style.display !== 'none').length);
@@ -97,15 +83,4 @@ test('normal grid editing keeps working with collapse state active', async ({ pa
 
   const rowCount = await page.evaluate(() => sheet.getData().length);
   expect(rowCount).toBe(6);
-});
-
-test('no uncaught JS errors while exercising collapse/expand', async ({ page }) => {
-  await page.locator('.row-collapse-toggle').click();
-  await page.waitForTimeout(200);
-  await page.click('button:has-text("Collapse All")');
-  await page.waitForTimeout(200);
-  await page.click('button:has-text("Expand All")');
-  await page.waitForTimeout(200);
-
-  expect(page.consoleErrors).toEqual([]);
 });

@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers backlog #11, Undo/redo. Deliberately whole-snapshot, not a per-cell
 // diff/command log: a cell edit can cascade through dependency scheduling and
@@ -14,13 +14,6 @@ const { test, expect } = require('@playwright/test');
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10, LABELS: 11 };
 
 test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
   await page.evaluate(() => { document.getElementById('skipWeekends').checked = false; });
 });
 
@@ -225,17 +218,4 @@ test('undo/redo history is kept separate per project', async ({ page }) => {
   await page.waitForTimeout(200);
 
   expect(await page.locator('#btnUndo').isDisabled()).toBe(true);
-});
-
-test('no console errors across an undo/redo cycle', async ({ page }) => {
-  await loadTasks(page, [
-    row('1', '1', 'Task A', 'Alice', '100', '0', '2026-08-24', '1', '2026-08-24', '', ''),
-  ]);
-  await page.evaluate(() => sheet.setValueFromCoords(5, 0, '50', true));
-  await page.waitForTimeout(200);
-  await page.click('#btnUndo');
-  await page.waitForTimeout(200);
-  await page.click('#btnRedo');
-  await page.waitForTimeout(200);
-  expect(page.consoleErrors).toEqual([]);
 });

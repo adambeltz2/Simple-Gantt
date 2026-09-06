@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers the "Late" indicator: an automatically-computed color on the End
 // cell itself (grid-only, per the feature request) -- red if End is in the
@@ -12,16 +12,6 @@ const { test, expect } = require('@playwright/test');
 // its own rolled-up values.
 
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10 };
-
-test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
-});
 
 function endCellStyle(page, rowIndex) {
   return page.evaluate((y) => {

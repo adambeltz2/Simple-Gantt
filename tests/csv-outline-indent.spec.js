@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 const fs = require('fs');
 
 // Covers backlog #16: exportCSV visually indents Task Name by outline depth
@@ -10,13 +10,6 @@ const fs = require('fs');
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10 };
 
 test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
   await page.evaluate(() => { document.getElementById('skipWeekends').checked = false; });
 });
 
@@ -107,7 +100,6 @@ test('re-importing an indented export strips the indent back off Task Name', asy
   const grandchild = rows.find((r) => r[COL.ID] === '3');
   expect(child[COL.NAME]).toBe('Child Task');
   expect(grandchild[COL.NAME]).toBe('Grandchild Task');
-  expect(page.consoleErrors).toEqual([]);
 });
 
 test('export -> re-import -> re-export does not compound the indent', async ({ page }) => {

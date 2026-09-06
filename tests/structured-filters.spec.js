@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 // Covers backlog #20: structured, per-column filters for Resource, % Done,
 // Start, and End -- distinct from the free-text Grid Search and the Label
@@ -16,14 +16,6 @@ const { test, expect } = require('@playwright/test');
 const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10, LABELS: 11 };
 
 test.beforeEach(async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.consoleErrors = errors;
-
-  await page.goto('/index.html');
-  await page.waitForSelector('#spreadsheet .jexcel');
-  await page.waitForTimeout(150);
-
   await page.evaluate((COL) => {
     const data = [];
     data[0] = Array(12).fill('');
@@ -256,17 +248,4 @@ test('structured filters never mutate the underlying task data', async ({ page }
   const data = await page.evaluate(() => sheet.getData());
   expect(data.length).toBe(4);
   expect(data[2][COL.NAME]).toBe('Build Feature X');
-});
-
-test('no uncaught JS errors while using the structured filters', async ({ page }) => {
-  await setResourceChecked(page, 'Alice', true);
-  await setPctChecked(page, 'partial', true);
-  await setDateRange(page, 'start', '2026-08-01', '2026-09-05');
-  await setDateRange(page, 'end', '2026-08-01', '2026-09-05');
-  await page.waitForTimeout(200);
-  await openFilters(page);
-  await page.click('#filtersDropdown a');
-  await page.waitForTimeout(200);
-
-  expect(page.consoleErrors).toEqual([]);
 });

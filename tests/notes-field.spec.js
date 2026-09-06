@@ -1,22 +1,31 @@
 // @ts-check
 const { test, expect } = require('./fixtures');
 
-// Covers the Notes feature: a custom column literally named "Notes" (case
-// insensitive) renders as a small click-to-expand flag instead of raw
-// inline text, opens a modal with a self-contained Markdown subset
-// (headers/bold/italic/links/lists), is readOnly at the cell level (editing
-// only happens through the modal), and round-trips through CSV like any
-// other custom column since the underlying stored value is still plain
-// text.
+// Covers the legacy opt-in convention this feature predates: a *custom*
+// column literally named "Notes" (case insensitive) gets the same
+// click-to-expand Markdown-modal treatment as the permanent core Notes
+// field (backlog #22, tests/task-notes.spec.js) now does by default. This
+// still works for a column a user names "Notes" themselves -- e.g. after
+// the core field already exists -- renders as a small click-to-expand flag
+// instead of raw inline text, opens a modal with a self-contained Markdown
+// subset (headers/bold/italic/links/lists), is readOnly at the cell level
+// (editing only happens through the modal), and round-trips through CSV
+// like any other custom column since the underlying stored value is still
+// plain text.
+//
+// Every assertion here is scoped to this specific custom column's cells
+// (via sheet.records[row][col], not the blanket ".notes-flag" class) since
+// the grid now always also has the permanent core Notes column rendering
+// its own flags in every row.
 
-const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10, LABELS: 11 };
-const NOTES_COL = 12;
+const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10, LABELS: 11, NOTES: 12 };
+const NOTES_COL = 13; // the custom "Notes" column, one slot after the core Notes field
 
 async function setupWithNotesColumn(page) {
   await page.evaluate((COL) => {
     const data = [
-      ['1', '1', 'Task with a note', '', '', '0', '', '', '', '', '', '', 'Existing **note**'],
-      ['2', '2', 'Task without a note', '', '', '0', '', '', '', '', '', '', ''],
+      ['1', '1', 'Task with a note', '', '', '0', '', '', '', '', '', '', '', 'Existing **note**'],
+      ['2', '2', 'Task without a note', '', '', '0', '', '', '', '', '', '', '', ''],
     ];
     appDB.projects[appDB.activeId].columns = ['Notes'];
     appDB.projects[appDB.activeId].data = data;
@@ -26,11 +35,23 @@ async function setupWithNotesColumn(page) {
   await page.waitForTimeout(300);
 }
 
+// Returns the ElementHandle for the .notes-flag icon inside a given cell,
+// or null if that cell isn't rendering one.
+async function notesFlag(page, col, row) {
+  const handle = await page.evaluateHandle(
+    ([c, y]) => sheet.records[y][c].querySelector('.notes-flag'),
+    [col, row]
+  );
+  return handle.asElement();
+}
+
 test('a column named "Notes" shows an icon flag instead of raw text', async ({ page }) => {
   await setupWithNotesColumn(page);
 
-  const icons = await page.locator('.notes-flag').allTextContents();
-  expect(icons).toEqual(['📝', '+']); // row 1 has content, row 2 doesn't
+  const icon0 = await (await notesFlag(page, NOTES_COL, 0)).textContent();
+  const icon1 = await (await notesFlag(page, NOTES_COL, 1)).textContent();
+  expect(icon0).toBe('📝'); // row 1 has content
+  expect(icon1).toBe('+'); // row 2 doesn't
 
   // The raw markdown text must not appear literally in the cell.
   const cellText = await page.evaluate((c) => sheet.records[0][c].innerText, NOTES_COL);
@@ -45,7 +66,8 @@ test('the Notes column is readOnly at the cell level', async ({ page }) => {
 
 test('clicking the flag opens a modal titled with the task name, rendering the Markdown', async ({ page }) => {
   await setupWithNotesColumn(page);
-  await page.locator('.notes-flag').first().click();
+  const flag = await notesFlag(page, NOTES_COL, 0);
+  await flag.click();
 
   await expect(page.locator('#notesModal')).toHaveClass(/active/);
   await expect(page.locator('#notesModalTitle')).toHaveText('Notes — Task with a note');
@@ -54,7 +76,8 @@ test('clicking the flag opens a modal titled with the task name, rendering the M
 
 test('a leading "#" renders as a real heading, one level per extra "#" up to h6', async ({ page }) => {
   await setupWithNotesColumn(page);
-  await page.locator('.notes-flag').nth(1).click(); // the empty one
+  const flag = await notesFlag(page, NOTES_COL, 1); // the empty one
+  await flag.click();
   await page.click('#notesEditBtn');
   await page.fill('#notesEditTextarea', '# Title\n## Subtitle\n###### Smallest\nRegular paragraph');
   await page.click('#notesSaveBtn');
@@ -67,13 +90,15 @@ test('a leading "#" renders as a real heading, one level per extra "#" up to h6'
 
 test('an empty note shows a placeholder, not a blank modal', async ({ page }) => {
   await setupWithNotesColumn(page);
-  await page.locator('.notes-flag').nth(1).click();
+  const flag = await notesFlag(page, NOTES_COL, 1);
+  await flag.click();
   await expect(page.locator('#notesBody')).toContainText('No notes yet');
 });
 
 test('editing and saving updates the underlying cell data with raw Markdown, and the grid flag updates', async ({ page }) => {
   await setupWithNotesColumn(page);
-  await page.locator('.notes-flag').nth(1).click(); // the empty one
+  const flag = await notesFlag(page, NOTES_COL, 1); // the empty one
+  await flag.click();
   await page.click('#notesEditBtn');
   await page.fill('#notesEditTextarea', 'A *new* note with a [link](https://example.com) and:\n- one\n- two');
   await page.click('#notesSaveBtn');
@@ -86,13 +111,14 @@ test('editing and saving updates the underlying cell data with raw Markdown, and
   await expect(page.locator('#notesBody li')).toHaveCount(2);
 
   await page.click('button[onclick="closeNotesModal()"]');
-  const icon = await page.locator('.notes-flag').nth(1).textContent();
+  const icon = await (await notesFlag(page, NOTES_COL, 1)).textContent();
   expect(icon).toBe('📝');
 });
 
 test('Cancel discards unsaved edits', async ({ page }) => {
   await setupWithNotesColumn(page);
-  await page.locator('.notes-flag').first().click();
+  const flag = await notesFlag(page, NOTES_COL, 0);
+  await flag.click();
   await page.click('#notesEditBtn');
   await page.fill('#notesEditTextarea', 'this should not be saved');
   await page.click('#notesCancelBtn');
@@ -103,7 +129,8 @@ test('Cancel discards unsaved edits', async ({ page }) => {
 
 test('user-typed HTML in a note is escaped, not executed', async ({ page }) => {
   await setupWithNotesColumn(page);
-  await page.locator('.notes-flag').nth(1).click();
+  const flag = await notesFlag(page, NOTES_COL, 1);
+  await flag.click();
   await page.click('#notesEditBtn');
   await page.fill('#notesEditTextarea', '<img src=x onerror=alert(1)>');
   await page.click('#notesSaveBtn');
@@ -118,7 +145,7 @@ test('user-typed HTML in a note is escaped, not executed', async ({ page }) => {
 
 test('a custom column NOT named "Notes" is unaffected', async ({ page }) => {
   await page.evaluate((COL) => {
-    const data = [['1', '1', 'Task', '', '', '0', '', '', '', '', '', '', 'plain custom value']];
+    const data = [['1', '1', 'Task', '', '', '0', '', '', '', '', '', '', '', 'plain custom value']];
     appDB.projects[appDB.activeId].columns = ['JIRA'];
     appDB.projects[appDB.activeId].data = data;
     renderGrid(data);
@@ -126,7 +153,8 @@ test('a custom column NOT named "Notes" is unaffected', async ({ page }) => {
   }, COL);
   await page.waitForTimeout(300);
 
-  await expect(page.locator('.notes-flag')).toHaveCount(0);
+  const flag = await notesFlag(page, NOTES_COL, 0);
+  expect(flag).toBeNull();
   const readOnly = await page.evaluate((c) => sheet.options.columns[c].readOnly, NOTES_COL);
   expect(readOnly).toBeFalsy();
 });

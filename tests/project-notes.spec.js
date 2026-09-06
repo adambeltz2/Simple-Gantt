@@ -98,7 +98,7 @@ test('project notes are per-project, not shared globally', async ({ page }) => {
 
   await page.evaluate(() => {
     const newId = 'proj_test_2';
-    appDB.projects[newId] = { name: 'Project B', columns: [], data: [['1', '1', '', '', '', '0', '', '', '', '', '', '']], collapsed: [], flagged: [], resources: [] };
+    appDB.projects[newId] = { name: 'Project B', columns: [], data: [['1', '1', '', '', '', '0', '', '', '', '', '', '', '']], collapsed: [], flagged: [], resources: [] };
     appDB.activeId = newId;
     renderGrid();
     syncToGantt(true);
@@ -114,6 +114,6 @@ test('project notes have no footprint in CSV export headers', async ({ page }) =
   const headers = await page.evaluate(() => sheet.options.columns.map((c) => c.title));
   expect(headers).toEqual([
     'Task ID', 'Outline', 'Task Name', 'Resource', 'Def. Alloc',
-    '% Done', 'Start', 'Dur.', 'End', 'Depends', 'Parent', 'Labels',
+    '% Done', 'Start', 'Dur.', 'End', 'Depends', 'Parent', 'Labels', 'Notes',
   ]);
 });

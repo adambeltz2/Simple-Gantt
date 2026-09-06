@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.30.0] - 2026-09-06
+
+### ✨ Added
+
+#### Task-level Notes as a permanent core field (backlog #22)
+- Notes is now a built-in column on every task in every project (`COL.NOTES`, right after Labels) -- no more needing to add a custom column literally named "Notes" to get the click-to-expand Markdown modal. Reuses the exact same modal/renderer (`renderNotesMarkdown()`, `openNotesModal()`) the old opt-in convention and the project-level Notes field already use, so this is purely about the column always being there, not new modal UI.
+- readOnly at the cell level, same as its predecessor -- editing only happens through the modal.
+- Like Labels/Depends/Parent, can't be renamed or deleted from the grid's column context menu; right-clicking it only offers "Insert Column Right" to add a custom column after it.
+
+#### Migration for every pre-existing shape
+- A saved project whose task rows predate this column gets a blank Notes slot spliced in at load time, the same splice-in technique already used when the Labels column itself was added.
+- A project that already used the old opt-in convention (a custom column literally named "Notes") has that column's data folded into the new core field and the now-redundant custom column removed, via a new `migrateLegacyNotesColumn()` run once after `normalizeData()` on every project load.
+- An old CSV exported before this column existed imports with the same blank-slot insertion in `applyImportedCSVData()` (mirroring its existing pre-Labels-CSV handling) -- unless the CSV's first custom column already happens to be named "Notes", in which case it folds into the core field on import too, for the same reason as the localStorage case above.
+- A brand-new custom column can still be named "Notes" today (unchanged legacy behavior) and gets the same modal treatment side-by-side with the core field.
+
+### 🧪 Testing
+- Added `tests/task-notes.spec.js`: every project (existing and brand new) has the column; readOnly at the cell level; empty vs. filled flag icon; the modal opens, edits, and saves Markdown back to the row; HTML in a note is escaped; the column context menu offers only Insert Column Right, never rename/delete, and right-clicking Labels no longer offers Insert Column Right either (Notes must stay immediately after it); CSV export/import round-trips at the fixed core position; a legacy CSV with no Notes header imports without misaligning custom columns; a legacy custom "Notes" column folds into the core field on load.
+- Updated `tests/notes-field.spec.js` (the older opt-in-custom-column convention) and seven other spec files whose fixtures assumed the previous 12-column base schema -- header arrays, row literals, and one hardcoded row-length assertion -- to account for the new 13-column base.
+- Verified with a real Playwright run against genuine vendored copies of jsuites/jexcel/frappe-gantt/papaparse/html2canvas/jspdf/dropbox, fetched from their real npm-published tarballs and routed in via `page.route()` in a throwaway test harness (this sandbox's outbound network blocks every CDN host the app normally loads them from) -- 249 of 250 tests passed. The one failure (`row-id-backfill.spec.js`) is the same already-documented, pre-existing vendored-build timing quirk called out in earlier PRs, unrelated to this change (doesn't touch Notes/Labels or row shape at all).
+
+### 🛠 Fixed
+- One genuine test bug found while verifying: `csv-roundtrip.spec.js`'s custom-"Notes"-column round-trip test located the column by `Array.prototype.findIndex` on title `"notes"`, which now also matches the new core Notes column (title collision, since both are legitimately named "Notes" in that fixture) -- switched to `findLastIndex` so it targets the custom column specifically, as intended.
+
 ## [2.29.0] - 2026-09-05
 
 ### ✨ Added

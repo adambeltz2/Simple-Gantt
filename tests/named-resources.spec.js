@@ -163,7 +163,7 @@ test('Resource column CSV shape is unchanged -- still the same free-text cell, n
   ]);
   const content = fs.readFileSync(await download.path(), 'utf8');
   const headerLine = content.split('\n')[0].trim();
-  expect(headerLine.split(',')).toEqual(['Task ID', 'Outline', 'Task Name', 'Resource', 'Def. Alloc', '% Done', 'Start', 'Dur.', 'End', 'Depends', 'Parent', 'Labels']);
+  expect(headerLine.split(',')).toEqual(['Task ID', 'Outline', 'Task Name', 'Resource', 'Def. Alloc', '% Done', 'Start', 'Dur.', 'End', 'Depends', 'Parent', 'Labels', 'Notes']);
   expect(content).toContain('Alice (50%)');
 });
 

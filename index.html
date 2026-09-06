@@ -633,7 +633,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.29.0";
+        const APP_VERSION = "2.30.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -642,11 +642,11 @@
         const dateStr1 = format(todayObj);
         
         const sampleProjectData = [
-            ['1', '1', 'Website Redesign Phase', '', '', '0', '', '', '', '', '', ''],
-            ['2', '1.1', 'Discovery & Wireframes', 'Alice 50%, Bob', '100', '100', dateStr1, '3', '', '', '1', 'Planning'],
-            ['3', '1.2', 'UI Design & Assets', 'Bob (50%), Charlie @ 50%', '100', '50', '', '5', '', '2', '1', 'Design'],
-            ['4', '1.3', 'Frontend Implementation', 'Charlie', '100', '0', '', '7', '', '3', '1', 'Development'],
-            ['5', '1.4', 'Launch Milestone', '', '', '0', '', '0', '', '4', '1', 'Milestone']
+            ['1', '1', 'Website Redesign Phase', '', '', '0', '', '', '', '', '', '', ''],
+            ['2', '1.1', 'Discovery & Wireframes', 'Alice 50%, Bob', '100', '100', dateStr1, '3', '', '', '1', 'Planning', ''],
+            ['3', '1.2', 'UI Design & Assets', 'Bob (50%), Charlie @ 50%', '100', '50', '', '5', '', '2', '1', 'Design', ''],
+            ['4', '1.3', 'Frontend Implementation', 'Charlie', '100', '0', '', '7', '', '3', '1', 'Development', ''],
+            ['5', '1.4', 'Launch Milestone', '', '', '0', '', '0', '', '4', '1', 'Milestone', '']
         ];
 
         let appDB = {
@@ -674,13 +674,14 @@
                     if (!appDB.projects[pid].flagged) appDB.projects[pid].flagged = [];
                     if (!appDB.projects[pid].resources) appDB.projects[pid].resources = [];
                     appDB.projects[pid].data = normalizeData(appDB.projects[pid].data, appDB.projects[pid].columns.length);
+                    migrateLegacyNotesColumn(appDB.projects[pid]);
                 }
             }
         } catch(e) { console.error("Error loading DB", e); }
 
         function normalizeData(data, customColsCount) {
-            let targetLength = 12 + (customColsCount || 0);
-            if (!data || !Array.isArray(data) || data.length === 0) return [['1', '1', '', '', '100', '0', '', '', '', '', '', '', ...Array(customColsCount || 0).fill('')]];
+            let targetLength = 13 + (customColsCount || 0);
+            if (!data || !Array.isArray(data) || data.length === 0) return [['1', '1', '', '', '100', '0', '', '', '', '', '', '', '', ...Array(customColsCount || 0).fill('')]];
             return data.map(row => {
                 if (row.length === 9) row.splice(7, 0, '');
                 if (row.length === 10) row.splice(1, 0, '');
@@ -689,9 +690,37 @@
                 // a blank there so every row's custom-column data keeps its
                 // original position instead of shifting left into Labels.
                 if (row.length === 11 + (customColsCount || 0)) row.splice(11, 0, '');
+                // Rows saved before Notes became a permanent core column
+                // (backlog #22) are exactly 12 + however many custom columns
+                // this project already had -- insert a blank there so custom
+                // column data keeps its original position instead of shifting
+                // left into Notes.
+                if (row.length === 12 + (customColsCount || 0)) row.splice(12, 0, '');
                 while (row.length < targetLength) row.push('');
                 return row;
             });
+        }
+
+        // A pre-existing project may already have a custom column literally
+        // named "Notes" -- the old opt-in convention (any column with that
+        // title gets Markdown-modal treatment, see the cols-builder below).
+        // Now that Notes is a permanent core field, fold that legacy custom
+        // column's data into it instead of leaving both side by side; any
+        // other custom column is untouched. Must run after normalizeData()
+        // has already padded every row to the current schema.
+        function migrateLegacyNotesColumn(proj) {
+            if (!proj.columns || proj.columns.length === 0) return;
+            const idx = proj.columns.findIndex(c => c.trim().toLowerCase() === 'notes');
+            if (idx === -1) return;
+            const legacyPos = 13 + idx;
+            (proj.data || []).forEach(row => {
+                if (row.length > legacyPos) {
+                    const legacyVal = row[legacyPos];
+                    row.splice(legacyPos, 1);
+                    if (legacyVal) row[12] = legacyVal;
+                }
+            });
+            proj.columns.splice(idx, 1);
         }
 
         document.getElementById('skipWeekends').checked = appDB.settings.skipWeekends;
@@ -735,7 +764,7 @@
             appDB.projects[newId] = {
                 name: name,
                 columns: [],
-                data: [['1', '1', '', '', '100', '0', '', '', '', '', '', '']],
+                data: [['1', '1', '', '', '100', '0', '', '', '', '', '', '', '']],
                 collapsed: [],
                 flagged: [],
                 resources: [],
@@ -1155,7 +1184,17 @@
                     headers.splice(11, 0, 'Labels');
                     data.forEach(row => row.splice(11, 0, ''));
                 }
-                appDB.projects[appDB.activeId].columns = headers.slice(12);
+                // Same idea, one column later: a CSV exported before Notes
+                // became a permanent core column (backlog #22) has whatever
+                // was its first custom column sitting at index 12 instead --
+                // unless that custom column happened to be the old opt-in
+                // "Notes" convention, in which case leaving it right where it
+                // already is folds it straight into the new core field.
+                if (headers[12] !== 'Notes') {
+                    headers.splice(12, 0, 'Notes');
+                    data.forEach(row => row.splice(12, 0, ''));
+                }
+                appDB.projects[appDB.activeId].columns = headers.slice(13);
             }
             const sanitized = sanitizeImportedRows(data, headers);
             // Any Resource name in the imported rows that isn't already in this
@@ -1366,7 +1405,7 @@
                             let headers = [];
                             if (data.length > 0 && (data[0][0] === 'ID' || data[0][1] === 'Outline')) {
                                 headers = data.shift();
-                                columns = headers.slice(11);
+                                columns = headers.slice(12);
                             }
                             data = sanitizeImportedRows(data, headers);
                             const newId = 'proj_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
@@ -2085,7 +2124,7 @@
         // ==========================================
         // CORE GANTT ENGINE & DYNAMIC COLUMNS
         // ==========================================
-        const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10, LABELS: 11 };
+        const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10, LABELS: 11, NOTES: 12 };
 
         // Shared by formatCells' Task Name indentation and exportCSV's
         // cosmetic outline prefix (backlog #16) -- both need the same
@@ -2794,7 +2833,7 @@
         function syncColumnsToDB() {
             if(!sheet) return;
             let headers = sheet.options.columns.map(c => c.title);
-            appDB.projects[appDB.activeId].columns = headers.slice(12);
+            appDB.projects[appDB.activeId].columns = headers.slice(13);
             saveToLocal();
         }
 
@@ -3419,7 +3458,12 @@
                 { type: 'calendar', title: 'End', width: 85, options: { format: 'YYYY-MM-DD' }, align: 'center' },
                 { type: 'dropdown', title: 'Depends', width: 70, source: [], autocomplete: true, multiple: true, align: 'left' },
                 { type: 'dropdown', title: 'Parent', width: 60, source: [], autocomplete: true, align: 'left' },
-                { type: 'text', title: 'Labels', width: 110, align: 'left' }
+                { type: 'text', title: 'Labels', width: 110, align: 'left' },
+                // Permanent core field (backlog #22) -- same click-to-expand
+                // Markdown-modal treatment the opt-in custom "Notes" column
+                // convention already used (see the isNotes check just below),
+                // now always present instead of needing to be added by hand.
+                { type: 'text', title: 'Notes', width: 70, align: 'center', readOnly: true }
             ];
 
             if (activeProj.columns) {
@@ -3475,7 +3519,7 @@
                 ondeleterow: function() {
                     let data = sheet.getData();
                     if (!data || data.length === 0) {
-                        let emptyRow = ['1', '1', '', '', '100', '0', '', '', '', '', '', '', ...Array(appDB.projects[appDB.activeId].columns.length).fill('')];
+                        let emptyRow = ['1', '1', '', '', '100', '0', '', '', '', '', '', '', '', ...Array(appDB.projects[appDB.activeId].columns.length).fill('')];
                         sheet.setData([emptyRow]);
                     }
                     triggerSync();
@@ -3483,18 +3527,18 @@
                 contextMenu: function(obj, x, y, e) {
                     var items = [];
                     if (y === null) {
-                        if (x >= 11) {
+                        if (x >= 12) {
                             items.push({
                                 title: '➕ Insert Column Right',
                                 onclick: function() {
                                     sheet.insertColumn(1, parseInt(x), false);
                                     let newColIdx = parseInt(x) + 1;
-                                    sheet.setHeader(newColIdx, 'Custom ' + (newColIdx - 11));
+                                    sheet.setHeader(newColIdx, 'Custom ' + (newColIdx - 12));
                                     syncColumnsToDB();
                                 }
                             });
                         }
-                        if (x >= 12) {
+                        if (x >= 13) {
                             items.push({
                                 title: '✏️ Rename Column',
                                 onclick: function() {

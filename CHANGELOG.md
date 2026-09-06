@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.31.0] - 2026-09-06
+
+### ✨ Added
+
+#### Mobile responsiveness + PWA support (backlog #15)
+- **Responsive layout.** Below a new 860px breakpoint, the workspace stops splitting grid/chart side by side -- there's no useful width left for either at that point -- and shows a single full-width active pane instead, tracked via a `data-mobile-pane` attribute on `.workspace`. No new controls: the existing Grid/Split/Chart toolbar buttons (`snapPanes()`) already express "grid only / both / chart only" as a percentage split, so the same buttons now also decide which single pane is visible under the breakpoint (Split lands on whichever side of 50% it already was). Toolbar buttons, the label/filter dropdown triggers, and the search box grow to a 40px+ touch-sized minimum height under the same breakpoint, the drag divider hides (nothing to drag in single-pane mode), and modals go full-screen instead of floating as an undersized centered card.
+- **PWA support.** A web app manifest (`manifest.json`) plus a generated icon set (`icons/`: 192px, 512px, a 512px maskable variant, an apple-touch-icon, and two favicon sizes) make the app installable to a home screen or desktop. A new service worker (`sw.js`) caches the static app shell (network-first, so a redeploy is picked up as soon as there's connectivity, falling back to cache when offline) and the CDN libraries the page loads (cache-first, since those are already pinned to an exact version -- re-fetching them every load only defeats offline use). Registration is guarded to `http(s):` so opening `index.html` directly off disk doesn't attempt it.
+
+### 🧪 Testing
+- Added `tests/mobile-responsive.spec.js`: at a phone-width viewport, the grid pane fills the screen with the chart hidden by default; tapping Chart/Grid switches the single visible pane and the resizer stays hidden throughout; toolbar buttons meet a 40px touch-target minimum; an open modal fills the viewport edge to edge.
+- Added `tests/pwa.spec.js`: the manifest link and theme-color/apple-touch-icon meta tags are present; `manifest.json` is valid and every icon it references is actually fetchable as a PNG; `sw.js` is fetchable and a fresh navigation is controlled by it after registration; the app shell (`index.html` itself) is still served after going offline post-registration.
+- Verified the service worker's actual caching logic (`cacheFirst()`/`networkFirst()` in `sw.js`) end-to-end against a real local server rather than trusting the code by inspection: first fetch populates the cache, a second online fetch is served from cache even after the underlying file changed on disk, and a fully offline fetch still returns the cached content. This sandbox can't reach the live CDN hosts the app normally loads libraries from, and unlike a page's own requests, a Service Worker's internal `fetch()` calls aren't visible to Playwright's request routing -- so a mocked-CDN version of this exact check isn't possible here -- but the underlying cache-then-serve mechanism being exercised is identical code regardless of which URL it's fronting.
+- Ran the full existing suite (239 tests) against real vendored copies of every library (fetched from npm, routed in via `page.route()`/`context.route()` in a throwaway harness, per the established pattern from earlier PRs) to confirm nothing in the new CSS/JS regressed the desktop layout: all passed except the same already-documented `row-id-backfill.spec.js` timing quirk called out in v2.30.0's own changelog entry, unrelated to this change.
+
 ## [2.30.0] - 2026-09-06
 
 ### ✨ Added

@@ -42,12 +42,18 @@ test('tapping Grid switches back, and the resizer stays hidden throughout', asyn
 });
 
 test('toolbar buttons meet a touch-sized minimum height', async ({ page }) => {
+  // jumpToToday() lives behind the mobile "More" toggle (see
+  // mobile-toolbar-collapse.spec.js), so reveal it before measuring.
+  await page.click('#toolbarMoreToggle');
   const startBtn = page.locator('button[onclick="jumpToToday()"]');
   const box = await startBtn.boundingBox();
   expect(box.height).toBeGreaterThanOrEqual(40);
 });
 
 test('an open modal fills the viewport instead of floating as a centered card', async ({ page }) => {
+  // openWorkloadModal() lives behind the mobile "More" toggle (see
+  // mobile-toolbar-collapse.spec.js), so reveal it before clicking.
+  await page.click('#toolbarMoreToggle');
   await page.click('button[onclick="openWorkloadModal()"]');
   await expect(page.locator('#workloadModal')).toHaveClass(/active/);
 

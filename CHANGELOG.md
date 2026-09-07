@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.32.0] - 2026-09-07
+
+### ✨ Added
+
+#### Collapsible mobile toolbar
+- User-reported: on a phone, the full desktop toolbar (5 groups, ~25 buttons/controls) rendered every control at once, spilling across 5-6 rows above the workspace before you even reached the grid or chart.
+- Below the existing 860px mobile breakpoint, the toolbar now shows only the handful of most-used controls by default -- Search, the Grid/Split/Chart pane switcher, Undo/Redo, and Add row -- plus a new "More ▾" toggle. Tapping it reveals everything else (Start/Today/Workload/Expand All/Collapse All, Label filter/Filters/Clear filters, Zoom/Weekends off/Critical path/Label in chart, Bulk Edit/Resources/Notes/Fit columns/Sync Dependencies/Export, and the Dropbox Back up/Versions/Disconnect group); tapping it again ("Less") collapses back down.
+- No controls are duplicated or rebuilt to do this -- every collapsible button/control is the exact same DOM element in both states, wrapped in a `<span class="tb-mobile-collapsible">` toggled between `display: none` and `display: contents` by a `.more-open` class on `.toolbar`. `display: contents` is also the default at every screen size, so desktop layout (spacing, grouping, borders between toolbar groups) is completely unaffected by this change -- the wrapper has no box of its own there either.
+- Each toolbar group also gains `flex-wrap: wrap` under the mobile breakpoint, so a group's own buttons wrap onto additional lines instead of overflowing once "More" is open and a group's full content is showing again.
+
+### 🧪 Testing
+- Added `tests/mobile-toolbar-collapse.spec.js`: secondary controls (Today, Bulk Edit, Back up, Zoom) are hidden by default on mobile while the essential controls (Search, Grid/Split/Chart, Undo/Redo, Add row, the More toggle itself) stay visible; tapping "More" reveals the secondary controls and flips the label/`aria-expanded` state; tapping again collapses back; a revealed secondary control still fires its handler with no console errors; at a desktop-width viewport the More toggle is hidden and nothing is collapsed.
+- Updated two existing `tests/mobile-responsive.spec.js` tests (the touch-target-height check and the full-screen-modal check) to open "More" first, since the buttons they exercise (`jumpToToday()`, `openWorkloadModal()`) are now behind it on mobile -- an intentional behavior change, not a regression.
+- Verified with a real Playwright run against genuine vendored copies of jsuites/jexcel/frappe-gantt/papaparse (this sandbox's outbound network blocks the live CDN hosts).
+
 ## [2.31.1] - 2026-09-07
 
 ### 🐛 Fixed

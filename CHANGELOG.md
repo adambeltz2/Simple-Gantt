@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.31.1] - 2026-09-07
+
+### 🐛 Fixed
+
+#### Landscape mobile was stuck in the same single-pane-only mode as portrait
+- User-reported: rotating a phone to landscape kept the grid/chart workspace locked to one full-width pane at a time, same as portrait, even though a landscape phone is often 700-860px wide -- real room for the desktop-style side-by-side split, just not enough to also justify never letting the user adjust it.
+- The single-pane-forcing CSS rules (hide the resizer, force each pane to 100% width, hide whichever pane isn't active) now apply only in portrait (`@media (max-width: 860px) and (orientation: portrait)`). Landscape at the same width keeps the normal resizable two-pane split -- both panes visible, the existing Grid/Split/Chart buttons resize the split instead of hiding a pane outright, and the divider is draggable exactly like desktop.
+- The divider itself widens from the 8px desktop hairline to 16px in this landscape range, a wider touch target than a mouse cursor needs.
+- **Found and fixed a real gap while making the divider draggable on a touchscreen:** it only ever listened for `mousedown`/`mousemove`/`mouseup`, which most mobile browsers don't reliably synthesize from an actual finger drag (continuous `mousemove` in particular is often not sent at all) -- so simply un-hiding the resizer in landscape would have shown a divider that looked draggable but usually wasn't. Added matching `touchstart`/`touchmove`/`touchend`/`touchcancel` handlers sharing the same resize logic as the mouse path (`touchmove` calls `e.preventDefault()` so dragging the divider doesn't also scroll the page).
+
+### 🧪 Testing
+- Added `tests/mobile-landscape.spec.js`: at a landscape phone viewport, both panes stay visible with the resizer shown; Grid/Split/Chart buttons resize the split rather than hiding a pane (still present in the DOM, just narrow); the divider's computed width is at least 16px; dispatching real `Touch`/`TouchEvent` objects at the divider (Playwright has no built-in touch-drag helper) resizes the panes and persists the new width to `localStorage`, the same way a finger drag would; no console errors across a touch-drag.
+- Re-ran the existing `tests/mobile-responsive.spec.js` (portrait) unchanged and green, confirming portrait's single-pane behavior is untouched by this fix.
+- Verified with a real Playwright run against genuine vendored copies of jsuites/jexcel/frappe-gantt/papaparse (this sandbox's outbound network blocks the live CDN hosts) -- all 10 tests across both mobile spec files passed for real.
+
 ## [2.31.0] - 2026-09-06
 
 ### ✨ Added

@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.32.0] - 2026-09-07
+
+### ✨ Added
+
+#### Collapsible mobile toolbar
+- User-reported: on a phone, the full desktop toolbar (5 groups, ~25 buttons/controls) rendered every control at once, spilling across 5-6 rows above the workspace before you even reached the grid or chart.
+- Below the existing 860px mobile breakpoint, the toolbar now shows only the handful of most-used controls by default -- Search, the Grid/Split/Chart pane switcher, Undo/Redo, and Add row -- plus a new "More ▾" toggle. Tapping it reveals everything else (Start/Today/Workload/Expand All/Collapse All, Label filter/Filters/Clear filters, Zoom/Weekends off/Critical path/Label in chart, Bulk Edit/Resources/Notes/Fit columns/Sync Dependencies/Export, and the Dropbox Back up/Versions/Disconnect group); tapping it again ("Less") collapses back down.
+- No controls are duplicated or rebuilt to do this -- every collapsible button/control is the exact same DOM element in both states, wrapped in a `<span class="tb-mobile-collapsible">` toggled between `display: none` and `display: contents` by a `.more-open` class on `.toolbar`. `display: contents` is also the default at every screen size, so desktop layout (spacing, grouping, borders between toolbar groups) is completely unaffected by this change -- the wrapper has no box of its own there either.
+- Each toolbar group also gains `flex-wrap: wrap` under the mobile breakpoint, so a group's own buttons wrap onto additional lines instead of overflowing once "More" is open and a group's full content is showing again.
+
+### 🧪 Testing
+- Added `tests/mobile-toolbar-collapse.spec.js`: secondary controls (Today, Bulk Edit, Back up, Zoom) are hidden by default on mobile while the essential controls (Search, Grid/Split/Chart, Undo/Redo, Add row, the More toggle itself) stay visible; tapping "More" reveals the secondary controls and flips the label/`aria-expanded` state; tapping again collapses back; a revealed secondary control still fires its handler with no console errors; at a desktop-width viewport the More toggle is hidden and nothing is collapsed.
+- Updated two existing `tests/mobile-responsive.spec.js` tests (the touch-target-height check and the full-screen-modal check) to open "More" first, since the buttons they exercise (`jumpToToday()`, `openWorkloadModal()`) are now behind it on mobile -- an intentional behavior change, not a regression.
+- Verified with a real Playwright run against genuine vendored copies of jsuites/jexcel/frappe-gantt/papaparse (this sandbox's outbound network blocks the live CDN hosts).
+
+## [2.31.1] - 2026-09-07
+
+### 🐛 Fixed
+
+#### Landscape mobile was stuck in the same single-pane-only mode as portrait
+- User-reported: rotating a phone to landscape kept the grid/chart workspace locked to one full-width pane at a time, same as portrait, even though a landscape phone is often 700-860px wide -- real room for the desktop-style side-by-side split, just not enough to also justify never letting the user adjust it.
+- The single-pane-forcing CSS rules (hide the resizer, force each pane to 100% width, hide whichever pane isn't active) now apply only in portrait (`@media (max-width: 860px) and (orientation: portrait)`). Landscape at the same width keeps the normal resizable two-pane split -- both panes visible, the existing Grid/Split/Chart buttons resize the split instead of hiding a pane outright, and the divider is draggable exactly like desktop.
+- The divider itself widens from the 8px desktop hairline to 16px in this landscape range, a wider touch target than a mouse cursor needs.
+- **Found and fixed a real gap while making the divider draggable on a touchscreen:** it only ever listened for `mousedown`/`mousemove`/`mouseup`, which most mobile browsers don't reliably synthesize from an actual finger drag (continuous `mousemove` in particular is often not sent at all) -- so simply un-hiding the resizer in landscape would have shown a divider that looked draggable but usually wasn't. Added matching `touchstart`/`touchmove`/`touchend`/`touchcancel` handlers sharing the same resize logic as the mouse path (`touchmove` calls `e.preventDefault()` so dragging the divider doesn't also scroll the page).
+
+### 🧪 Testing
+- Added `tests/mobile-landscape.spec.js`: at a landscape phone viewport, both panes stay visible with the resizer shown; Grid/Split/Chart buttons resize the split rather than hiding a pane (still present in the DOM, just narrow); the divider's computed width is at least 16px; dispatching real `Touch`/`TouchEvent` objects at the divider (Playwright has no built-in touch-drag helper) resizes the panes and persists the new width to `localStorage`, the same way a finger drag would; no console errors across a touch-drag.
+- Re-ran the existing `tests/mobile-responsive.spec.js` (portrait) unchanged and green, confirming portrait's single-pane behavior is untouched by this fix.
+- Verified with a real Playwright run against genuine vendored copies of jsuites/jexcel/frappe-gantt/papaparse (this sandbox's outbound network blocks the live CDN hosts) -- all 10 tests across both mobile spec files passed for real.
+
 ## [2.31.0] - 2026-09-06
 
 ### ✨ Added

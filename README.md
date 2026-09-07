@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.31.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-2.32.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
 
@@ -45,7 +45,7 @@ A lightweight, browser-based Gantt chart and task management tool. No server req
 - **PNG / Paginated PDF Export** – Export the Gantt chart as a PNG, or as a PDF that automatically tiles a long timeline across as many landscape pages as needed (each page a full-height vertical slice, left to right) rather than shrinking it illegibly onto one page
 
 ### 📱 User Experience
-- **Responsive Design** – Below a phone/tablet-width breakpoint, the grid and chart become a single full-width pane you switch between (same Grid/Split/Chart buttons as desktop) instead of an unusably narrow side-by-side split, with touch-sized toolbar buttons and full-screen modals
+- **Responsive Design** – Below a phone/tablet-width breakpoint, portrait shows the grid and chart as a single full-width pane you switch between (same Grid/Split/Chart buttons as desktop) instead of an unusably narrow side-by-side split; landscape keeps the real resizable two-pane split, with a wider, touch-draggable divider. Touch-sized toolbar buttons and full-screen modals apply in both orientations. The toolbar itself collapses down to just Search, Grid/Split/Chart, Undo/Redo, and Add row, with everything else tucked behind a "More ▾" toggle instead of spilling across several rows
 - **Split-View** – Adjustable grid/chart split (or show one side only) on wider screens
 - **Multiple Zoom Levels** – Day, Week, or Month view
 - **Resource Workload Dashboard** – See who's overallocated at a glance

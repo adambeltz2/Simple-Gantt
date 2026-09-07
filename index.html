@@ -49,6 +49,15 @@
         .toolbar-group:first-child { padding-left: 0; }
         .toolbar-group:last-child { border-right: none; }
 
+        /* Wraps a cluster of less-frequently-used toolbar controls that
+           collapse behind the mobile "More" toggle (see toggleMobileToolbar()).
+           display:contents keeps desktop layout untouched -- the wrapper has
+           no box of its own, so its children are still direct flex items of
+           .toolbar-group with the group's normal gap/alignment. Only the
+           mobile media query below gives it real hide/show behavior. */
+        .tb-mobile-collapsible { display: contents; }
+        #toolbarMoreGroup { display: none; }
+
         .tbtn { background: #1e293b; color: #e2e8f0; border: none; padding: 7px 11px; border-radius: 6px; cursor: pointer; font-size: 12.5px; font-weight: 500; display: flex; align-items: center; gap: 6px; white-space: nowrap; transition: background 0.15s; }
         .tbtn:hover { background: #334155; }
         .tbtn:disabled { opacity: 0.35; cursor: not-allowed; }
@@ -157,7 +166,7 @@
         @media (max-width: 860px) {
             header { padding: 10px 12px 8px; }
             .header-top { flex-wrap: wrap; row-gap: 8px; }
-            .toolbar-group { padding: 4px 8px; row-gap: 6px; }
+            .toolbar-group { padding: 4px 8px; row-gap: 6px; flex-wrap: wrap; }
 
             .tbtn, .toggle-label, select.tbtn-select, .header-btn,
             #labelFilterBtn, #filtersBtn, #clearAllFiltersBtn, #gridSearchClear {
@@ -169,12 +178,37 @@
             }
             #gridSearchInput { width: 130px; min-height: 40px; box-sizing: border-box; }
 
+            .modal-content { width: 100%; height: 100%; max-width: none; max-height: none; border-radius: 0; padding: 14px; }
+
+            /* Collapse everything but the handful of most-used controls
+               (search, Grid/Split/Chart, Undo/Redo, Add row) behind a "More"
+               toggle -- on a phone the full toolbar used to spill across
+               5-6 rows. Same DOM elements either way, just hidden vs.
+               revealed via display:contents, so nothing is duplicated. */
+            #toolbarMoreGroup { display: flex; }
+            .tb-mobile-collapsible { display: none; }
+            .toolbar.more-open .tb-mobile-collapsible { display: contents; }
+        }
+
+        /* Portrait phones are too narrow for a usable side-by-side split, so
+           below the breakpoint they only ever show one full-width pane at a
+           time (see updateMobilePaneVisibility()/the Grid-Split-Chart
+           buttons). Landscape has real width to spare even under the same
+           860px cutoff (a rotated phone is often 700-860px wide), so it keeps
+           the desktop-style resizable two-pane split instead -- the divider
+           becomes touch-draggable for this case, see the touchstart/move/end
+           handlers alongside the existing mouse ones. */
+        @media (max-width: 860px) and (orientation: portrait) {
             .resizer { display: none; }
             .grid-panel, .chart-panel { width: 100% !important; flex: 1 1 100%; min-width: 0; }
             .workspace[data-mobile-pane="chart"] .grid-panel { display: none; }
             .workspace[data-mobile-pane="grid"] .chart-panel { display: none; }
+        }
 
-            .modal-content { width: 100%; height: 100%; max-width: none; max-height: none; border-radius: 0; padding: 14px; }
+        @media (max-width: 860px) and (orientation: landscape) {
+            /* Wider touch target for the divider than the cursor-only
+               desktop hairline needs, so it's actually grabbable by finger. */
+            .resizer { width: 16px; }
         }
     </style>
 </head>
@@ -208,6 +242,7 @@
         </div>
         <div class="toolbar">
             <div class="toolbar-group">
+                <span class="tb-mobile-collapsible">
                 <button class="tbtn" onclick="jumpToProjectStart()">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
                     Start
@@ -228,6 +263,7 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 11 12 6 7 11"></polyline><polyline points="17 18 12 13 7 18"></polyline></svg>
                     Collapse All
                 </button>
+                </span>
             </div>
             <div class="toolbar-group">
                 <div style="position:relative; display:flex; align-items:center;">
@@ -239,6 +275,7 @@
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     </button>
                 </div>
+                <span class="tb-mobile-collapsible">
                 <div style="position:relative; display:inline-block;">
                     <button id="labelFilterBtn" type="button" onclick="toggleLabelFilterDropdown(event)"
                         title="Filter the grid to tasks carrying any of the checked labels"
@@ -295,8 +332,10 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
                     Clear filters
                 </button>
+                </span>
             </div>
             <div class="toolbar-group">
+                <span class="tb-mobile-collapsible">
                 <select id="zoomScale" class="tbtn-select" onchange="changeZoom()">
                     <option value="Day">Zoom: Day</option>
                     <option value="Week">Zoom: Week</option>
@@ -305,6 +344,7 @@
                 <label class="toggle-label"><input type="checkbox" id="skipWeekends" onchange="forceRecalc()"> Weekends off</label>
                 <label class="toggle-label"><input type="checkbox" id="showCriticalPath" onchange="triggerSync()"> Critical path</label>
                 <label class="toggle-label" title="When a label is selected above, also narrow the Gantt chart to just that label"><input type="checkbox" id="applyLabelToChart" onchange="triggerSync()"> Label in chart</label>
+                </span>
                 <button class="tbtn" onclick="snapPanes(92)" title="Show grid only">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="2" y="4" width="16" height="16" rx="1.5"></rect><rect x="20" y="4" width="2" height="16" rx="1" opacity="0.35"></rect></svg>
                     Grid
@@ -331,6 +371,7 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                     Add row
                 </button>
+                <span class="tb-mobile-collapsible">
                 <button class="tbtn" onclick="openBulkEditModal()" title="Select 2+ rows in the grid (click and drag), then apply a Resource/% Done/Parent change to all of them at once">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="7" rx="1"></rect><rect x="14" y="4" width="7" height="7" rx="1"></rect><rect x="3" y="15" width="7" height="7" rx="1"></rect><rect x="14" y="15" width="7" height="7" rx="1"></rect><path d="M12 7.5h2M12 18.5h2M7.5 12v2M18.5 12v2"></path></svg>
                     Bulk Edit
@@ -377,8 +418,10 @@
                         </button>
                     </div>
                 </div>
+                </span>
             </div>
             <div class="toolbar-group">
+                <span class="tb-mobile-collapsible">
                 <button id="btnDbxSave" class="tbtn tbtn-cloud" onclick="backupToDropbox(false)">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 17l4-4 4 4"></path><line x1="12" y1="13" x2="12" y2="21"></line><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"></path></svg>
                     Back up
@@ -390,6 +433,13 @@
                 <button id="btnDbxLogout" class="header-btn" onclick="disconnectDropbox()" style="display:none;">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
                     Disconnect
+                </button>
+                </span>
+            </div>
+            <div class="toolbar-group" id="toolbarMoreGroup">
+                <button id="toolbarMoreToggle" class="tbtn" onclick="toggleMobileToolbar()" aria-expanded="false" title="Show more toolbar options">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="19" cy="12" r="1.6"></circle></svg>
+                    <span id="toolbarMoreToggleText">More</span>
                 </button>
             </div>
         </div>
@@ -677,7 +727,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.31.0";
+        const APP_VERSION = "2.32.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -1892,35 +1942,72 @@
             workspaceEl.dataset.mobilePane = gridPercent >= 50 ? 'grid' : 'chart';
         }
 
-        divider.addEventListener('mousedown', function(e) {
+        function startResize() {
             isResizing = true;
             document.body.style.cursor = 'col-resize';
             divider.classList.add('resizing');
-            e.preventDefault();
-        });
+        }
 
-        document.addEventListener('mousemove', function(e) {
+        function resizeTo(clientX) {
             if (!isResizing) return;
-            let newWidth = (e.clientX / window.innerWidth) * 100;
+            let newWidth = (clientX / window.innerWidth) * 100;
             if (newWidth > 15 && newWidth < 85) {
                 gridPanel.style.width = newWidth + '%';
                 updateMobilePaneVisibility(newWidth);
             }
-        });
+        }
 
-        document.addEventListener('mouseup', function(e) {
-            if (isResizing) {
-                isResizing = false;
-                document.body.style.cursor = 'default';
-                divider.classList.remove('resizing');
-                localStorage.setItem('simple_gantt_pane_width', gridPanel.style.width);
-            }
+        function endResize() {
+            if (!isResizing) return;
+            isResizing = false;
+            document.body.style.cursor = 'default';
+            divider.classList.remove('resizing');
+            localStorage.setItem('simple_gantt_pane_width', gridPanel.style.width);
+        }
+
+        divider.addEventListener('mousedown', function(e) {
+            startResize();
+            e.preventDefault();
         });
+        document.addEventListener('mousemove', function(e) { resizeTo(e.clientX); });
+        document.addEventListener('mouseup', endResize);
+
+        // Touch equivalents of the three above -- landscape mobile keeps the
+        // real draggable split (see the matching @media block) rather than
+        // portrait's single-full-width-pane mode, and mousedown/mousemove
+        // aren't reliably synthesized from touch gestures on most mobile
+        // browsers, so the divider needs its own touch handling to actually
+        // be draggable by finger there.
+        divider.addEventListener('touchstart', function(e) {
+            startResize();
+            e.preventDefault();
+        }, { passive: false });
+        document.addEventListener('touchmove', function(e) {
+            if (!isResizing) return;
+            resizeTo(e.touches[0].clientX);
+            e.preventDefault(); // block page scroll while actively dragging
+        }, { passive: false });
+        document.addEventListener('touchend', endResize);
+        document.addEventListener('touchcancel', endResize);
 
         function snapPanes(gridPercent) {
             gridPanel.style.width = gridPercent + '%';
             localStorage.setItem('simple_gantt_pane_width', gridPercent + '%');
             updateMobilePaneVisibility(gridPercent);
+        }
+
+        // Mobile toolbar collapse: below the 860px breakpoint the toolbar
+        // hides everything but the most-used controls (search, Grid/Split/
+        // Chart, Undo/Redo, Add row) behind this "More" toggle instead of
+        // spilling across 5-6 rows. Toggles a class on .toolbar itself --
+        // the collapsible controls are the same DOM elements throughout,
+        // just switched between display:none and display:contents by CSS
+        // (see .tb-mobile-collapsible), so nothing is duplicated or rebuilt.
+        function toggleMobileToolbar() {
+            const toolbar = document.querySelector('.toolbar');
+            const open = toolbar.classList.toggle('more-open');
+            document.getElementById('toolbarMoreToggle').setAttribute('aria-expanded', open ? 'true' : 'false');
+            document.getElementById('toolbarMoreToggleText').textContent = open ? 'Less' : 'More';
         }
 
         const savedPaneWidth = localStorage.getItem('simple_gantt_pane_width');

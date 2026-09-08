@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.33.3] - 2026-09-08
+
+### 🐛 Fixed
+
+#### A parent showed 100% Done even though most of its children were blank/unscheduled
+- User-reported (screenshot): "CPQ Templates" showed 100% complete with ~30 children, but only one of them had an actual schedule and progress -- the rest had no Start, Duration, or % Done at all.
+- Root cause in `syncToGantt()`'s parent rollup: the weighted-average % Done calculation ran over the exact same subset of children used for the date-span rollup (min Start / max End), which only includes children with a valid schedule. A child with no Start/Duration was therefore invisible to the % Done average -- not counted as 0%, just left out entirely -- so a parent with 1 scheduled child at 100% and 29 blank ones still averaged to 100% (the lone child was effectively the whole average).
+- Fixed by decoupling the two rollups: the date-span rollup still only uses children with a real schedule (unchanged), but % Done now rolls up from *every* child. Weighted by Duration when known, same as before; an unscheduled child falls back to a weight of 1 so it counts as one unit of "0% done" work instead of vanishing from the average.
+
+### 🧪 Testing
+- Added `tests/parent-pct-rollup.spec.js` (5 tests): an unscheduled child correctly pulls the average down instead of being excluded; a parent whose children are all blank rolls up to 0%, not 100%; a scheduled child with a blank % Done cell is treated as 0% like any other blank value; the date-span rollup is confirmed unaffected (still schedule-only); a multi-level hierarchy rolls % Done up correctly through an unscheduled mid-level parent.
+- Re-ran `done-checkmark.spec.js`, `dependency-scheduling.spec.js`, `leaf-end-date.spec.js`, `late-flag.spec.js`, `critical-path.spec.js`, `undo-redo.spec.js`, `timezone-safety.spec.js`, and `inclusive-end-dates.spec.js` (67 tests total) against real vendored copies of jsuites/jexcel/frappe-gantt/papaparse (this sandbox's egress blocks the live CDN hosts) -- all green.
+
 ## [2.33.2] - 2026-09-08
 
 ### 🐛 Fixed

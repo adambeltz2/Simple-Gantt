@@ -752,7 +752,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.33.2";
+        const APP_VERSION = "2.33.3";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -4305,19 +4305,31 @@
                     parentsChanged = false; parentLoopLimit--;
                     parentIDs.forEach(parentId => {
                         let pTask = tasksMap[parentId];
-                        let children = Object.values(tasksMap).filter(t => t.parentId === parentId && t.start && (t.end || t.dur === 0));
-                        if (children.length > 0 && pTask) {
+                        let allChildren = Object.values(tasksMap).filter(t => t.parentId === parentId);
+                        let datedChildren = allChildren.filter(t => t.start && (t.end || t.dur === 0));
+                        if (allChildren.length > 0 && pTask) {
                             try {
-                            let minStart = new Date(Math.min(...children.map(c => parseLocalDate(c.start))));
-                            let maxEnd = new Date(Math.max(...children.map(c => parseLocalDate(c.end || c.start))));
-                            if (isNaN(minStart.getTime()) || isNaN(maxEnd.getTime())) return; // a child has a malformed date -- skip this parent's rollup rather than crash
+                            let newStart = pTask.start; let newEnd = pTask.end; let newDur = pTask.dur;
+                            if (datedChildren.length > 0) {
+                                let minStart = new Date(Math.min(...datedChildren.map(c => parseLocalDate(c.start))));
+                                let maxEnd = new Date(Math.max(...datedChildren.map(c => parseLocalDate(c.end || c.start))));
+                                if (isNaN(minStart.getTime()) || isNaN(maxEnd.getTime())) return; // a child has a malformed date -- skip this parent's rollup rather than crash
 
-                            let newStart = format(minStart); let newEnd = format(maxEnd);
-                            let newDur = calculateWorkingDays(newStart, newEnd);
+                                newStart = format(minStart); newEnd = format(maxEnd);
+                                newDur = calculateWorkingDays(newStart, newEnd);
+                            }
 
-                            let totalDur = 0; let totalWeightedPct = 0;
-                            children.forEach(c => { totalDur += c.dur; totalWeightedPct += (c.dur * c.pct); });
-                            let newPct = totalDur > 0 ? Math.round(totalWeightedPct / totalDur) : 0;
+                            // % Done rolls up from every child, not just the ones with a
+                            // schedule -- an unscheduled child (blank Start/Duration) still
+                            // represents real, not-yet-started work, so it must pull the
+                            // average down instead of silently vanishing from it just
+                            // because it can't participate in the date-span rollup above.
+                            // Weight by Duration when known; fall back to a weight of 1 for
+                            // an unscheduled child so it still counts as one unit of "0%
+                            // done" work rather than contributing nothing at all.
+                            let totalWeight = 0; let totalWeightedPct = 0;
+                            allChildren.forEach(c => { let w = c.dur > 0 ? c.dur : 1; totalWeight += w; totalWeightedPct += (w * c.pct); });
+                            let newPct = totalWeight > 0 ? Math.round(totalWeightedPct / totalWeight) : 0;
 
                             if (pTask.start !== newStart || pTask.end !== newEnd || pTask.dur !== newDur || pTask.pct !== newPct) {
                                 pTask.start = newStart; pTask.end = newEnd; pTask.dur = newDur; pTask.pct = newPct;

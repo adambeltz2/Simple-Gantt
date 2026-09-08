@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.33.2] - 2026-09-08
+
+### 🐛 Fixed
+
+#### A parent row nested under another parent wasn't rendered bold
+- User-reported (screenshot): rows with children were expected to be bold, and the top-level ones were -- but a parent row that was itself nested under another parent (e.g. "Data Migration (R1)" under "Transform HJ (R1)") stayed regular weight, even though it clearly had its own collapse/expand toggle and children underneath it.
+- Root cause in `formatCells()`: the Task Name cell's `if (depth > 0) { ...indent... } else { ...indent...; cell.style.fontWeight = isParent ? 'bold' : 'normal'; }` accidentally coupled two unrelated concerns -- indentation and bold weight -- into the same branch. The bold line only ever ran in the `depth === 0` (top-level) case; any parent nested one level deep or more never had `fontWeight` touched at all.
+- Fixed by pulling `cell.style.fontWeight = isParent ? 'bold' : 'normal';` out of the `if`/`else` entirely so it runs on every row regardless of depth, while indentation (`paddingLeft`/`borderLeft`) keeps its own depth-based branching unchanged.
+
+### 🧪 Testing
+- Added `tests/parent-row-bold.spec.js` (5 tests): a top-level parent is bold; a parent nested under another parent is also bold (the exact bug); a leaf row at depth 0 is not bold; a leaf row nested at depth > 0 is not bold; a childless sibling of a nested parent, at the same depth, is not bold.
+- Re-ran `sibling-indent-alignment.spec.js`, `csv-outline-indent.spec.js`, `collapse-expand.spec.js`, `critical-path.spec.js`, and `done-checkmark.spec.js` (32 tests total) against real vendored copies of jsuites/jexcel/frappe-gantt/papaparse (this sandbox's egress blocks the live CDN hosts) -- all green apart from the same pre-existing, harness-only `page.reload()` failure already documented in earlier changelog entries.
+
 ## [2.33.1] - 2026-09-08
 
 ### 🐛 Fixed

@@ -752,7 +752,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.33.1";
+        const APP_VERSION = "2.33.2";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -2947,8 +2947,8 @@
                     } else {
                         cell.style.paddingLeft = '8px';
                         cell.style.borderLeft = 'none';
-                        cell.style.fontWeight = isParent ? 'bold' : 'normal';
                     }
+                    cell.style.fontWeight = isParent ? 'bold' : 'normal';
 
                     let isCritical = isCriticalPathViewOn() && criticalPathIds.has(rowID);
                     let isComplete = (parseInt(rowData[COL.PCT]) || 0) === 100;

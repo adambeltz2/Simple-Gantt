@@ -16,7 +16,7 @@ test('secondary toolbar controls are hidden by default on mobile', async ({ page
   await expect(page.locator('button[onclick="jumpToToday()"]')).toBeHidden();
   await expect(page.locator('button[onclick="openBulkEditModal()"]')).toBeHidden();
   await expect(page.locator('#btnDbxSave')).toBeHidden();
-  await expect(page.locator('#zoomScale')).toBeHidden();
+  await expect(page.locator('#viewOptionsBtn')).toBeHidden();
 });
 
 test('the essential controls stay visible by default on mobile', async ({ page }) => {
@@ -38,7 +38,7 @@ test('tapping "More" reveals the secondary controls, and the label flips to "Les
   await expect(page.locator('button[onclick="jumpToToday()"]')).toBeVisible();
   await expect(page.locator('button[onclick="openBulkEditModal()"]')).toBeVisible();
   await expect(page.locator('#btnDbxSave')).toBeVisible();
-  await expect(page.locator('#zoomScale')).toBeVisible();
+  await expect(page.locator('#viewOptionsBtn')).toBeVisible();
 });
 
 test('tapping "More" again collapses it back, and the label flips back to "More"', async ({ page }) => {
@@ -65,5 +65,5 @@ test('on desktop-width viewports the More toggle is hidden and nothing is collap
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect(page.locator('#toolbarMoreToggle')).toBeHidden();
   await expect(page.locator('button[onclick="jumpToToday()"]')).toBeVisible();
-  await expect(page.locator('#zoomScale')).toBeVisible();
+  await expect(page.locator('#viewOptionsBtn')).toBeVisible();
 });

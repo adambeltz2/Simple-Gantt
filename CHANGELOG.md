@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.33.0] - 2026-09-08
+
+### ✨ Added
+
+#### Desktop toolbar visual review, completed (backlog #17)
+- Finishes the toolbar decluttering started by the "Export ▾" menu (an earlier release): Zoom, Weekends off, Critical path, and Label in chart now live behind a new "View ▾" menu; Fit columns and Sync Dependencies now live behind a new "Tools ▾" menu. Same anchored-popover pattern Export ▾ already established.
+- One deliberate behavioral difference between the two new menus: View ▾ stays open after you interact with something inside it (checking a box, changing Zoom) since adjusting display settings is often a multi-step action, not a single click-and-done like an export -- Tools ▾ auto-closes after either of its two actions fires, matching Export ▾'s one-shot behavior.
+- All the moved controls kept their exact original `id`s and `onclick` handlers -- this is purely a "where do these live in the toolbar" change, nothing about weekends/critical-path/label-in-chart/zoom/fit-columns/sync-dependencies logic itself changed.
+- Also gave "Add row" -- the single most-used toolbar action -- a filled, primary-colored style (`.tbtn-primary`) distinct from the plain ghost-button look every other always-visible button still shares, per this item's visual-hierarchy recommendation. Kept this lighter than the full segmented-control restyle originally floated for nav/view-mode buttons; the two new menus already did the bulk of the decluttering.
+- Net effect: top-level always-visible toolbar controls drop from ~26 to 15 (several of those 15 are themselves menus hiding further controls), keeping the toolbar to one row on a typical laptop-width window instead of silently wrapping onto a second.
+- Distinct from, and doesn't touch, the *mobile* toolbar collapse shipped in v2.32.0 -- separate mechanism, separate breakpoint; the two new menus still work correctly at mobile widths once the mobile "More" toggle reveals their group.
+
+### 🧪 Testing
+- Added `tests/toolbar-menus.spec.js`: both new menus are closed by default and open on click, revealing their controls; clicking outside either closes it; View ▾ stays open after an interior interaction while Tools ▾ closes itself after an action; Zoom and Sync Dependencies still work correctly from inside their new menus; Add row's background color is now visually distinct from a plain toolbar button.
+- Updated `tests/labels.spec.js` (Label in chart checkbox) and `tests/dependency-scheduling.spec.js` (Sync Dependencies button) to open the relevant new menu before interacting with a control that moved inside it -- an intentional behavior change (these controls are no longer always visible), not a regression. Every other existing test that touches these controls does so via `page.evaluate()` DOM assignment rather than a real Playwright click, so it was already unaffected by the controls no longer being visible by default -- verified directly rather than assumed.
+- Verified with a real Playwright run against genuine vendored copies of jsuites/jexcel/frappe-gantt/papaparse (this sandbox's egress blocks the live CDN hosts): the new/changed tests plus every mobile-toolbar and export-menu spec (54 tests), a second batch of every other spec file touching Zoom/Weekends off/Critical path (62 tests), and the full suite, all green apart from the same pre-existing, harness-only failures already documented in earlier changelog entries (pdf-export/pwa/reload-related/row-id-backfill).
+
 ## [2.32.0] - 2026-09-07
 
 ### ✨ Added

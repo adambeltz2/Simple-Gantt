@@ -1578,18 +1578,32 @@
                 return html;
             });
             let out = ''; let listType = null;
-            const closeList = () => { if (listType) { out += listType === 'ul' ? '</ul>' : '</ol>'; listType = null; } };
+            const closeList = () => {
+                if (listType === 'ol') out += '</ol>';
+                else if (listType === 'ul' || listType === 'task') out += '</ul>';
+                listType = null;
+            };
 
             const headingSizes = { 1: '20px', 2: '17px', 3: '15px', 4: '13.5px', 5: '13px', 6: '12.5px' };
 
             lines.forEach(line => {
                 const heading = /^\s*(#{1,6})\s+(.*)$/.exec(line);
-                const bullet = /^\s*[-*]\s+(.*)$/.exec(line);
+                // Task-list items ("- [ ] ..." / "- [x] ...") are checked
+                // before the plain-bullet regex, since they'd otherwise
+                // match that too -- the "[ ]"/"[x]" marker just becomes
+                // part of the bullet's text.
+                const task = /^\s*[-*]\s+\[([ xX])\]\s+(.*)$/.exec(line);
+                const bullet = !task && /^\s*[-*]\s+(.*)$/.exec(line);
                 const numbered = /^\s*\d+\.\s+(.*)$/.exec(line);
                 if (heading) {
                     closeList();
                     const level = heading[1].length;
                     out += `<h${level} style="margin:10px 0 4px; font-size:${headingSizes[level]}; font-weight:700; line-height:1.3;">${heading[2]}</h${level}>`;
+                } else if (task) {
+                    if (listType !== 'task') { closeList(); out += '<ul style="margin:4px 0; padding-left:4px; list-style:none;">'; listType = 'task'; }
+                    const checked = task[1].toLowerCase() === 'x';
+                    const textStyle = checked ? 'text-decoration:line-through; color:#94a3b8;' : '';
+                    out += `<li style="display:flex; align-items:flex-start; gap:6px; margin:2px 0;"><input type="checkbox" disabled ${checked ? 'checked' : ''} style="margin-top:3px; flex-shrink:0;"><span style="${textStyle}">${task[2]}</span></li>`;
                 } else if (bullet) {
                     if (listType !== 'ul') { closeList(); out += '<ul style="margin:4px 0; padding-left:20px;">'; listType = 'ul'; }
                     out += `<li>${bullet[1]}</li>`;

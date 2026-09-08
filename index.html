@@ -752,7 +752,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.33.0";
+        const APP_VERSION = "2.33.1";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -3791,7 +3791,20 @@
                         items.push({ title: '🎯 Move to Task ID...', onclick: () => openMoveTaskModal(rowIdx) });
                         items.push({ title: 'Insert row above', onclick: () => sheet.insertRow(1, parseInt(y), 1) });
                         items.push({ title: 'Insert row below', onclick: () => sheet.insertRow(1, parseInt(y), 0) });
-                        items.push({ title: 'Delete row', onclick: () => sheet.deleteRow(parseInt(y), 1) });
+                        items.push({
+                            title: 'Delete row',
+                            onclick: () => {
+                                // Right-clicking inside a dragged multi-row selection should delete
+                                // the whole selection, not just the row under the cursor -- otherwise
+                                // "select 5 rows, Delete row" silently drops 4 of them.
+                                if (lastSelectionRange && lastSelectionRange.bottom > lastSelectionRange.top &&
+                                    rowIdx >= lastSelectionRange.top && rowIdx <= lastSelectionRange.bottom) {
+                                    sheet.deleteRow(lastSelectionRange.top, lastSelectionRange.bottom - lastSelectionRange.top + 1);
+                                } else {
+                                    sheet.deleteRow(rowIdx, 1);
+                                }
+                            }
+                        });
                     }
                     return items;
                 }

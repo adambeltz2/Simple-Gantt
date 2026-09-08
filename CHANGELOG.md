@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.33.1] - 2026-09-08
+
+### 🐛 Fixed
+
+#### "Delete row" only deleted one row out of a multi-row selection
+- User-reported: dragging to select several rows in the grid, then right-click -> "Delete row," only removed the single row under the cursor instead of the whole selection.
+- The row context menu's "Delete row" handler always called `sheet.deleteRow(parseInt(y), 1)` -- hardcoded to the one row the right-click landed on -- and never consulted `lastSelectionRange`, the same top/bottom selection range Bulk Edit (backlog #14) already tracks via jexcel's `onselection` callback.
+- Fixed by having "Delete row" check whether the right-clicked row falls inside a real (2+ row) `lastSelectionRange`: if so, it deletes the whole range in one `deleteRow` call; otherwise (no selection, or right-clicking outside a stale one) it falls back to just the single clicked row, unchanged from before.
+
+### 🧪 Testing
+- Added `tests/delete-row-multiselect.spec.js`: a single right-click with no selection still deletes only that row; right-clicking inside a dragged multi-row selection deletes the whole selection; right-clicking outside a stale selection still deletes only the clicked row; a multi-row delete updates the Gantt chart and triggers a save.
+- Verified with a real Playwright run against genuine vendored copies of jsuites/jexcel/frappe-gantt/papaparse (fetched from npm, served via `page.route()`), since this sandbox's outbound network blocks the live CDN hosts -- all 4 new tests passed, plus `bulk-edit.spec.js`, `move-task-to-id.spec.js`, `grid-search.spec.js`, and `undo-redo.spec.js` re-run against the same vendored copies with no regressions (one pre-existing, unrelated failure in `row-id-backfill.spec.js` -- the same vendored-jexcel synchronous-onchange timing quirk already documented in earlier changelog entries -- reproduces identically and is unrelated to this change).
+
+---
+
 ## [2.33.0] - 2026-09-08
 
 ### ✨ Added

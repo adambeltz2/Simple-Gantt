@@ -158,6 +158,7 @@ test('by default, checking a label does not change the Gantt chart', async ({ pa
 test('"Label in chart" narrows the Gantt chart to the checked label(s)', async ({ page }) => {
   const before = await page.locator('.gantt .bar-wrapper').count();
 
+  await page.click('#viewOptionsBtn'); // "Label in chart" lives behind the View options menu (backlog #17)
   await page.check('#applyLabelToChart');
   await setLabelChecked(page, 'System A', true);
   await page.waitForTimeout(300);
@@ -168,6 +169,7 @@ test('"Label in chart" narrows the Gantt chart to the checked label(s)', async (
 });
 
 test('"Label in chart" with two labels checked shows both matching tasks', async ({ page }) => {
+  await page.click('#viewOptionsBtn'); // "Label in chart" lives behind the View options menu (backlog #17)
   await page.check('#applyLabelToChart');
   await setLabelChecked(page, 'System A', true);
   await setLabelChecked(page, 'System B', true);
@@ -180,10 +182,15 @@ test('"Label in chart" with two labels checked shows both matching tasks', async
 test('turning "Label in chart" back off restores the full chart', async ({ page }) => {
   const before = await page.locator('.gantt .bar-wrapper').count();
 
+  await page.click('#viewOptionsBtn'); // "Label in chart" lives behind the View options menu (backlog #17)
   await page.check('#applyLabelToChart');
   await setLabelChecked(page, 'System A', true);
   await page.waitForTimeout(300);
 
+  // setLabelChecked() above clicked the (separate) Label filter dropdown
+  // trigger, which closed the View options dropdown via its outside-click
+  // listener -- reopen it before interacting with the checkbox again.
+  await page.click('#viewOptionsBtn');
   await page.uncheck('#applyLabelToChart');
   await page.waitForTimeout(300);
 

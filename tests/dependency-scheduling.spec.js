@@ -87,6 +87,7 @@ test('parent dates roll up from children live, without the button', async ({ pag
 });
 
 test('Sync Dependencies forces a resync and reports success', async ({ page }) => {
+  await page.click('#toolsMenuBtn'); // Sync Dependencies lives behind the Tools menu (backlog #17)
   await page.click('button[onclick="syncDependencies()"]');
   await page.waitForTimeout(300);
 
@@ -95,6 +96,7 @@ test('Sync Dependencies forces a resync and reports success', async ({ page }) =
 
 test('Sync Dependencies is idempotent on already-converged data', async ({ page }) => {
   const before = await page.evaluate(() => sheet.getData());
+  await page.click('#toolsMenuBtn'); // Sync Dependencies lives behind the Tools menu (backlog #17)
   await page.click('button[onclick="syncDependencies()"]');
   await page.waitForTimeout(300);
   const after = await page.evaluate(() => sheet.getData());

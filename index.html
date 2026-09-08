@@ -1630,7 +1630,15 @@
             document.getElementById('notesModal').classList.add('active');
         }
 
+        function isNotesEditDirty() {
+            const textarea = document.getElementById('notesEditTextarea');
+            if (!textarea || !notesModalContext) return false;
+            const { row, col } = notesModalContext;
+            return textarea.value !== (sheet.getData()[row][col] || '');
+        }
+
         function closeNotesModal() {
+            if (isNotesEditDirty() && !confirm('You have unsaved changes to these notes. Discard them?')) return;
             document.getElementById('notesModal').classList.remove('active');
             notesModalContext = null;
         }
@@ -3606,7 +3614,14 @@
             document.getElementById('projectNotesModal').classList.add('active');
         }
 
+        function isProjectNotesEditDirty() {
+            const textarea = document.getElementById('projectNotesEditTextarea');
+            if (!textarea) return false;
+            return textarea.value !== getProjectNotes();
+        }
+
         function closeProjectNotesModal() {
+            if (isProjectNotesEditDirty() && !confirm('You have unsaved changes to these notes. Discard them?')) return;
             document.getElementById('projectNotesModal').classList.remove('active');
         }
 

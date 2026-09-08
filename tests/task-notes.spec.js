@@ -98,6 +98,43 @@ test('right-clicking Labels no longer offers Insert Column Right (Notes must sta
   expect(titles.some((t) => t.includes('Core columns cannot be modified'))).toBe(true);
 });
 
+test('clicking outside the modal while editing prompts before discarding unsaved changes', async ({ page }) => {
+  const flag = await notesFlag(page, 0);
+  await flag.click();
+  await page.click('#notesEditBtn');
+  await page.fill('#notesEditTextarea', 'unsaved draft');
+
+  let dialogMessage = '';
+  page.once('dialog', async (dialog) => {
+    dialogMessage = dialog.message();
+    await dialog.dismiss();
+  });
+  await page.click('#notesModal', { position: { x: 5, y: 5 } });
+  expect(dialogMessage).toContain('unsaved changes');
+  await expect(page.locator('#notesModal')).toHaveClass(/active/);
+  await expect(page.locator('#notesEditTextarea')).toHaveValue('unsaved draft');
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.click('#notesModal', { position: { x: 5, y: 5 } });
+  await expect(page.locator('#notesModal')).not.toHaveClass(/active/);
+
+  const stored = await page.evaluate((c) => sheet.getData()[0][c], COL.NOTES);
+  expect(stored).not.toBe('unsaved draft');
+});
+
+test('clicking outside the modal does not prompt when there are no unsaved changes', async ({ page }) => {
+  const flag = await notesFlag(page, 0);
+  await flag.click();
+
+  let dialogFired = false;
+  page.once('dialog', (dialog) => { dialogFired = true; dialog.dismiss(); });
+  await page.click('#notesModal', { position: { x: 5, y: 5 } });
+  await page.waitForTimeout(100);
+
+  expect(dialogFired).toBe(false);
+  await expect(page.locator('#notesModal')).not.toHaveClass(/active/);
+});
+
 test('Notes round-trips through CSV export/import at its fixed core position', async ({ page }) => {
   const fs = require('fs');
   await page.evaluate((c) => sheet.setValueFromCoords(c, 0, 'Exported note', true), COL.NOTES);

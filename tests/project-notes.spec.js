@@ -110,6 +110,41 @@ test('project notes are per-project, not shared globally', async ({ page }) => {
   await expect(page.locator('#projectNotesBody')).toContainText('No project notes yet');
 });
 
+test('clicking outside the modal while editing prompts before discarding unsaved changes', async ({ page }) => {
+  await page.click('#btnProjectNotes');
+  await page.click('#projectNotesEditBtn');
+  await page.fill('#projectNotesEditTextarea', 'unsaved draft');
+
+  let dialogMessage = '';
+  page.once('dialog', async (dialog) => {
+    dialogMessage = dialog.message();
+    await dialog.dismiss();
+  });
+  await page.click('#projectNotesModal', { position: { x: 5, y: 5 } });
+  expect(dialogMessage).toContain('unsaved changes');
+  await expect(page.locator('#projectNotesModal')).toHaveClass(/active/);
+  await expect(page.locator('#projectNotesEditTextarea')).toHaveValue('unsaved draft');
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.click('#projectNotesModal', { position: { x: 5, y: 5 } });
+  await expect(page.locator('#projectNotesModal')).not.toHaveClass(/active/);
+
+  const stored = await page.evaluate(() => appDB.projects[appDB.activeId].projectNotes);
+  expect(stored).not.toBe('unsaved draft');
+});
+
+test('clicking outside the modal does not prompt when there are no unsaved changes', async ({ page }) => {
+  await page.click('#btnProjectNotes');
+
+  let dialogFired = false;
+  page.once('dialog', (dialog) => { dialogFired = true; dialog.dismiss(); });
+  await page.click('#projectNotesModal', { position: { x: 5, y: 5 } });
+  await page.waitForTimeout(100);
+
+  expect(dialogFired).toBe(false);
+  await expect(page.locator('#projectNotesModal')).not.toHaveClass(/active/);
+});
+
 test('project notes have no footprint in CSV export headers', async ({ page }) => {
   const headers = await page.evaluate(() => sheet.options.columns.map((c) => c.title));
   expect(headers).toEqual([

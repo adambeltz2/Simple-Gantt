@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.35.1] - 2026-09-09
+
+### 🔧 Changed
+
+#### More noticeable "In Progress" flag
+- User-requested: the manual per-row "In Progress" flag (the ○/● dot in the Task ID column) was too subtle to notice at a glance. The dot marker grew from 11px to 16px, the row tint went from a near-white `#f3e8ff` to a much stronger `#d8b4fe`, and flagged rows now also get a solid purple left accent bar (`#7e22ce`) so a flagged row is obvious even scanning the grid quickly.
+- Still purely a grid-view annotation: zero effect on the Gantt chart, `sheet.getData()`, or anything exported/backed up.
+
 ## [2.35.0] - 2026-09-09
 
 ### ✨ Added

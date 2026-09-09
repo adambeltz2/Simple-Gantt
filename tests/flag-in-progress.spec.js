@@ -5,9 +5,18 @@ const { test, expect } = require('./fixtures');
 // column that tints the grid row purple. Per the feature request, this must
 // have zero effect on the Gantt chart and zero footprint in exported/backed
 // up data -- it's a pure grid-view annotation, stored outside sheet data.
+// User-requested follow-up: the original tint (#f3e8ff) and the dot marker
+// itself were both too subtle to notice at a glance -- the tint is now a
+// stronger #d8b4fe with a solid left accent bar, and the dot marker grew
+// from 11px to 16px.
 
 test('every row gets a flag toggle in the Task ID column', async ({ page }) => {
   await expect(page.locator('.row-flag-toggle')).toHaveCount(5);
+});
+
+test('the flag dot marker is sized to be easy to spot, not the original tiny 11px', async ({ page }) => {
+  const fontSize = await page.locator('.row-flag-toggle').first().evaluate((el) => getComputedStyle(el).fontSize);
+  expect(parseFloat(fontSize)).toBeGreaterThanOrEqual(16);
 });
 
 test('clicking the flag toggle tints the row purple and records the flag', async ({ page }) => {
@@ -19,10 +28,14 @@ test('clicking the flag toggle tints the row purple and records the flag', async
   expect(flagged).toEqual(['2']);
 
   const bg = await page.evaluate(() => sheet.rows[1].style.backgroundColor);
-  expect(bg).toBe('rgb(243, 232, 255)'); // #f3e8ff
+  expect(bg).toBe('rgb(216, 180, 254)'); // #d8b4fe
+  const accent = await page.evaluate(() => sheet.rows[1].style.boxShadow);
+  expect(accent).toBe('rgb(126, 34, 206) 4px 0px 0px 0px inset'); // #7e22ce
 
   const otherBg = await page.evaluate(() => sheet.rows[0].style.backgroundColor);
   expect(otherBg).toBe('');
+  const otherAccent = await page.evaluate(() => sheet.rows[0].style.boxShadow);
+  expect(otherAccent).toBe('');
 });
 
 test('clicking again clears the flag and the purple tint', async ({ page }) => {
@@ -73,7 +86,7 @@ test('flag state persists per project across a reload', async ({ page }) => {
   const flagged = await page.evaluate(() => appDB.projects[appDB.activeId].flagged);
   expect(flagged).toEqual(['2']);
   const bg = await page.evaluate(() => sheet.rows[1].style.backgroundColor);
-  expect(bg).toBe('rgb(243, 232, 255)');
+  expect(bg).toBe('rgb(216, 180, 254)');
 });
 
 test('the row right-click menu offers "Mark In Progress" as a second way to flag a row', async ({ page }) => {
@@ -91,7 +104,7 @@ test('the row right-click menu offers "Mark In Progress" as a second way to flag
   const flagged = await page.evaluate(() => appDB.projects[appDB.activeId].flagged);
   expect(flagged).toEqual(['2']);
   const bg = await page.evaluate(() => sheet.rows[1].style.backgroundColor);
-  expect(bg).toBe('rgb(243, 232, 255)');
+  expect(bg).toBe('rgb(216, 180, 254)');
 });
 
 test('the right-click menu label flips to "Clear In Progress Flag" once a row is flagged, and clicking it unflags', async ({ page }) => {

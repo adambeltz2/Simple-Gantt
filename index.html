@@ -752,7 +752,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.33.3";
+        const APP_VERSION = "2.34.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -2413,6 +2413,31 @@
             }
         }
 
+        // User-reported: a project whose Resource cells were already
+        // populated before the named-resources registry existed (backlog
+        // #12) -- or restored/synced from a path that never ran CSV
+        // import's own merge step -- otherwise loads with an empty
+        // registry. The quick-pick picker then shows "No named resources
+        // yet" for every row despite dozens of names already sitting in
+        // the grid, and only grows one cell (or one cell's worth of
+        // comma/semicolon-separated names) at a time as each Resource cell
+        // happens to get individually re-edited. Runs once per project on
+        // every load, additive-only and idempotent (a project that already
+        // has every name registered is untouched), so the picker is fully
+        // populated from the very first render instead of only catching up
+        // as the user incidentally touches cells.
+        function backfillResourcesRegistry(proj) {
+            if (!proj) return;
+            const known = new Set((proj.resources || []).map(r => r.toLowerCase()));
+            const additions = collectResourceNamesFromRows(proj.data).filter(n => !known.has(n.toLowerCase()));
+            if (additions.length > 0) {
+                proj.resources = (proj.resources || []).concat(additions).sort((a, b) => a.localeCompare(b));
+            }
+        }
+        for (let pid in appDB.projects) {
+            backfillResourcesRegistry(appDB.projects[pid]);
+        }
+
         // Same additive merge as mergeResourceNamesFromRows(), but for one
         // Resource-cell commit (direct typing in the grid, or a Bulk Edit
         // application -- both land here via the grid's own onchange, one
@@ -3815,6 +3840,11 @@
                     } else {
                         let rowIdx = parseInt(y);
                         let rowCount = sheet.getData().length;
+                        let flagRowID = sheet.getData()[rowIdx][COL.ID];
+                        items.push({
+                            title: isFlagged(flagRowID) ? '○ Clear In Progress Flag' : '● Mark In Progress',
+                            onclick: () => toggleFlag(flagRowID)
+                        });
                         items.push({ title: '⬆️ Move row up', disabled: rowIdx === 0, onclick: () => moveRow(rowIdx, -1) });
                         items.push({ title: '⬇️ Move row down', disabled: rowIdx === rowCount - 1, onclick: () => moveRow(rowIdx, 1) });
                         items.push({ title: '🎯 Move to Task ID...', onclick: () => openMoveTaskModal(rowIdx) });

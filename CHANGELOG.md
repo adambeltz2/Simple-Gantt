@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.33.4] - 2026-09-09
+
+### 🐛 Fixed
+
+#### The Resource quick-pick picker showed "No named resources yet" despite dozens of names already in the grid
+- User-reported: on a real project, clicking the picker icon (▾) on a Resource cell appeared to do nothing useful -- it opened, but was empty, even though many other rows already had names like "Adam Beltz" or "Pooja Agarwal" typed into their own Resource cells.
+- Root cause: the named-resources registry (backlog #12) is populated additively whenever names arrive through a path that already calls its merge helpers -- CSV import and the Dropbox cross-device discovery path both do -- but the plain page-load-from-`localStorage` path only ever defaulted a missing `resources` key to an empty array, with no equivalent backfill from the project's own existing Resource-column data. A project whose Resource cells were populated before the registry existed (or synced/restored some other way) loaded with an empty registry that only grew one cell (or one cell's worth of comma/semicolon-separated names) at a time, as each Resource cell happened to get individually re-edited.
+- Fixed with `backfillResourcesRegistry()`, run once per project in the same startup loop as `normalizeData()`/`migrateLegacyNotesColumn()`: additive-only and idempotent, so it scans every row's Resource cell and merges in any name not already registered, without touching a project that's already fully backfilled.
+- Investigated a related report of the picker "not responding" to clicks and the App becoming unresponsive on the same large project; could not reproduce either as a real regression against a fresh checkout -- most likely explained by the same empty-registry symptom (an empty popover looks unresponsive) rather than a separate bug.
+
+### 🧪 Testing
+- Added `tests/resource-registry-backfill.spec.js` (5 tests): an empty-registry project backfills correctly from existing Resource data; an already-fully-registered project is left untouched (idempotent, no duplicates/reordering); an allocation suffix like `(50%)` is stripped during backfill, matching every other resource-name path; the function is confirmed wired into the app; the picker popover reflects a freshly backfilled registry on the very first open, not just after a live edit.
+- Re-ran `named-resources.spec.js`, `resource-colors.spec.js`, `bulk-edit.spec.js`, `workload-dashboard.spec.js`, `csv-roundtrip.spec.js`, and `task-notes.spec.js` (65 tests total) against real vendored copies of jsuites/jexcel/frappe-gantt/papaparse (this sandbox's egress blocks the live CDN hosts) -- all green, including `task-notes.spec.js`'s existing "clicking outside the modal while editing prompts before discarding unsaved changes" test, independently reconfirming that a separately-reported Notes dirty-check issue does not reproduce against current code.
+
 ## [2.33.3] - 2026-09-08
 
 ### 🐛 Fixed

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.35.0] - 2026-09-09
+
+### ✨ Added
+
+#### Task Notes in the row right-click menu
+- User-requested: a right-click way to open a task's Notes, alongside the existing 📝/+ flag icon in the Notes column.
+- The row context menu now has "📝 Add Notes" (empty note) or "📝 View/Edit Notes" (already has one) -- the label reflects the row's current state, same as the flag icon it sits next to. Calls the exact same `openNotesModal()` the icon already uses, targeting the row's core Notes column (`COL.NOTES`) specifically, so both entry points open the identical modal/renderer with zero new code.
+
+### 🧪 Testing
+- Added to `tests/task-notes.spec.js` (3 new tests): the menu item is present with "Add Notes" for an empty note and opens the modal on the correct row; the label switches to "View/Edit Notes" once a note exists; the menu item targets the right-clicked row specifically (not row 0), and saving through it writes back to that row's own cell.
+- Re-ran a regression batch (`flag-in-progress.spec.js`, `delete-row-multiselect.spec.js`, `move-task-to-id.spec.js`, `notes-field.spec.js`, `project-notes.spec.js`, `bulk-edit.spec.js` -- 57 tests, since this touches the same row-context-menu builder those all share) against real vendored copies of jsuites/jexcel/frappe-gantt/papaparse (this sandbox's egress blocks the live CDN hosts) -- all green apart from the same two pre-existing, harness-only `page.reload()` failures already documented in earlier changelog entries.
+
 ## [2.34.0] - 2026-09-09
 
 ### ✨ Added

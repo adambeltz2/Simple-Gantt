@@ -752,7 +752,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.34.0";
+        const APP_VERSION = "2.35.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -3844,6 +3844,10 @@
                         items.push({
                             title: isFlagged(flagRowID) ? '○ Clear In Progress Flag' : '● Mark In Progress',
                             onclick: () => toggleFlag(flagRowID)
+                        });
+                        items.push({
+                            title: (sheet.getData()[rowIdx][COL.NOTES] || '').trim() ? '📝 View/Edit Notes' : '📝 Add Notes',
+                            onclick: () => openNotesModal(rowIdx, COL.NOTES)
                         });
                         items.push({ title: '⬆️ Move row up', disabled: rowIdx === 0, onclick: () => moveRow(rowIdx, -1) });
                         items.push({ title: '⬇️ Move row down', disabled: rowIdx === rowCount - 1, onclick: () => moveRow(rowIdx, 1) });

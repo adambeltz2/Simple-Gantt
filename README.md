@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.34.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-2.35.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
 
@@ -14,7 +14,7 @@ A lightweight, browser-based Gantt chart and task management tool. No server req
 - **Manual "In Progress" Flag** – Click the marker next to any Task ID, or right-click the row and choose "Mark In Progress," to tint that grid row purple for your own ad-hoc tracking; grid-only, never touches the Gantt chart or CSV export
 - **100%-Done Checkmark** – A task at 100% gets a small ✓ next to its name in the grid, in the same spot the critical-path ⚡ icon uses (both can show together). Grid-only, applies to parent rows too since their % Done is itself a live rollup of their children
 - **Late Indicator** – The End column tints itself automatically: red if it's in the past, yellow if it's today, no color if it's not due yet. Pure date math (doesn't consult % Done), applies to every row including parents. Grid-only, like the In Progress flag
-- **Task Notes** – Every task has a built-in Notes column (right after Labels) -- no setup needed. Click its flag for a small click-to-expand modal rendering a lightweight Markdown subset (headers, bold, italic, links, lists); still a plain-text cell underneath, so it round-trips through CSV import/export like any other column. (A custom column named "Notes" still gets the same treatment too, for anyone using that older convention.)
+- **Task Notes** – Every task has a built-in Notes column (right after Labels) -- no setup needed. Click its flag, or right-click the row and choose "Add Notes"/"View/Edit Notes," for a small click-to-expand modal rendering a lightweight Markdown subset (headers, bold, italic, links, lists, task checkboxes); still a plain-text cell underneath, so it round-trips through CSV import/export like any other column. (A custom column named "Notes" still gets the same treatment too, for anyone using that older convention.)
 - **Project Notes** – A single Markdown note for the whole project, separate from any one task -- scope, context, a changelog of decisions. Opened via the toolbar's "Notes" button, using the same click-to-expand-and-edit Markdown UX as the per-task Notes column. Stored with the project alongside the named-resources registry and collapse state: localStorage-only, not part of CSV export or Dropbox backup
 - **Grid Search/Filter** – Filter rows by any column's value -- Task Name, Resource, % Done, dates, custom columns, all of it; matches keep their parent/ancestor chain visible for context, and search composes with Collapse (a manually collapsed section stays collapsed even if something inside it matches)
 - **Structured Filters** – A toolbar "Filters" button groups four dedicated, per-field filters -- Resource (checkbox multi-select over your named resources), % Done (Not started / In progress / Complete), and a From/To date range each for Start and End. All four compose with each other, with Grid Search, and with Labels via AND; a "Clear filters" link resets them at once. View-only, like every other filter here

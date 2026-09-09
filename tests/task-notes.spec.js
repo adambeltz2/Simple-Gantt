@@ -176,6 +176,43 @@ test('a CSV exported before Notes existed (no Notes header) imports with a blank
   expect(row[13]).toBe('PROJ-9');
 });
 
+test('the row right-click menu offers "Add Notes" for an empty note, and opens the modal', async ({ page }) => {
+  const items = await page.evaluate(() => sheet.options.contextMenu(sheet, undefined, '0', {}));
+  const notesItem = items.find((i) => i.title.includes('Notes'));
+  expect(notesItem.title).toBe('📝 Add Notes');
+
+  await page.evaluate(() => {
+    const item = sheet.options.contextMenu(sheet, undefined, '0', {}).find((i) => i.title.includes('Notes'));
+    item.onclick();
+  });
+  await expect(page.locator('#notesModal')).toHaveClass(/active/);
+  await expect(page.locator('#notesModalTitle')).toContainText('Website Redesign Phase');
+});
+
+test('the right-click menu label switches to "View/Edit Notes" once a row already has a note', async ({ page }) => {
+  await page.evaluate((c) => sheet.setValueFromCoords(c, 0, 'Existing note', true), COL.NOTES);
+  await page.waitForTimeout(200);
+
+  const items = await page.evaluate(() => sheet.options.contextMenu(sheet, undefined, '0', {}));
+  const notesItem = items.find((i) => i.title.includes('Notes'));
+  expect(notesItem.title).toBe('📝 View/Edit Notes');
+});
+
+test('right-click "Add Notes" targets the right-clicked row, not row 0, and saving writes back to the right cell', async ({ page }) => {
+  await page.evaluate(() => {
+    const item = sheet.options.contextMenu(sheet, undefined, '1', {}).find((i) => i.title.includes('Notes'));
+    item.onclick();
+  });
+  await page.click('#notesEditBtn');
+  await page.fill('#notesEditTextarea', 'Note for row 1');
+  await page.click('#notesSaveBtn');
+
+  const row1Notes = await page.evaluate((c) => sheet.getData()[1][c], COL.NOTES);
+  const row0Notes = await page.evaluate((c) => sheet.getData()[0][c], COL.NOTES);
+  expect(row1Notes).toBe('Note for row 1');
+  expect(row0Notes).toBe('');
+});
+
 test('a legacy in-memory project with a custom "Notes" column folds it into the core field on load (localStorage migration path)', async ({ page }) => {
   const before = await page.evaluate(() => {
     // Simulate what a pre-#22 save looked like: "Notes" as the project's

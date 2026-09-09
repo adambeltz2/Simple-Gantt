@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.33.4-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-2.34.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
 
@@ -11,7 +11,7 @@ A lightweight, browser-based Gantt chart and task management tool. No server req
 - **Spreadsheet Grid** – Edit tasks in a familiar table format
 - **Task Hierarchy** – Support for parent-child task relationships
 - **Collapse/Expand** – Fold a parent's children out of view in both the grid and chart, with "Expand All"/"Collapse All" toolbar controls; purely visual, your data is never touched
-- **Manual "In Progress" Flag** – Click the marker next to any Task ID to tint that grid row purple for your own ad-hoc tracking; grid-only, never touches the Gantt chart or CSV export
+- **Manual "In Progress" Flag** – Click the marker next to any Task ID, or right-click the row and choose "Mark In Progress," to tint that grid row purple for your own ad-hoc tracking; grid-only, never touches the Gantt chart or CSV export
 - **100%-Done Checkmark** – A task at 100% gets a small ✓ next to its name in the grid, in the same spot the critical-path ⚡ icon uses (both can show together). Grid-only, applies to parent rows too since their % Done is itself a live rollup of their children
 - **Late Indicator** – The End column tints itself automatically: red if it's in the past, yellow if it's today, no color if it's not due yet. Pure date math (doesn't consult % Done), applies to every row including parents. Grid-only, like the In Progress flag
 - **Task Notes** – Every task has a built-in Notes column (right after Labels) -- no setup needed. Click its flag for a small click-to-expand modal rendering a lightweight Markdown subset (headers, bold, italic, links, lists); still a plain-text cell underneath, so it round-trips through CSV import/export like any other column. (A custom column named "Notes" still gets the same treatment too, for anyone using that older convention.)

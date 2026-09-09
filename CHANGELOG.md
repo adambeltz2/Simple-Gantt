@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.34.0] - 2026-09-09
+
+### ✨ Added
+
+#### "Mark In Progress" in the row right-click menu
+- User-requested: a right-click way to flag a task as work-in-progress for tracking priority items -- the feature already existed (a click toggle on the ○/● dot next to any Task ID, tinting the row purple, shipped in v2.6.0), just not as a right-click menu item.
+- The row context menu (next to Move row up/down, Move to Task ID, Insert/Delete row) now has "● Mark In Progress" / "○ Clear In Progress Flag" -- the label reflects the right-clicked row's current state, same as every other toggle-style item in this app. Calls the exact same `toggleFlag()` the dot icon already uses, so both entry points stay in sync automatically -- no new state, no duplicated logic.
+
+### 🧪 Testing
+- Added to `tests/flag-in-progress.spec.js` (3 new tests): the menu item is present with the correct starting label and flags the row on click; the label flips to "Clear" once flagged and unflags on a second click; right-click flagging targets the right-clicked row's own Task ID (not row index or some other row), matching the dot toggle exactly.
+- Re-ran a regression batch (`delete-row-multiselect.spec.js`, `bulk-edit.spec.js`, `move-task-to-id.spec.js`, `collapse-expand.spec.js`, `undo-redo.spec.js` -- 42 tests, since this touches the same row-context-menu builder those all share) against real vendored copies of jsuites/jexcel/frappe-gantt/papaparse (this sandbox's egress blocks the live CDN hosts) -- all green apart from the same pre-existing, harness-only `page.reload()` failure already documented in earlier changelog entries.
+
 ## [2.33.4] - 2026-09-09
 
 ### 🐛 Fixed

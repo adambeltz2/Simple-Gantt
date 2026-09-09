@@ -752,7 +752,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.35.0";
+        const APP_VERSION = "2.35.1";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -2951,7 +2951,7 @@
                     dot.textContent = flagged ? '●' : '○';
                     dot.title = flagged ? 'Marked in progress (click to clear)' : 'Mark in progress';
                     dot.className = 'row-flag-toggle';
-                    dot.style.cssText = 'cursor:pointer; user-select:none; font-size:11px; margin-right:3px; color:' + (flagged ? '#9333ea' : '#cbd5e1') + ';';
+                    dot.style.cssText = 'cursor:pointer; user-select:none; font-size:16px; margin-right:3px; color:' + (flagged ? '#7e22ce' : '#cbd5e1') + ';';
                     // Same stopPropagation-on-mousedown trick as the collapse toggle,
                     // so this doesn't also trigger jexcel's cell selection/edit.
                     dot.addEventListener('mousedown', function(e) { e.stopPropagation(); });
@@ -3598,6 +3598,9 @@
 
         // Tints flagged rows purple in the grid only -- no effect on the Gantt
         // chart, sheet.getData(), or anything that gets exported/backed up.
+        // User-requested: a stronger, more noticeable tint than the original
+        // near-white shade, plus a visible left accent bar so a flagged row
+        // is obvious even scanning the grid quickly, not just on close look.
         function applyRowFlagStyling() {
             if (!sheet || !sheet.rows) return;
             const data = sheet.getData();
@@ -3605,7 +3608,9 @@
             data.forEach((row, index) => {
                 const id = (row[COL.ID] != null) ? row[COL.ID].toString().trim() : '';
                 if (sheet.rows[index]) {
-                    sheet.rows[index].style.backgroundColor = flaggedSet.has(id) ? '#f3e8ff' : '';
+                    const isFlaggedRow = flaggedSet.has(id);
+                    sheet.rows[index].style.backgroundColor = isFlaggedRow ? '#d8b4fe' : '';
+                    sheet.rows[index].style.boxShadow = isFlaggedRow ? 'inset 4px 0 0 0 #7e22ce' : '';
                 }
             });
         }

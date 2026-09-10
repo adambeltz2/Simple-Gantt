@@ -29,6 +29,7 @@ test.beforeEach(async ({ page }) => {
 
     appDB.projects[appDB.activeId].data = data;
     appDB.projects[appDB.activeId].resources = ['Alice', 'Bob'];
+    appDB.projects[appDB.activeId].labels = ['Design'];
     renderGrid(data);
     syncToGantt(true);
   }, COL);

@@ -143,6 +143,12 @@
         .resource-picker-toggle { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 5px; border-radius: 50%; background: #64748b; color: #fff; font-size: 9px; line-height: 1; vertical-align: middle; cursor: pointer; user-select: none; flex: none; }
         .resource-picker-toggle:hover { background: #2563eb; }
 
+        /* Same pattern as .resource-picker-toggle, its own class per this
+           app's convention (each picker icon owns its own CSS rule even when
+           visually identical) rather than reusing the Resource one. */
+        .label-picker-toggle { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 5px; border-radius: 50%; background: #64748b; color: #fff; font-size: 9px; line-height: 1; vertical-align: middle; cursor: pointer; user-select: none; flex: none; }
+        .label-picker-toggle:hover { background: #2563eb; }
+
         .header-btn { padding: 6px 10px !important; background: transparent; color: #94a3b8; border: 0.5px solid #334155; border-radius: 6px; font-size: 12.5px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 5px; }
         .header-btn:hover { background: #1e293b; color: #e2e8f0; }
         .header-btn.btn-danger { color: #F09595; border-color: #E24B4A; }
@@ -396,6 +402,10 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                     Resources
                 </button>
+                <button class="tbtn" onclick="openLabelManagerModal()" title="Name labels ahead of time so they're a quick-pick option (the ▾ icon) on the grid's Labels column">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 11 3.83V3H3v8h.83l9.58 9.59a2 2 0 0 0 2.83 0l4.35-4.35a2 2 0 0 0 0-2.83z"></path><circle cx="6.5" cy="6.5" r="1.5"></circle></svg>
+                    Labels
+                </button>
                 <button id="btnProjectNotes" class="tbtn" onclick="openProjectNotesModal()" title="Project-wide notes (Markdown) -- context, scope, decisions -- separate from any one task">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="13" y2="17"></line></svg>
                     Notes
@@ -648,6 +658,27 @@
         </div>
     </div>
 
+    <div id="labelManagerModal" class="modal" onclick="if(event.target===this) closeLabelManagerModal()">
+        <div class="modal-content" style="max-width: 420px; height: auto; padding: 24px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+                <h2 style="margin:0; color:#0f172a; font-size: 18px;">🏷️ Manage Labels</h2>
+            </div>
+            <p style="color:#64748b; font-size:12.5px; margin: 0 0 14px;">Named labels appear as a quick-pick list (the ▾ icon) when filling in the grid's Labels column. Renaming here updates every task already carrying that label; removing a label here only removes it from this list -- it doesn't clear any task already carrying it.</p>
+
+            <div style="display:flex; gap:8px; margin-bottom: 14px;">
+                <input id="newLabelNameInput" type="text" placeholder="e.g. Urgent" onkeydown="if(event.key==='Enter') addNewLabelName()"
+                    style="flex:1; box-sizing:border-box; padding:7px 8px; border:1px solid #cbd5e1; border-radius:4px; font-size:13px;">
+                <button onclick="addNewLabelName()" style="padding: 7px 14px; background: #185FA5; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size:13px;">Add</button>
+            </div>
+
+            <div id="labelManagerListContainer" style="max-height:280px; overflow-y:auto; margin-bottom: 16px;"></div>
+
+            <div style="display:flex; justify-content:flex-end; gap: 10px;">
+                <button onclick="closeLabelManagerModal()" style="padding: 8px 16px; background: #185FA5; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Done</button>
+            </div>
+        </div>
+    </div>
+
     <div id="dropboxInfoModal" class="modal" onclick="if(event.target===this) closeDropboxInfoModal()">
         <div class="modal-content" style="max-width: 480px; height: auto; padding: 30px;">
             <h2 style="margin:0 0 15px; color:#0f172a; font-size: 19px;">Dropbox is optional</h2>
@@ -752,7 +783,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.35.1";
+        const APP_VERSION = "2.36.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -771,7 +802,7 @@
         let appDB = {
             activeId: 'proj_1',
             settings: { skipWeekends: true, zoom: 'Day' },
-            projects: { 'proj_1': { name: 'Example Project', columns: [], data: sampleProjectData, collapsed: [], flagged: [], resources: ['Alice', 'Bob', 'Charlie'], projectNotes: '' } }
+            projects: { 'proj_1': { name: 'Example Project', columns: [], data: sampleProjectData, collapsed: [], flagged: [], resources: ['Alice', 'Bob', 'Charlie'], labels: ['Planning', 'Design', 'Development'], projectNotes: '' } }
         };
 
         try {
@@ -792,6 +823,7 @@
                     if (!appDB.projects[pid].collapsed) appDB.projects[pid].collapsed = [];
                     if (!appDB.projects[pid].flagged) appDB.projects[pid].flagged = [];
                     if (!appDB.projects[pid].resources) appDB.projects[pid].resources = [];
+                    if (!appDB.projects[pid].labels) appDB.projects[pid].labels = [];
                     appDB.projects[pid].data = normalizeData(appDB.projects[pid].data, appDB.projects[pid].columns.length);
                     migrateLegacyNotesColumn(appDB.projects[pid]);
                 }
@@ -887,6 +919,7 @@
                 collapsed: [],
                 flagged: [],
                 resources: [],
+                labels: [],
                 projectNotes: ''
             };
             appDB.activeId = newId;
@@ -1323,6 +1356,7 @@
             // always was), only the registry that drives the grid's quick-pick
             // list grows to cover what was actually imported.
             mergeResourceNamesFromRows(sanitized);
+            mergeLabelNamesFromRows(sanitized);
             reconcileImportedEndDates(sanitized);
             renderGrid(sanitized);
             syncToGantt(true);
@@ -1536,6 +1570,7 @@
                                 collapsed: [],
                                 flagged: [],
                                 resources: collectResourceNamesFromRows(data),
+                                labels: collectLabelNamesFromRows(data),
                                 projectNotes: ''
                             };
                             resolve();
@@ -2652,6 +2687,251 @@
             triggerSync();
         }
 
+        // ==========================================
+        // NAMED LABEL REGISTRY
+        // ==========================================
+        // Labels can now be named ahead of time (Manage Labels modal, per-project
+        // `labels` array) and picked from the grid instead of always typed from
+        // scratch -- one-to-one with the named-resources registry above (backlog
+        // #12), minus the allocation-suffix parsing Resource needs (a label has
+        // no "(50%)" concept, so no analog of splitResourceEntry is needed here).
+        // The Labels cell itself stays the exact same free-text, comma/semicolon-
+        // delimited field it always was; the registry is purely additive quick-pick
+        // metadata layered on top, same as Resources. Per explicit user decision,
+        // this stays structural only -- no color/badge treatment, unlike Resource's
+        // separate Gantt-bar color-coding feature.
+        function getProjectLabels() {
+            let proj = appDB.projects[appDB.activeId];
+            if (!proj.labels) proj.labels = [];
+            return proj.labels;
+        }
+
+        function collectLabelNamesFromRows(rows) {
+            const set = new Set();
+            (rows || []).forEach(row => {
+                parseLabelsCell(row ? row[COL.LABELS] : '').forEach(name => { if (name) set.add(name); });
+            });
+            return Array.from(set).sort((a, b) => a.localeCompare(b));
+        }
+
+        function mergeLabelNamesFromRows(rows) {
+            const labels = getProjectLabels();
+            const known = new Set(labels.map(l => l.toLowerCase()));
+            const additions = collectLabelNamesFromRows(rows).filter(n => !known.has(n.toLowerCase()));
+            if (additions.length > 0) {
+                appDB.projects[appDB.activeId].labels = labels.concat(additions).sort((a, b) => a.localeCompare(b));
+            }
+        }
+
+        // Same rationale and placement (after COL/parseLabelsCell are defined,
+        // in the startup migration loop) as backfillResourcesRegistry -- see
+        // its own comment above for the full story. Additive-only, idempotent.
+        function backfillLabelsRegistry(proj) {
+            if (!proj) return;
+            const known = new Set((proj.labels || []).map(l => l.toLowerCase()));
+            const additions = collectLabelNamesFromRows(proj.data).filter(n => !known.has(n.toLowerCase()));
+            if (additions.length > 0) {
+                proj.labels = (proj.labels || []).concat(additions).sort((a, b) => a.localeCompare(b));
+            }
+        }
+        for (let pid in appDB.projects) {
+            backfillLabelsRegistry(appDB.projects[pid]);
+        }
+
+        function mergeLabelNamesFromValue(value) {
+            const names = parseLabelsCell(value).filter(Boolean);
+            if (names.length === 0) return;
+            const labels = getProjectLabels();
+            const known = new Set(labels.map(l => l.toLowerCase()));
+            const additions = [];
+            names.forEach(name => {
+                const key = name.toLowerCase();
+                if (!known.has(key)) {
+                    known.add(key);
+                    additions.push(name);
+                }
+            });
+            if (additions.length > 0) {
+                appDB.projects[appDB.activeId].labels = labels.concat(additions).sort((a, b) => a.localeCompare(b));
+            }
+        }
+
+        function openLabelManagerModal() {
+            renderLabelManagerList();
+            document.getElementById('labelManagerModal').classList.add('active');
+        }
+
+        function closeLabelManagerModal() {
+            document.getElementById('labelManagerModal').classList.remove('active');
+        }
+
+        function renderLabelManagerList() {
+            const container = document.getElementById('labelManagerListContainer');
+            if (!container) return;
+            const labels = getProjectLabels();
+            container.innerHTML = '';
+            if (labels.length === 0) {
+                const empty = document.createElement('div');
+                empty.style.cssText = 'color:#94a3b8; font-size:12.5px; padding:8px 2px;';
+                empty.textContent = 'No named labels yet -- add one above.';
+                container.appendChild(empty);
+                return;
+            }
+            labels.forEach(name => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex; align-items:center; gap:8px; padding:6px 2px; border-bottom:1px solid #e2e8f0;';
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = name;
+                input.dataset.original = name;
+                input.style.cssText = 'flex:1; box-sizing:border-box; padding:6px 7px; border:1px solid #cbd5e1; border-radius:4px; font-size:13px;';
+                input.addEventListener('change', function() { onLabelRenameCommit(this); });
+
+                const delBtn = document.createElement('button');
+                delBtn.textContent = '×';
+                delBtn.title = 'Remove from list (tasks already carrying this label keep it as free text)';
+                delBtn.style.cssText = 'padding:5px 9px; background:#fee2e2; color:#991b1b; border:none; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;';
+                delBtn.addEventListener('click', function() { deleteLabelName(name); });
+
+                row.appendChild(input);
+                row.appendChild(delBtn);
+                container.appendChild(row);
+            });
+        }
+
+        function addNewLabelName() {
+            const input = document.getElementById('newLabelNameInput');
+            const name = (input.value || '').trim();
+            if (!name) return;
+            const labels = getProjectLabels();
+            if (!labels.some(l => l.toLowerCase() === name.toLowerCase())) {
+                labels.push(name);
+                labels.sort((a, b) => a.localeCompare(b));
+                saveToLocal();
+            }
+            input.value = '';
+            renderLabelManagerList();
+        }
+
+        function deleteLabelName(name) {
+            if (!confirm(`Remove "${name}" from the label list? Tasks already carrying this label keep it as free text -- this only affects future quick-pick suggestions.`)) return;
+            appDB.projects[appDB.activeId].labels = getProjectLabels().filter(l => l !== name);
+            saveToLocal();
+            renderLabelManagerList();
+        }
+
+        // Renaming a registered label also updates every task cell already
+        // carrying it, same rationale as onResourceRenameCommit.
+        function onLabelRenameCommit(inputEl) {
+            const oldName = inputEl.dataset.original;
+            const newName = (inputEl.value || '').trim();
+            if (!newName || newName === oldName) { inputEl.value = oldName; return; }
+            const labels = getProjectLabels();
+            if (labels.some(l => l !== oldName && l.toLowerCase() === newName.toLowerCase())) {
+                alert(`"${newName}" is already in the list.`);
+                inputEl.value = oldName;
+                return;
+            }
+            const idx = labels.indexOf(oldName);
+            if (idx > -1) labels[idx] = newName;
+            labels.sort((a, b) => a.localeCompare(b));
+            isSyncing = true;
+            renameLabelInGridRows(oldName, newName);
+            isSyncing = false;
+            renderLabelManagerList();
+            syncToGantt(true);
+        }
+
+        function renameLabelInGridRows(oldName, newName) {
+            if (!sheet) return;
+            const data = sheet.getData();
+            data.forEach((row, index) => {
+                const raw = row[COL.LABELS];
+                if (!raw) return;
+                let changed = false;
+                const renamed = parseLabelsCell(raw).map(name => {
+                    if (name.toLowerCase() !== oldName.toLowerCase()) return name;
+                    changed = true;
+                    return newName;
+                });
+                if (changed) sheet.setValueFromCoords(COL.LABELS, index, renamed.join(', '), true);
+            });
+        }
+
+        // Anchored popover, same lightweight pattern as the Resource quick-pick
+        // popover above -- opened from the picker icon formatCells() appends to
+        // every Labels cell, leaving the cell itself fully editable free text.
+        let labelPickerPopoverEl = null;
+
+        function openLabelPickerPopover(anchorEl, row) {
+            closeLabelPickerPopover();
+            const labels = getProjectLabels();
+            const popover = document.createElement('div');
+            popover.id = 'labelPickerPopover';
+            popover.style.cssText = 'position:fixed; background:#1e293b; border:1px solid #334155; border-radius:6px; padding:8px; min-width:170px; max-height:240px; overflow-y:auto; z-index:200; box-shadow:0 8px 20px rgba(0,0,0,0.35); font-size:12.5px;';
+
+            if (labels.length === 0) {
+                const empty = document.createElement('div');
+                empty.style.cssText = 'color:#94a3b8; padding:4px 2px; white-space:nowrap; max-width:220px; white-space:normal;';
+                empty.textContent = 'No named labels yet -- add some via "Labels" in the toolbar.';
+                popover.appendChild(empty);
+            } else {
+                const rowData = sheet.getData()[row] || [];
+                const currentNames = new Set(parseLabelsCell(rowData[COL.LABELS]).map(n => n.toLowerCase()));
+                labels.forEach(name => {
+                    const label = document.createElement('label');
+                    label.style.cssText = 'display:flex; align-items:center; gap:8px; padding:5px 4px; color:#e2e8f0; cursor:pointer; white-space:nowrap;';
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.className = 'labelPickerCheckbox';
+                    cb.checked = currentNames.has(name.toLowerCase());
+                    cb.addEventListener('change', function() { toggleLabelOnRow(row, name, cb.checked); });
+                    label.appendChild(cb);
+                    label.appendChild(document.createTextNode(name));
+                    popover.appendChild(label);
+                });
+            }
+
+            document.body.appendChild(popover);
+            const rect = anchorEl.getBoundingClientRect();
+            popover.style.top = (rect.bottom + 4) + 'px';
+            popover.style.left = rect.left + 'px';
+            const overflowX = rect.left + popover.offsetWidth - window.innerWidth;
+            if (overflowX > 0) popover.style.left = Math.max(4, rect.left - overflowX - 8) + 'px';
+
+            labelPickerPopoverEl = popover;
+        }
+
+        function closeLabelPickerPopover() {
+            if (labelPickerPopoverEl && labelPickerPopoverEl.parentNode) {
+                labelPickerPopoverEl.parentNode.removeChild(labelPickerPopoverEl);
+            }
+            labelPickerPopoverEl = null;
+        }
+
+        document.addEventListener('click', function(e) {
+            if (!labelPickerPopoverEl) return;
+            if (labelPickerPopoverEl.contains(e.target)) return;
+            if (e.target.classList && e.target.classList.contains('label-picker-toggle')) return;
+            closeLabelPickerPopover();
+        });
+
+        function toggleLabelOnRow(row, name, checked) {
+            if (!sheet) return;
+            const raw = sheet.getData()[row][COL.LABELS];
+            const entries = parseLabelsCell(raw);
+            let next;
+            if (checked) {
+                const already = entries.some(e => e.toLowerCase() === name.toLowerCase());
+                next = already ? entries : entries.concat([name]);
+            } else {
+                next = entries.filter(e => e.toLowerCase() !== name.toLowerCase());
+            }
+            sheet.setValueFromCoords(COL.LABELS, row, next.join(', '), true);
+            triggerSync();
+        }
+
         function shouldSkipWeekends() { return document.getElementById('skipWeekends').checked; }
 
         // End is inclusive: it's the last day of work, matching what "End"
@@ -2986,6 +3266,21 @@
                     cell.appendChild(picker);
                 }
 
+                if (col == COL.LABELS) {
+                    // Same quick-pick pattern as Resource above -- see the
+                    // "NAMED LABEL REGISTRY" comment for why the cell itself
+                    // stays plain free text.
+                    cell.innerHTML = '';
+                    cell.appendChild(document.createTextNode(val != null ? val : ''));
+                    const picker = document.createElement('span');
+                    picker.textContent = '▾';
+                    picker.title = 'Pick from named labels';
+                    picker.className = 'label-picker-toggle';
+                    picker.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+                    picker.addEventListener('click', function(e) { e.stopPropagation(); openLabelPickerPopover(picker, row); });
+                    cell.appendChild(picker);
+                }
+
                 if (col == COL.NAME) {
                     cell.style.textAlign = 'left';
                     if (depth > 0) {
@@ -3181,18 +3476,18 @@
         // to isolate those labels there.
         let labelFilterValues = new Set();
 
-        function getAllLabelsInProject(data) {
-            const set = new Set();
-            (data || []).forEach(row => parseLabelsCell(row[COL.LABELS]).forEach(l => set.add(l)));
-            return Array.from(set).sort((a, b) => a.localeCompare(b));
-        }
-
-        function refreshLabelFilterOptions(data) {
+        // Sourced from the named-labels registry, matching
+        // refreshResourceFilterOptions()'s own pattern (see its comment) --
+        // a complete, stable list rather than re-deriving one from the grid's
+        // current data on every render. A registered-but-currently-unused
+        // label now appears as a filter option too, same as Resource already
+        // behaves.
+        function refreshLabelFilterOptions() {
             const container = document.getElementById('labelFilterOptions');
             if (!container) return;
-            const labels = getAllLabelsInProject(data);
-            // Drop any checked label that no longer exists in this project's data
-            // (e.g. after switching projects, or the last task carrying it changed).
+            const labels = getProjectLabels();
+            // Drop any checked label that's no longer registered (e.g. after
+            // switching projects, or after it was removed via Manage Labels).
             labelFilterValues = new Set(Array.from(labelFilterValues).filter(l => labels.includes(l)));
             container.innerHTML = labels.length === 0
                 ? '<div style="color:#64748b; font-size:12px; padding:4px 2px;">No labels yet</div>'
@@ -3910,6 +4205,7 @@
         function onGridCellChange(el, cell, x, y, value) {
             const col = parseInt(x, 10);
             if (col === COL.RESOURCE) mergeResourceNamesFromValue(value);
+            if (col === COL.LABELS) mergeLabelNamesFromValue(value);
 
             // A direct edit to End on a leaf task (backlog #18) makes it the
             // authoritative date for that row -- back-solve Duration from
@@ -4211,7 +4507,7 @@
                 let sourceList = rawData.map(r => ({ id: r[COL.ID], name: `${r[COL.ID]} - ${r[COL.NAME] || ''}` })).filter(r => r.id);
                 sheet.options.columns[COL.DEP].source = sourceList;
                 sheet.options.columns[COL.PARENT].source = sourceList;
-                refreshLabelFilterOptions(rawData);
+                refreshLabelFilterOptions();
 
                 let tasksMap = {};
                 let parentIDs = [...new Set(rawData.map(r => (r[COL.PARENT] !== r[COL.ID] ? r[COL.PARENT] : "")).filter(p => p !== ""))];

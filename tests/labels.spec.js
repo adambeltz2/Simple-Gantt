@@ -39,6 +39,11 @@ test.beforeEach(async ({ page }) => {
     data[3][COL.PARENT] = '1'; // no label
 
     appDB.projects[appDB.activeId].data = data;
+    // As of the named-labels registry, the "All Labels" filter is
+    // registry-sourced (matching Resource's own structured filter) rather
+    // than re-scanning the grid's current data -- see it explicitly here,
+    // same convention named-resources.spec.js uses for its own registry.
+    appDB.projects[appDB.activeId].labels = ['System A', 'System B', 'Urgent'];
     renderGrid(data);
     syncToGantt(true);
   }, COL);

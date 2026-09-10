@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.36.0] - 2026-09-09
+
+### ✨ Added
+
+#### Labels as a first-class, reusable entity (backlog #12, applied to Labels)
+- User-requested: Labels can now be named ahead of time and picked from a dropdown, one-to-one with how Resources already work. A new "Labels" toolbar button opens a Manage Labels modal (add/rename/delete), and every Labels cell gets a small quick-pick ▾ icon that opens a checkbox list of registered labels -- toggling one adds/removes it from the cell while preserving whatever else was already there.
+- The Labels cell itself is unchanged: still the same free-text, comma/semicolon-delimited field it always was. The registry is new per-project metadata (like `resources`), not part of the task CSV -- importing a CSV whose Labels column names something not yet registered merges it into the registry instead of dropping it, and typing a new label directly into the grid registers it too.
+- Renaming a registered label in the modal propagates into every task cell already carrying it; deleting one only removes it from the quick-pick list, leaving existing task text untouched.
+- A project whose Labels cells were already populated before this registry existed gets backfilled once on load (`backfillLabelsRegistry()`), so the picker is fully populated from the first render instead of only catching up as cells happen to get re-edited.
+- Per explicit user decision, this stays structural only -- no color/badge treatment, unlike Resource's separate Gantt-bar color-coding feature.
+
+### 🔧 Changed
+
+#### The "All Labels" filter is now registry-sourced
+- The existing toolbar Label filter dropdown used to re-scan the grid's current data on every sync, so only labels currently in use on some row appeared as options. It now reads from the same named-labels registry as the quick-pick picker (matching how the structured Filters panel's Resource sub-filter already works), so a registered-but-currently-unused label still appears as a filter option.
+
 ## [2.35.1] - 2026-09-09
 
 ### 🔧 Changed

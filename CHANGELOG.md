@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.37.0] - 2026-09-11
+
+### 🔒 Security
+
+#### Pinned jsuites.js / jexcel.js to exact versions, with SRI
+- Resolved the last open tech-debt item: `jsuites.js` and `jexcel.js` were loaded unpinned from the live `jsuites.net/v4/` and `bossanova.uk/jspreadsheet/v4/` URLs (no version in the URL, no SRI), so there was no way to verify from outside which exact build was live, or to protect against it changing without notice.
+- Resolved by fetching the actual live-served source of both files (via the user's own browser, since this environment's own network access to those hosts is blocked) and byte-comparing against real npm tarballs. Two genuine surprises along the way: (1) `jsuites.net/v4/jsuites.js` turned out to be `jsuites@4.17.5` -- a couple patches behind npm's current latest 4.x (`4.17.7`), not tracking it live as assumed; (2) `bossanova.uk/jspreadsheet/v4/jexcel.js` is **not** the deprecated standalone `jexcel` npm package at all (that one is frozen at an old pre-webpack `4.6.1` build) -- it's the renamed successor package `jspreadsheet-ce@4.15.0`'s `dist/index.js`, byte-for-byte, served under the legacy `jexcel.js` filename for backward compatibility.
+- Now pinned to `jsuites@4.17.5` and `jspreadsheet-ce@4.15.0` via jsdelivr, each with a real SRI hash computed from the actual npm-published bytes -- matching every other library this app already loads via CDN.
+- Verified with zero regressions: the full Playwright suite (324 passing / 11 pre-existing, unrelated, already-documented failures -- PDF export libs not vendored, reload not surviving mocked CDN routing in the test harness, one vendored-build timing quirk) was re-run against this exact pinned pairing before shipping, with identical results to the unpinned baseline.
+
 ## [2.36.0] - 2026-09-09
 
 ### ✨ Added

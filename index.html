@@ -19,15 +19,27 @@
 
     <!-- MATCHING V4 LIBRARIES: Guaranteed stable initialization -->
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js" integrity="sha384-D/t0ZMqQW31H3az8ktEiNb39wyKnS82iFY52QPACM+IjKW3jDUhyIgh2PApRqJZs" crossorigin="anonymous"></script>
-    <!-- TODO(security): jsuites.js / jexcel.js are loaded unpinned (no version, no SRI) --
-         the live "/v4/" URLs auto-track whatever patch release the vendor currently ships,
-         and there's no way to verify from outside which exact build is live right now.
-         Pinning a version here requires confirming the currently-deployed build first
-         (see repo review notes) so this doesn't silently change app behavior. -->
-    <script src="https://jsuites.net/v4/jsuites.js"></script>
-    <link rel="stylesheet" href="https://jsuites.net/v4/jsuites.css" type="text/css" />
-    <script src="https://bossanova.uk/jspreadsheet/v4/jexcel.js"></script>
-    <link rel="stylesheet" href="https://bossanova.uk/jspreadsheet/v4/jexcel.css" type="text/css" />
+    <!-- Pinned + SRI-hashed (backlog tech-debt item, resolved): the live
+         jsuites.net/v4/jsuites.js and bossanova.uk/jspreadsheet/v4/jexcel.js
+         URLs were unpinned and untraceable to any specific npm version from
+         outside. Resolved by fetching the actual live-served source of both
+         (via the user's browser, since this sandbox's own egress is blocked
+         for those hosts) and byte-comparing against real npm tarballs:
+         jsuites.net/v4/jsuites.js is jsuites@4.17.5's dist/jsuites.js
+         (confirmed via its embedded `Version` string); bossanova.uk's
+         jexcel.js is NOT the deprecated standalone "jexcel" package (which
+         tops out at npm's old pre-webpack 4.6.1) -- it's the renamed
+         successor package jspreadsheet-ce@4.15.0's dist/index.js, byte-for-
+         byte, served under the legacy "jexcel.js" filename for backward
+         compatibility. (jspreadsheet-ce@4.15.0's own package.json claims a
+         jsuites ^5.6.5 dependency; that's stale metadata, not what's
+         actually served together live -- the pairing below is what was
+         directly verified.) Full Playwright suite re-verified against this
+         exact pairing with zero regressions before pinning. -->
+    <script src="https://cdn.jsdelivr.net/npm/jsuites@4.17.5/dist/jsuites.js" integrity="sha384-vYq4VCMdhB8Pjkz1aBgxIHMc6YyMbkLvaIQdCdG+Q5SSlX+zP3A/fceD5VSrDY5C" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsuites@4.17.5/dist/jsuites.css" integrity="sha384-tVCEgfMr66ww4jP1oaXRUMmIwkWWWnN3jyqP7I8ldSJyUYMSAIWHH/9MnAkzS2pK" crossorigin="anonymous" type="text/css" />
+    <script src="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@4.15.0/dist/index.js" integrity="sha384-O0ZydxKsIQhMqK84XlwwkJAoYKRfTpirT0rVtrAthYnNVu3ZdQayPBQX1oDhsS36" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@4.15.0/dist/jspreadsheet.css" integrity="sha384-ov8ACv/GylMG+HuImPuruot3HcL2zIuV828gQVL4lbHqIbZMHJOLXS0CtX+HuNed" crossorigin="anonymous" type="text/css" />
 
     <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js" integrity="sha384-vIVXvmnGMKcWl9tl8Erv6xZ+73fWqZSOY0D31kkKw/VZocq7VAG3zqYhuOn0Yzlq" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css" integrity="sha384-7m7QARZ+I5i/e3zNLmxAeO3v1vOgtpJBC/b0Aev34b6oIOxdjl7lSXlILQgb8b3Z" crossorigin="anonymous">
@@ -783,7 +795,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.36.0";
+        const APP_VERSION = "2.37.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 

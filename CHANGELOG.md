@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.38.0] - 2026-09-11
+
+### 🐛 Fixed
+
+#### Dropbox reconnect no longer forces an unconditional page reload (backlog #24)
+- User-raised concern: what happens if a user's Dropbox session/token expires or is revoked mid-session -- could that lose in-progress work, or require merging "offline" changes back in with "online" state?
+- Investigation found the task grid's `localStorage` copy is already the sole source of truth for every edit (`saveToLocal()` runs synchronously on every grid change, Dropbox connectivity notwithstanding), and Dropbox backup is a one-way, best-effort, debounced *push* of a timestamped snapshot -- never an inbound sync. So there was never a merge-conflict scenario to design for; the real bug was in the reconnect flow itself. `handleDropboxAuthError()` treated *any* 401 -- including one from a silent, 60-second-debounced background auto-backup with no regard for what the user was doing at that moment -- by nuking the token, showing a blocking `alert()`, and immediately `location.reload()`-ing, unconditionally. Grid data was always safe either way, but anything held only in an open modal's transient state and not yet committed (an in-progress Notes edit, specifically) could be silently discarded by that forced reload.
+- `handleDropboxAuthError()` now drops the dead token and the in-memory client, cancels the pending auto-backup, and falls back to the logged-out toolbar UI (`setDropboxLoggedOutUI()`, shared with the page-load path) -- with no reload and no blocking alert. A new `'disconnected'` cloud-status state ("· Dropbox session expired -- reconnect") replaces the alert, so the user is informed without being interrupted, and can reconnect on their own schedule via the ordinary "Login to Dropbox" button.
+- Because re-login is a full-page navigation away to Dropbox and back (the implicit-grant OAuth flow this app uses has no refresh token, and this app deliberately has no backend to broker one), `proceedToDropboxLogin()` now flushes any dirty, not-yet-saved Notes edit (task-level or project-level) before navigating, reusing each modal's own existing `isNotesEditDirty()`/`isProjectNotesEditDirty()` dirty-check.
+- No reconciliation/merge UI was added, deliberately: since nothing ever mutates `localStorage` in response to a Dropbox failure, the very next backup after reconnecting just pushes current state as a new snapshot exactly like every other backup already does.
+
 ## [2.37.0] - 2026-09-11
 
 ### 🔒 Security

@@ -795,7 +795,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.37.0";
+        const APP_VERSION = "2.38.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -1189,10 +1189,21 @@
             if(dbxLogoutBtn) dbxLogoutBtn.style.display = '';
             discoverDropboxProjects(false);
         } else {
+            setDropboxLoggedOutUI();
+        }
+
+        // Shared by the initial page-load check above and by
+        // handleDropboxAuthError() below -- flips the toolbar back to its
+        // pre-login state (Back up -> Login to Dropbox, Versions/Disconnect
+        // hidden) without a page reload, so it can run underneath a user who
+        // is still actively working.
+        function setDropboxLoggedOutUI() {
             let dbxBtn = document.getElementById('btnDbxSave');
-            if(dbxBtn) dbxBtn.innerHTML = dbxBtn.innerHTML.replace('Back up', 'Login to Dropbox');
+            if (dbxBtn) dbxBtn.innerHTML = dbxBtn.innerHTML.replace('Back up', 'Login to Dropbox');
             let dbxLoadBtn = document.getElementById('btnDbxLoad');
-            if(dbxLoadBtn) dbxLoadBtn.style.display = 'none';
+            if (dbxLoadBtn) dbxLoadBtn.style.display = 'none';
+            let dbxLogoutBtn = document.getElementById('btnDbxLogout');
+            if (dbxLogoutBtn) dbxLogoutBtn.style.display = 'none';
         }
 
         function dropboxLogin() {
@@ -1203,7 +1214,22 @@
             document.getElementById('dropboxInfoModal').classList.remove('active');
         }
 
+        // Dropbox's OAuth here is the implicit grant (response_type=token) --
+        // there's no refresh token, and this app deliberately has no backend
+        // to broker one, so reconnecting after a session expiry (backlog #24)
+        // always means a full-page navigation away to Dropbox and back. Any
+        // notes edit still sitting only in an open modal's own textarea, not
+        // yet committed, would otherwise be silently discarded by that round
+        // trip -- the grid itself never needs this, since every cell edit
+        // already commits to localStorage synchronously via saveToLocal()
+        // regardless of Dropbox connectivity.
+        function flushPendingNotesEdits() {
+            if (isNotesEditDirty()) saveNotesEdit();
+            if (isProjectNotesEditDirty()) saveProjectNotesEdit();
+        }
+
         function proceedToDropboxLogin() {
+            flushPendingNotesEdits();
             const redirectUri = encodeURIComponent(window.location.href.split('#')[0]);
             window.location.href = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_APP_KEY}&response_type=token&redirect_uri=${redirectUri}`;
         }
@@ -1216,11 +1242,31 @@
             location.reload();
         }
 
+        // backlog #24: a 401 here can come from a silent, 60s-debounced auto-
+        // backup that fires on its own timer with no regard for what the user
+        // is doing at that moment -- the old behavior (nuke the token, alert(),
+        // and unconditionally location.reload()) could discard anything held
+        // only in transient DOM state and not yet committed (an open Notes
+        // edit being the one real example in this app; the task grid itself is
+        // always safe, since localStorage -- not Dropbox -- is its sole source
+        // of truth). So: drop the dead token and the in-memory client, cancel
+        // any pending auto-backup, and fall back to the logged-out UI, but
+        // let the user keep working uninterrupted -- reconnecting is their
+        // call, made whenever they're ready via the ordinary "Login to
+        // Dropbox" button (proceedToDropboxLogin(), which itself flushes any
+        // open Notes edit before its own redirect). There's deliberately no
+        // merge/reconciliation step to run on reconnect: nothing here ever
+        // mutates localStorage in response to a Dropbox failure, so the very
+        // next backup after logging back in just pushes current state as a
+        // new timestamped snapshot, exactly like every other backup already
+        // does -- there's no "offline changes vs. online state" to merge.
         function handleDropboxAuthError(err) {
             if (err && err.status === 401) {
+                dbx = null;
                 localStorage.removeItem('dropbox_token');
-                alert("Your Dropbox session expired. Please log in again.");
-                location.reload();
+                if (dbxAutoBackupTimer) { clearTimeout(dbxAutoBackupTimer); dbxAutoBackupTimer = null; }
+                setDropboxLoggedOutUI();
+                updateCloudStatus('disconnected');
                 return true;
             }
             return false;
@@ -1266,11 +1312,16 @@
 
         function updateCloudStatus(state) {
             const el = document.getElementById('cloudStatus');
-            if (!el || !dbx) { if(el) { el.textContent = ''; el.className = ''; } return; }
+            if (!el) return;
+            // 'disconnected' fires from handleDropboxAuthError() right after it
+            // nulls out `dbx`, so it's the one state that must still render
+            // with no live client -- every other state implies a live `dbx`.
+            if (!dbx && state !== 'disconnected') { el.textContent = ''; el.className = ''; return; }
             if (state === 'pending') { el.textContent = '· backup pending'; el.className = 'dirty'; }
             else if (state === 'syncing') { el.textContent = '· backing up…'; el.className = 'syncing'; }
             else if (state === 'synced') { el.textContent = '· backed up just now'; el.className = 'synced'; }
             else if (state === 'error') { el.textContent = '· last backup failed'; el.className = 'dirty'; }
+            else if (state === 'disconnected') { el.textContent = '· Dropbox session expired — reconnect'; el.className = 'dirty'; }
             else { el.textContent = ''; el.className = ''; }
         }
 

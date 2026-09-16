@@ -161,7 +161,7 @@ test('Labels column CSV shape is unchanged -- still the same free-text cell, no 
   ]);
   const content = fs.readFileSync(await download.path(), 'utf8');
   const headerLine = content.split('\n')[0].trim();
-  expect(headerLine.split(',')).toEqual(['Task ID', 'Outline', 'Task Name', 'Resource', 'Def. Alloc', '% Done', 'Start', 'Dur.', 'End', 'Depends', 'Parent', 'Labels', 'Notes']);
+  expect(headerLine.split(',')).toEqual(['Task ID', 'Outline', 'Task Name', 'Resource', 'Def. Alloc', '% Done', 'Start', 'Dur.', 'End', 'Depends', 'Parent', 'Labels', 'Notes', 'Status']);
   expect(content).toContain('System A;Urgent');
 });
 

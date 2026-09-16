@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.41.0] - 2026-09-16
+
+### ✨ Added
+
+#### A basic, calculated-only Status field: Not Started / In Progress / Complete
+- **User-requested:** "Lets add a basic Status that is calculated only... IF % Done = 100 then auto set to complete, IF % Done <100 AND >0 then In Progress, IF % Done = 0 then Not Started."
+- New permanent core column, `Status`, appended right after Notes (index 13) -- following the exact same precedent Labels and Notes set when they were added: appended at the *end* of the core schema rather than inserted mid-sequence, so no other column's index has to shift.
+- Always read-only and never independently stored input: `computeStatus()` derives it purely from % Done, and `syncToGantt()` writes it back into the grid the same way Outline's WBS numbers are -- always freshly recomputed, never something a user types. A light background/text color per state (gray/blue/green) makes it scannable at a glance.
+- Applies to parent rows too, computed from the same rolled-up % Done value already driving the checkmark icon and the Late indicator -- a parent showing 60% via its children's rollup shows "In Progress," not a stale or blank value.
+- CSV export/import, the "Insert Column Right"/rename/delete column-menu gating, and the legacy-shape splice-in migration for older saved projects/CSVs (mirroring Labels/Notes' own migration) were all updated to keep pace with the schema shift.
+
 ## [2.40.0] - 2026-09-16
 
 ### 🐛 Fixed

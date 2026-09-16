@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.40.0] - 2026-09-16
+
+### 🐛 Fixed
+
+#### Project-level Notes now round-trip through Dropbox backup/restore
+- **User-raised gap:** "where are the 'notes' stored in dropbox for the project itself?" -- they weren't. `backupToDropbox()` uploaded only the task-grid CSV plus a `meta.json` carrying `{name, updatedAt}`; the project-level Notes field (`projectNotes`, distinct from a task's own Notes column) was never part of that payload at all, contrary to the app's own "back up so you don't lose anything" promise.
+- `meta.json` now also carries `projectNotes` (read live via the existing `getProjectNotes()` at backup time, so it's never stale). `restoreBackup()` now fetches that same folder's `meta.json` alongside the CSV snapshot and applies its `projectNotes` back -- restoring a backup made before this fix (whose `meta.json` has no `projectNotes` field at all) leaves today's notes untouched rather than blanking them. The cross-device discovery flow (`discoverDropboxProjects()` / `importDiscoveredProject()`) carries the same field through so a project imported from another browser/device brings its notes with it too.
+- Also validated that editing project notes actually triggers a sync: `setProjectNotes()` (what the Project Notes modal's Save button calls) already routed through the same `saveToLocal()` → `scheduleAutoBackup()` path every grid edit uses -- no separate wiring was needed, just confirmed and covered by a test that a notes edit schedules the debounced auto-backup, and that the backup it eventually runs carries the new note.
+- Deliberately no other change: Dropbox backup remains a one-way, best-effort push (see the reconnect-flow fix in v2.38.0), and this only widens *what* gets captured in that push, not the mechanism itself.
+
 ## [2.39.0] - 2026-09-16
 
 ### ✨ Added

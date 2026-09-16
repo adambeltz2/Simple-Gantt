@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.39.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-FFDD00)](https://buymeacoffee.com/adambeltz)
+![Version](https://img.shields.io/badge/version-2.40.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-FFDD00)](https://buymeacoffee.com/adambeltz)
 
 ## Features
 

@@ -795,7 +795,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.39.0";
+        const APP_VERSION = "2.40.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -1349,7 +1349,7 @@
             const folder = getDropboxFolder(projectId);
             const filepath = `${folder}/${timestampForFilename()}.csv`;
             const metaPath = `${folder}/meta.json`;
-            const metaContents = JSON.stringify({ name: appDB.projects[projectId].name, updatedAt: new Date().toISOString() });
+            const metaContents = JSON.stringify({ name: appDB.projects[projectId].name, updatedAt: new Date().toISOString(), projectNotes: getProjectNotes() });
 
             Promise.all([
                 dbx.filesUpload({ path: filepath, contents: csvString, mode: { '.tag': 'add' }, autorename: true }),
@@ -1504,18 +1504,37 @@
             const projectName = appDB.projects[appDB.activeId].name;
             if (!confirm(`Replace the current '${projectName}' data with this backup? This will overwrite what's on screen now.`)) return;
 
-            dbx.filesDownload({ path: path })
-            .then(response => {
-                const reader = new FileReader();
-                reader.onload = function() {
-                    Papa.parse(reader.result, { skipEmptyLines: true, complete: function(results) {
-                        applyImportedCSVData(results.data);
-                        saveToLocal();
-                        closeVersionsModal();
-                        showStatus("✓ Restored from Dropbox", "#10b981");
-                    }});
-                };
-                reader.readAsText(response.result.fileBlob);
+            // The CSV is the versioned snapshot itself; meta.json sits next to
+            // it in the same folder and isn't per-version (backupToDropbox
+            // overwrites the one meta.json every time), so a restore's own
+            // projectNotes -- if that backup predates v2.40.0, meta.projectNotes
+            // is simply absent and today's notes are left untouched rather than
+            // blanked -- is only an approximation of "notes at that moment,"
+            // same limitation the CSV-only backup format already had for
+            // resources/labels/collapse state.
+            const folder = path.substring(0, path.lastIndexOf('/'));
+
+            Promise.all([
+                new Promise((resolve, reject) => {
+                    dbx.filesDownload({ path: path }).then(response => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = () => reject(new Error('Could not read backup file'));
+                        reader.readAsText(response.result.fileBlob);
+                    }).catch(reject);
+                }),
+                readMetaJson(folder)
+            ])
+            .then(([csvText, meta]) => {
+                Papa.parse(csvText, { skipEmptyLines: true, complete: function(results) {
+                    applyImportedCSVData(results.data);
+                    if (meta && meta.projectNotes != null) {
+                        setProjectNotes(meta.projectNotes);
+                    }
+                    saveToLocal();
+                    closeVersionsModal();
+                    showStatus("✓ Restored from Dropbox", "#10b981");
+                }});
             })
             .catch(err => {
                 if (handleDropboxAuthError(err)) return;
@@ -1526,12 +1545,17 @@
 
         let _discoveredProjects = [];
 
+        // Resolves the full parsed meta.json ({name, updatedAt, projectNotes}),
+        // or null if it can't be read (missing, corrupt, or a pre-v2.40.0
+        // backup predating the projectNotes field entirely) -- callers that
+        // only care about the name (discoverDropboxProjects) just read
+        // meta.name off the result; restoreBackup also reads meta.projectNotes.
         function readMetaJson(folderPathLower) {
             return dbx.filesDownload({ path: `${folderPathLower}/meta.json` })
                 .then(r => new Promise(resolve => {
                     const reader = new FileReader();
                     reader.onload = () => {
-                        try { resolve(JSON.parse(reader.result).name); }
+                        try { resolve(JSON.parse(reader.result)); }
                         catch(e) { resolve(null); }
                     };
                     reader.onerror = () => resolve(null);
@@ -1555,7 +1579,11 @@
                 }
 
                 Promise.all(candidates.map(f =>
-                    readMetaJson(f.path_lower).then(name => ({ id: f.name, pathLower: f.path_lower, name: name || '(unnamed project)' }))
+                    readMetaJson(f.path_lower).then(meta => ({
+                        id: f.name, pathLower: f.path_lower,
+                        name: (meta && meta.name) || '(unnamed project)',
+                        projectNotes: (meta && meta.projectNotes) || ''
+                    }))
                 )).then(discovered => {
                     _discoveredProjects = discovered;
                     openDiscoveryModal(discovered);
@@ -1634,7 +1662,7 @@
                                 flagged: [],
                                 resources: collectResourceNamesFromRows(data),
                                 labels: collectLabelNamesFromRows(data),
-                                projectNotes: ''
+                                projectNotes: discovered.projectNotes || ''
                             };
                             resolve();
                         }});
@@ -4028,9 +4056,11 @@
         // one Markdown note for the whole project, not tied to any row.
         // Stored on the project object itself, same tier as `flagged`/
         // `resources`/`collapsed`: localStorage only, never part of CSV
-        // export (there's no row for it to belong to) and never part of a
-        // Dropbox backup (which is a CSV export of the grid data plus a
-        // small meta.json -- see backupToDropbox()). Reuses
+        // export (there's no row for it to belong to). It IS carried in a
+        // Dropbox backup's meta.json (see backupToDropbox()) since v2.40.0 --
+        // that was the one thing this app's "back up so you don't lose
+        // anything" promise didn't actually keep; restoreBackup() and the
+        // cross-device discovery import both read it back out. Reuses
         // renderNotesMarkdown()/escapeHtml() rather than a second renderer.
         function getProjectNotes() {
             let proj = appDB.projects[appDB.activeId];

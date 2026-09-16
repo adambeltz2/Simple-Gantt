@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.42.0] - 2026-09-16
+
+### ✨ Added
+
+#### Code formatting in Notes: inline `code` and fenced ``` code blocks
+- **User-requested:** "add markdown formatting for the task and project notes field... 3 '\`' on top and bottom would indicate code formatting."
+- Extends the shared `renderNotesMarkdown()` renderer (task-level Notes and the project-level Notes field both already use this one function) with a fenced code block -- a line that's just ` ``` `, optionally with a language tag, up to the next ` ``` ` line -- and the natural companion, an inline `` `code` `` span.
+- A fenced block takes precedence over everything else, same as real Markdown: no inline formatting and no block-level parsing (headings/bullets/numbered lists) applies inside one -- rendered completely literally, only HTML-escaped for safety, preserving line breaks in a monospace `<pre><code>` block.
+- Inline code spans get the same highest-precedence treatment real Markdown gives them: pulled out into a placeholder before any other inline regex runs and restored verbatim afterward, so e.g. `` `**not bold**` `` renders literally rather than also being read as bold.
+- An unterminated fence still renders whatever it captured rather than losing content or crashing.
+
 ## [2.41.0] - 2026-09-16
 
 ### ✨ Added

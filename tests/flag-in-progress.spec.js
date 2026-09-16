@@ -58,7 +58,7 @@ test('flagging never changes the underlying grid data', async ({ page }) => {
   const after = await page.evaluate(() => sheet.getData());
 
   expect(after).toEqual(before);
-  expect(after[0].length).toBe(13); // no new column was added
+  expect(after[0].length).toBe(14); // no new column was added
 });
 
 test('flagging has no effect on the Gantt chart', async ({ page }) => {
@@ -145,6 +145,6 @@ test('CSV export is unaffected by flag state', async ({ page }) => {
   const headers = await page.evaluate(() => sheet.options.columns.map((c) => c.title));
   expect(headers).toEqual([
     'Task ID', 'Outline', 'Task Name', 'Resource', 'Def. Alloc',
-    '% Done', 'Start', 'Dur.', 'End', 'Depends', 'Parent', 'Labels', 'Notes',
+    '% Done', 'Start', 'Dur.', 'End', 'Depends', 'Parent', 'Labels', 'Notes', 'Status',
   ]);
 });

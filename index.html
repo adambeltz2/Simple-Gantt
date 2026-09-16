@@ -795,7 +795,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.38.0";
+        const APP_VERSION = "2.41.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -804,11 +804,11 @@
         const dateStr1 = format(todayObj);
         
         const sampleProjectData = [
-            ['1', '1', 'Website Redesign Phase', '', '', '0', '', '', '', '', '', '', ''],
-            ['2', '1.1', 'Discovery & Wireframes', 'Alice 50%, Bob', '100', '100', dateStr1, '3', '', '', '1', 'Planning', ''],
-            ['3', '1.2', 'UI Design & Assets', 'Bob (50%), Charlie @ 50%', '100', '50', '', '5', '', '2', '1', 'Design', ''],
-            ['4', '1.3', 'Frontend Implementation', 'Charlie', '100', '0', '', '7', '', '3', '1', 'Development', ''],
-            ['5', '1.4', 'Launch Milestone', '', '', '0', '', '0', '', '4', '1', 'Milestone', '']
+            ['1', '1', 'Website Redesign Phase', '', '', '0', '', '', '', '', '', '', '', ''],
+            ['2', '1.1', 'Discovery & Wireframes', 'Alice 50%, Bob', '100', '100', dateStr1, '3', '', '', '1', 'Planning', '', ''],
+            ['3', '1.2', 'UI Design & Assets', 'Bob (50%), Charlie @ 50%', '100', '50', '', '5', '', '2', '1', 'Design', '', ''],
+            ['4', '1.3', 'Frontend Implementation', 'Charlie', '100', '0', '', '7', '', '3', '1', 'Development', '', ''],
+            ['5', '1.4', 'Launch Milestone', '', '', '0', '', '0', '', '4', '1', 'Milestone', '', '']
         ];
 
         let appDB = {
@@ -843,8 +843,8 @@
         } catch(e) { console.error("Error loading DB", e); }
 
         function normalizeData(data, customColsCount) {
-            let targetLength = 13 + (customColsCount || 0);
-            if (!data || !Array.isArray(data) || data.length === 0) return [['1', '1', '', '', '100', '0', '', '', '', '', '', '', '', ...Array(customColsCount || 0).fill('')]];
+            let targetLength = 14 + (customColsCount || 0);
+            if (!data || !Array.isArray(data) || data.length === 0) return [['1', '1', '', '', '100', '0', '', '', '', '', '', '', '', '', ...Array(customColsCount || 0).fill('')]];
             return data.map(row => {
                 if (row.length === 9) row.splice(7, 0, '');
                 if (row.length === 10) row.splice(1, 0, '');
@@ -859,6 +859,12 @@
                 // column data keeps its original position instead of shifting
                 // left into Notes.
                 if (row.length === 12 + (customColsCount || 0)) row.splice(12, 0, '');
+                // Rows saved before the computed Status column existed are
+                // exactly 13 + however many custom columns this project
+                // already had -- insert a blank there (its real value is
+                // always recomputed fresh from % Done on the next sync
+                // anyway, this is only about keeping custom columns aligned).
+                if (row.length === 13 + (customColsCount || 0)) row.splice(13, 0, '');
                 while (row.length < targetLength) row.push('');
                 return row;
             });
@@ -875,7 +881,7 @@
             if (!proj.columns || proj.columns.length === 0) return;
             const idx = proj.columns.findIndex(c => c.trim().toLowerCase() === 'notes');
             if (idx === -1) return;
-            const legacyPos = 13 + idx;
+            const legacyPos = 14 + idx;
             (proj.data || []).forEach(row => {
                 if (row.length > legacyPos) {
                     const legacyVal = row[legacyPos];
@@ -927,7 +933,7 @@
             appDB.projects[newId] = {
                 name: name,
                 columns: [],
-                data: [['1', '1', '', '', '100', '0', '', '', '', '', '', '', '']],
+                data: [['1', '1', '', '', '100', '0', '', '', '', '', '', '', '', '']],
                 collapsed: [],
                 flagged: [],
                 resources: [],
@@ -1349,7 +1355,7 @@
             const folder = getDropboxFolder(projectId);
             const filepath = `${folder}/${timestampForFilename()}.csv`;
             const metaPath = `${folder}/meta.json`;
-            const metaContents = JSON.stringify({ name: appDB.projects[projectId].name, updatedAt: new Date().toISOString() });
+            const metaContents = JSON.stringify({ name: appDB.projects[projectId].name, updatedAt: new Date().toISOString(), projectNotes: getProjectNotes() });
 
             Promise.all([
                 dbx.filesUpload({ path: filepath, contents: csvString, mode: { '.tag': 'add' }, autorename: true }),
@@ -1409,7 +1415,17 @@
                     headers.splice(12, 0, 'Notes');
                     data.forEach(row => row.splice(12, 0, ''));
                 }
-                appDB.projects[appDB.activeId].columns = headers.slice(13);
+                // Same idea, one more column later: a CSV exported before the
+                // computed Status column existed has whatever was its first
+                // custom column sitting at index 13 instead. Whatever's spliced
+                // in here is immediately overwritten by computeStatus() on the
+                // very next sync regardless -- this splice is only about
+                // keeping any real custom column data correctly aligned.
+                if (headers[13] !== 'Status') {
+                    headers.splice(13, 0, 'Status');
+                    data.forEach(row => row.splice(13, 0, ''));
+                }
+                appDB.projects[appDB.activeId].columns = headers.slice(14);
             }
             const sanitized = sanitizeImportedRows(data, headers);
             // Any Resource name in the imported rows that isn't already in this
@@ -1504,18 +1520,37 @@
             const projectName = appDB.projects[appDB.activeId].name;
             if (!confirm(`Replace the current '${projectName}' data with this backup? This will overwrite what's on screen now.`)) return;
 
-            dbx.filesDownload({ path: path })
-            .then(response => {
-                const reader = new FileReader();
-                reader.onload = function() {
-                    Papa.parse(reader.result, { skipEmptyLines: true, complete: function(results) {
-                        applyImportedCSVData(results.data);
-                        saveToLocal();
-                        closeVersionsModal();
-                        showStatus("✓ Restored from Dropbox", "#10b981");
-                    }});
-                };
-                reader.readAsText(response.result.fileBlob);
+            // The CSV is the versioned snapshot itself; meta.json sits next to
+            // it in the same folder and isn't per-version (backupToDropbox
+            // overwrites the one meta.json every time), so a restore's own
+            // projectNotes -- if that backup predates v2.40.0, meta.projectNotes
+            // is simply absent and today's notes are left untouched rather than
+            // blanked -- is only an approximation of "notes at that moment,"
+            // same limitation the CSV-only backup format already had for
+            // resources/labels/collapse state.
+            const folder = path.substring(0, path.lastIndexOf('/'));
+
+            Promise.all([
+                new Promise((resolve, reject) => {
+                    dbx.filesDownload({ path: path }).then(response => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = () => reject(new Error('Could not read backup file'));
+                        reader.readAsText(response.result.fileBlob);
+                    }).catch(reject);
+                }),
+                readMetaJson(folder)
+            ])
+            .then(([csvText, meta]) => {
+                Papa.parse(csvText, { skipEmptyLines: true, complete: function(results) {
+                    applyImportedCSVData(results.data);
+                    if (meta && meta.projectNotes != null) {
+                        setProjectNotes(meta.projectNotes);
+                    }
+                    saveToLocal();
+                    closeVersionsModal();
+                    showStatus("✓ Restored from Dropbox", "#10b981");
+                }});
             })
             .catch(err => {
                 if (handleDropboxAuthError(err)) return;
@@ -1526,12 +1561,17 @@
 
         let _discoveredProjects = [];
 
+        // Resolves the full parsed meta.json ({name, updatedAt, projectNotes}),
+        // or null if it can't be read (missing, corrupt, or a pre-v2.40.0
+        // backup predating the projectNotes field entirely) -- callers that
+        // only care about the name (discoverDropboxProjects) just read
+        // meta.name off the result; restoreBackup also reads meta.projectNotes.
         function readMetaJson(folderPathLower) {
             return dbx.filesDownload({ path: `${folderPathLower}/meta.json` })
                 .then(r => new Promise(resolve => {
                     const reader = new FileReader();
                     reader.onload = () => {
-                        try { resolve(JSON.parse(reader.result).name); }
+                        try { resolve(JSON.parse(reader.result)); }
                         catch(e) { resolve(null); }
                     };
                     reader.onerror = () => resolve(null);
@@ -1555,7 +1595,11 @@
                 }
 
                 Promise.all(candidates.map(f =>
-                    readMetaJson(f.path_lower).then(name => ({ id: f.name, pathLower: f.path_lower, name: name || '(unnamed project)' }))
+                    readMetaJson(f.path_lower).then(meta => ({
+                        id: f.name, pathLower: f.path_lower,
+                        name: (meta && meta.name) || '(unnamed project)',
+                        projectNotes: (meta && meta.projectNotes) || ''
+                    }))
                 )).then(discovered => {
                     _discoveredProjects = discovered;
                     openDiscoveryModal(discovered);
@@ -1621,7 +1665,7 @@
                             let headers = [];
                             if (data.length > 0 && (data[0][0] === 'ID' || data[0][1] === 'Outline')) {
                                 headers = data.shift();
-                                columns = headers.slice(12);
+                                columns = headers.slice(13);
                             }
                             data = sanitizeImportedRows(data, headers);
                             const newId = 'proj_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
@@ -1634,7 +1678,7 @@
                                 flagged: [],
                                 resources: collectResourceNamesFromRows(data),
                                 labels: collectLabelNamesFromRows(data),
-                                projectNotes: ''
+                                projectNotes: discovered.projectNotes || ''
                             };
                             resolve();
                         }});
@@ -2412,7 +2456,7 @@
         // ==========================================
         // CORE GANTT ENGINE & DYNAMIC COLUMNS
         // ==========================================
-        const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10, LABELS: 11, NOTES: 12 };
+        const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10, LABELS: 11, NOTES: 12, STATUS: 13 };
 
         // Shared by formatCells' Task Name indentation and exportCSV's
         // cosmetic outline prefix (backlog #16) -- both need the same
@@ -3047,6 +3091,17 @@
             return null;
         }
 
+        // User-requested "basic Status," calculated only from % Done, applied
+        // uniformly to every row including parents (whose % Done is already a
+        // live rollup, same reasoning as computeLateStatus above): 100 ->
+        // Complete, anywhere between -> In Progress, exactly 0 -> Not Started.
+        function computeStatus(pct) {
+            const p = parseInt(pct) || 0;
+            if (p >= 100) return 'Complete';
+            if (p > 0) return 'In Progress';
+            return 'Not Started';
+        }
+
         // DEPENDENCY CYCLE DETECTION (view-only -- warns, never blocks or mutates data)
         //
         // The self-reference check in syncToGantt already strips a task that
@@ -3060,6 +3115,19 @@
         // look wrong instead of leaving the user to guess.
         let dependencyCycleIds = new Set();
         let dependencyCyclePaths = [];
+
+        // REVERSE DEPENDENTS (view-only, like the cycle detection above) --
+        // rowID -> [{id, name}] for every task that lists rowID in its own
+        // Depends. The Depends column only ever shows what a task depends ON;
+        // this is the other direction, so a task nobody's Gantt bar visibly
+        // points at doesn't look "safe to delete" when other rows are actually
+        // relying on its schedule. Rebuilt every sync alongside tasksMap,
+        // surfaced as a 🔗 icon on the ID cell and consulted by the row-delete
+        // confirm (findDependentsOutsideSet()) so removing a row that other
+        // tasks depend on -- which otherwise leaves their Depends referencing a
+        // Task ID that no longer exists, silently dropped from scheduling with
+        // no explanation -- warns first instead.
+        let taskDependents = {};
 
         function setsEqual(a, b) {
             if (a.size !== b.size) return false;
@@ -3100,6 +3168,25 @@
             });
 
             return { cycleIds, cyclePaths };
+        }
+
+        // Scans the live grid (not the cached taskDependents map, which is only
+        // as fresh as the last sync) for any row outside deletedIds whose
+        // Depends cell names one of them -- used right before an actual row
+        // deletion, where staleness would matter, unlike the always-visible 🔗
+        // indicator above which is fine re-rendering on the next sync.
+        function findDependentsOutsideSet(deletedIds) {
+            const data = sheet.getData();
+            const affected = [];
+            data.forEach((row) => {
+                const rowId = (row[COL.ID] != null) ? row[COL.ID].toString().trim() : '';
+                if (!rowId || deletedIds.has(rowId)) return;
+                const deps = (row[COL.DEP] ? row[COL.DEP].toString() : '').split(';').map((d) => d.trim()).filter((d) => d !== '');
+                if (deps.some((d) => deletedIds.has(d))) {
+                    affected.push({ id: rowId, name: row[COL.NAME] || '' });
+                }
+            });
+            return affected;
         }
 
         // CRITICAL PATH (view-only, opt-in via the "Critical path" toolbar
@@ -3247,7 +3334,7 @@
                 let depth = computeTaskDepth(parentID, allData);
 
                 cell.classList.remove('readonly-cell', 'readonly');
-                if (col == COL.ID || col == COL.OUTLINE) cell.classList.add('readonly-cell', 'readonly');
+                if (col == COL.ID || col == COL.OUTLINE || col == COL.STATUS) cell.classList.add('readonly-cell', 'readonly');
                 // End is only read-only for a parent row (its End is a rollup
                 // of children -- see the isParent block below); a leaf task's
                 // End is directly editable (backlog #18).
@@ -3268,6 +3355,17 @@
                         cell.style.color = '';
                         cell.title = '';
                     }
+                }
+
+                // Status is purely computed from % Done (Not Started / In
+                // Progress / Complete) and written back into the row by
+                // syncToGantt() the same way Outline's WBS numbers are --
+                // this is just the color-coding, same technique as the End
+                // cell's late/due-today background above.
+                if (col == COL.STATUS) {
+                    if (val === 'Complete') { cell.style.backgroundColor = '#dcfce7'; cell.style.color = '#166534'; }
+                    else if (val === 'In Progress') { cell.style.backgroundColor = '#dbeafe'; cell.style.color = '#1e40af'; }
+                    else { cell.style.backgroundColor = '#f1f5f9'; cell.style.color = '#64748b'; }
                 }
 
                 if (col >= 11) {
@@ -3310,6 +3408,22 @@
                             : 'Part of a dependency cycle';
                     } else {
                         cell.style.boxShadow = '';
+                    }
+
+                    // backlog: surfaces that OTHER tasks list this one in their own
+                    // Depends -- the reverse of what the Depends column itself shows.
+                    // Purely computed/visual (taskDependents, refreshed every sync),
+                    // not a persisted field -- exists so deleting this row isn't a
+                    // silent surprise for whatever depends on it (see the "Delete
+                    // row" confirm, which uses the same underlying relationship).
+                    const dependents = taskDependents[rowID];
+                    if (dependents && dependents.length > 0) {
+                        const link = document.createElement('span');
+                        link.textContent = '🔗';
+                        link.className = 'depended-on-indicator';
+                        link.style.cssText = 'margin-left:3px; font-size:11px; cursor:default;';
+                        link.title = `Depended on by: ${dependents.map(d => `${d.id}${d.name ? ' (' + d.name + ')' : ''}`).join(', ')} -- deleting this task will break their Depends link`;
+                        cell.appendChild(link);
                     }
                 }
 
@@ -3406,7 +3520,7 @@
         function syncColumnsToDB() {
             if(!sheet) return;
             let headers = sheet.options.columns.map(c => c.title);
-            appDB.projects[appDB.activeId].columns = headers.slice(13);
+            appDB.projects[appDB.activeId].columns = headers.slice(14);
             saveToLocal();
         }
 
@@ -3980,9 +4094,11 @@
         // one Markdown note for the whole project, not tied to any row.
         // Stored on the project object itself, same tier as `flagged`/
         // `resources`/`collapsed`: localStorage only, never part of CSV
-        // export (there's no row for it to belong to) and never part of a
-        // Dropbox backup (which is a CSV export of the grid data plus a
-        // small meta.json -- see backupToDropbox()). Reuses
+        // export (there's no row for it to belong to). It IS carried in a
+        // Dropbox backup's meta.json (see backupToDropbox()) since v2.40.0 --
+        // that was the one thing this app's "back up so you don't lose
+        // anything" promise didn't actually keep; restoreBackup() and the
+        // cross-device discovery import both read it back out. Reuses
         // renderNotesMarkdown()/escapeHtml() rather than a second renderer.
         function getProjectNotes() {
             let proj = appDB.projects[appDB.activeId];
@@ -4097,7 +4213,12 @@
                 // Markdown-modal treatment the opt-in custom "Notes" column
                 // convention already used (see the isNotes check just below),
                 // now always present instead of needing to be added by hand.
-                { type: 'text', title: 'Notes', width: 70, align: 'center', readOnly: true }
+                { type: 'text', title: 'Notes', width: 70, align: 'center', readOnly: true },
+                // User-requested "basic Status," calculated only from % Done
+                // (computeStatus()) -- Not Started / In Progress / Complete.
+                // Always read-only: there's nothing to type here, only % Done
+                // to edit, same relationship Outline has to Parent.
+                { type: 'text', title: 'Status', width: 95, align: 'center', readOnly: true }
             ];
 
             if (activeProj.columns) {
@@ -4153,7 +4274,7 @@
                 ondeleterow: function() {
                     let data = sheet.getData();
                     if (!data || data.length === 0) {
-                        let emptyRow = ['1', '1', '', '', '100', '0', '', '', '', '', '', '', '', ...Array(appDB.projects[appDB.activeId].columns.length).fill('')];
+                        let emptyRow = ['1', '1', '', '', '100', '0', '', '', '', '', '', '', '', '', ...Array(appDB.projects[appDB.activeId].columns.length).fill('')];
                         sheet.setData([emptyRow]);
                     }
                     triggerSync();
@@ -4161,18 +4282,18 @@
                 contextMenu: function(obj, x, y, e) {
                     var items = [];
                     if (y === null) {
-                        if (x >= 12) {
+                        if (x >= 13) {
                             items.push({
                                 title: '➕ Insert Column Right',
                                 onclick: function() {
                                     sheet.insertColumn(1, parseInt(x), false);
                                     let newColIdx = parseInt(x) + 1;
-                                    sheet.setHeader(newColIdx, 'Custom ' + (newColIdx - 12));
+                                    sheet.setHeader(newColIdx, 'Custom ' + (newColIdx - 13));
                                     syncColumnsToDB();
                                 }
                             });
                         }
-                        if (x >= 13) {
+                        if (x >= 14) {
                             items.push({
                                 title: '✏️ Rename Column',
                                 onclick: function() {
@@ -4223,12 +4344,30 @@
                                 // Right-clicking inside a dragged multi-row selection should delete
                                 // the whole selection, not just the row under the cursor -- otherwise
                                 // "select 5 rows, Delete row" silently drops 4 of them.
+                                let top, count;
                                 if (lastSelectionRange && lastSelectionRange.bottom > lastSelectionRange.top &&
                                     rowIdx >= lastSelectionRange.top && rowIdx <= lastSelectionRange.bottom) {
-                                    sheet.deleteRow(lastSelectionRange.top, lastSelectionRange.bottom - lastSelectionRange.top + 1);
+                                    top = lastSelectionRange.top;
+                                    count = lastSelectionRange.bottom - lastSelectionRange.top + 1;
                                 } else {
-                                    sheet.deleteRow(rowIdx, 1);
+                                    top = rowIdx;
+                                    count = 1;
                                 }
+
+                                const data = sheet.getData();
+                                const deletedIds = new Set();
+                                for (let i = top; i < top + count; i++) {
+                                    const id = (data[i] && data[i][COL.ID] != null) ? data[i][COL.ID].toString().trim() : '';
+                                    if (id) deletedIds.add(id);
+                                }
+                                const affected = findDependentsOutsideSet(deletedIds);
+                                if (affected.length > 0) {
+                                    const list = affected.map((a) => `${a.id}${a.name ? ' (' + a.name + ')' : ''}`).join(', ');
+                                    const plural = affected.length > 1 ? 's' : '';
+                                    if (!confirm(`Deleting this will break the Depends link for ${affected.length} other task${plural}: ${list}.\n\nThose tasks will no longer be scheduled relative to this one. Delete anyway?`)) return;
+                                }
+
+                                sheet.deleteRow(top, count);
                             }
                         });
                     }
@@ -4613,6 +4752,15 @@
                     pendingWarning = { text: "⚠ Removed a self-reference (task can't depend on or be parented to itself)", color: "#f59e0b" };
                 }
 
+                const newTaskDependents = {};
+                for (let id in tasksMap) {
+                    tasksMap[id].dependenciesArray.forEach((depId) => {
+                        if (!newTaskDependents[depId]) newTaskDependents[depId] = [];
+                        newTaskDependents[depId].push({ id: id, name: tasksMap[id].name || '' });
+                    });
+                }
+                taskDependents = newTaskDependents;
+
                 // Run cycle detection before the fixed-point loop below, purely to
                 // explain -- via a status message and a red outline on the ID cells
                 // involved -- why a cycle's dates may never settle. Detection is
@@ -4743,6 +4891,21 @@
                             }
                         }
                     });
+                }
+
+                // Status (user-requested "basic Status," calculated only from
+                // % Done) is written back into the grid the same way Outline's
+                // WBS numbers are -- always freshly recomputed here, after the
+                // parent rollup above has settled every parent's own % Done,
+                // so a parent's Status reflects its rolled-up value exactly
+                // like the checkmark icon already does.
+                for (let id in tasksMap) {
+                    let t = tasksMap[id];
+                    let statusStr = computeStatus(t.pct);
+                    if (rawData[t.rowIndex][COL.STATUS] !== statusStr) {
+                        sheet.setValueFromCoords(COL.STATUS, t.rowIndex, statusStr, true);
+                        rawData[t.rowIndex][COL.STATUS] = statusStr;
+                    }
                 }
 
                 const newCriticalPathIds = isCriticalPathViewOn() ? computeCriticalPath(tasksMap) : new Set();

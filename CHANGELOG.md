@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.41.0] - 2026-09-16
+
+### ✨ Added
+
+#### A basic, calculated-only Status field: Not Started / In Progress / Complete
+- **User-requested:** "Lets add a basic Status that is calculated only... IF % Done = 100 then auto set to complete, IF % Done <100 AND >0 then In Progress, IF % Done = 0 then Not Started."
+- New permanent core column, `Status`, appended right after Notes (index 13) -- following the exact same precedent Labels and Notes set when they were added: appended at the *end* of the core schema rather than inserted mid-sequence, so no other column's index has to shift.
+- Always read-only and never independently stored input: `computeStatus()` derives it purely from % Done, and `syncToGantt()` writes it back into the grid the same way Outline's WBS numbers are -- always freshly recomputed, never something a user types. A light background/text color per state (gray/blue/green) makes it scannable at a glance.
+- Applies to parent rows too, computed from the same rolled-up % Done value already driving the checkmark icon and the Late indicator -- a parent showing 60% via its children's rollup shows "In Progress," not a stale or blank value.
+- CSV export/import, the "Insert Column Right"/rename/delete column-menu gating, and the legacy-shape splice-in migration for older saved projects/CSVs (mirroring Labels/Notes' own migration) were all updated to keep pace with the schema shift.
+
+## [2.40.0] - 2026-09-16
+
+### 🐛 Fixed
+
+#### Project-level Notes now round-trip through Dropbox backup/restore
+- **User-raised gap:** "where are the 'notes' stored in dropbox for the project itself?" -- they weren't. `backupToDropbox()` uploaded only the task-grid CSV plus a `meta.json` carrying `{name, updatedAt}`; the project-level Notes field (`projectNotes`, distinct from a task's own Notes column) was never part of that payload at all, contrary to the app's own "back up so you don't lose anything" promise.
+- `meta.json` now also carries `projectNotes` (read live via the existing `getProjectNotes()` at backup time, so it's never stale). `restoreBackup()` now fetches that same folder's `meta.json` alongside the CSV snapshot and applies its `projectNotes` back -- restoring a backup made before this fix (whose `meta.json` has no `projectNotes` field at all) leaves today's notes untouched rather than blanking them. The cross-device discovery flow (`discoverDropboxProjects()` / `importDiscoveredProject()`) carries the same field through so a project imported from another browser/device brings its notes with it too.
+- Also validated that editing project notes actually triggers a sync: `setProjectNotes()` (what the Project Notes modal's Save button calls) already routed through the same `saveToLocal()` → `scheduleAutoBackup()` path every grid edit uses -- no separate wiring was needed, just confirmed and covered by a test that a notes edit schedules the debounced auto-backup, and that the backup it eventually runs carries the new note.
+- Deliberately no other change: Dropbox backup remains a one-way, best-effort push (see the reconnect-flow fix in v2.38.0), and this only widens *what* gets captured in that push, not the mechanism itself.
+
+## [2.39.0] - 2026-09-16
+
+### ✨ Added
+
+#### A 🔗 indicator for tasks other rows depend on, and a delete-time warning
+- User-raised gap: deleting a task that other tasks list in their own Depends column was completely silent. The survivors' Depends cell keeps referencing a Task ID that no longer exists, and `syncToGantt()`'s scheduling loop just skips a dangling dependency ID with no explanation -- the dependent task quietly stops being scheduled relative to anything, with nothing telling the user this happened.
+- The Depends column only ever showed what a task depends *on*; there was no way to see, at a glance, that a task is itself something *other* tasks depend on. A new 🔗 icon on the ID cell (next to the existing in-progress dot and cycle-detection outline) now appears whenever at least one other task lists this one in its Depends, with a tooltip naming every dependent by Task ID and name.
+- The row right-click menu's "Delete row" now checks, right before actually deleting, whether any surviving task (outside the rows being deleted -- this also covers a multi-row selection where the only dependent is deleted in the same action, which correctly triggers no warning) would be left depending on one of them. If so, a confirm names every affected task and explains that it will no longer be scheduled relative to the deleted one; cancelling leaves everything untouched.
+- Both pieces are purely computed/view-only, matching how dependency cycle detection already works: no new persisted column, no automatic cleanup of a dangling Depends reference after a confirmed delete (the app has never auto-rewritten Depends text, and doing so here would be a bigger, separate design decision than the warning itself).
+
 ## [2.38.0] - 2026-09-11
 
 ### 🐛 Fixed

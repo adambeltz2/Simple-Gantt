@@ -86,9 +86,9 @@ test('user-typed HTML in a task note is escaped, not executed', async ({ page })
   expect(bodyText).toContain('<img src=x onerror=alert(1)>');
 });
 
-test('right-clicking the Notes column header offers no rename/delete, only Insert Column Right', async ({ page }) => {
+test('right-clicking the Notes column header offers no rename/delete/insert -- Status (the new last core column) is the one with Insert Column Right now', async ({ page }) => {
   const titles = await page.evaluate((c) => sheet.options.contextMenu(sheet, c, null, {}).map((i) => i.title), COL.NOTES);
-  expect(titles.some((t) => t.includes('Insert Column Right'))).toBe(true);
+  expect(titles.some((t) => t.includes('Insert Column Right'))).toBe(false);
   expect(titles.some((t) => t.includes('Rename Column'))).toBe(false);
   expect(titles.some((t) => t.includes('Delete Column'))).toBe(false);
 });
@@ -149,7 +149,7 @@ test('Notes round-trips through CSV export/import at its fixed core position', a
   const headerLine = csvBuffer.toString('utf8').split('\n')[0].trim();
   expect(headerLine.split(',')).toEqual([
     'Task ID', 'Outline', 'Task Name', 'Resource', 'Def. Alloc',
-    '% Done', 'Start', 'Dur.', 'End', 'Depends', 'Parent', 'Labels', 'Notes',
+    '% Done', 'Start', 'Dur.', 'End', 'Depends', 'Parent', 'Labels', 'Notes', 'Status',
   ]);
 
   await page.setInputFiles('#csvFile', { name: 'export.csv', mimeType: 'text/csv', buffer: csvBuffer });
@@ -159,7 +159,7 @@ test('Notes round-trips through CSV export/import at its fixed core position', a
   expect(reimported).toBe('Exported note');
 });
 
-test('a CSV exported before Notes existed (no Notes header) imports with a blank Notes column, not misaligned custom columns', async ({ page }) => {
+test('a CSV exported before Notes (or Status) existed imports with blank Notes/Status columns, not misaligned custom columns', async ({ page }) => {
   const csv = [
     'Task ID,Outline,Task Name,Resource,Def. Alloc,% Done,Start,Dur.,End,Depends,Parent,Labels,JIRA',
     '1,1,Legacy Task,Alice,100,0,2026-08-24,1,2026-08-24,,,,PROJ-9',
@@ -169,11 +169,12 @@ test('a CSV exported before Notes existed (no Notes header) imports with a blank
 
   const headers = await page.evaluate(() => sheet.options.columns.map((c) => c.title));
   expect(headers[COL.NOTES]).toBe('Notes');
-  expect(headers[13]).toBe('JIRA');
+  expect(headers[13]).toBe('Status');
+  expect(headers[14]).toBe('JIRA');
 
   const row = await page.evaluate(() => sheet.getData()[0]);
   expect(row[COL.NOTES]).toBe('');
-  expect(row[13]).toBe('PROJ-9');
+  expect(row[14]).toBe('PROJ-9');
 });
 
 test('the row right-click menu offers "Add Notes" for an empty note, and opens the modal', async ({ page }) => {
@@ -236,5 +237,5 @@ test('a legacy in-memory project with a custom "Notes" column folds it into the 
   expect(before.columns).toEqual([]); // the legacy custom "Notes" column is gone
   expect(before.data[0][COL.NOTES]).toBe('Legacy **note**');
   expect(before.data[1][COL.NOTES]).toBe('');
-  expect(before.data[0].length).toBe(13); // no leftover trailing custom-column slot
+  expect(before.data[0].length).toBe(14); // no leftover trailing custom-column slot
 });

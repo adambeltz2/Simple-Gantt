@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.38.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-FFDD00)](https://buymeacoffee.com/adambeltz)
+![Version](https://img.shields.io/badge/version-2.41.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-FFDD00)](https://buymeacoffee.com/adambeltz)
 
 ## Features
 
@@ -105,6 +105,7 @@ No server, no npm, no build step required.
 - **Parent** – Read-only; set via "Depends"
 - **Labels** – Free-text tags, comma or semicolon-separated
 - **Notes** – Click-to-expand Markdown note for the task. Read-only at the cell level; click the flag to view/edit in a modal
+- **Status** – Not Started / In Progress / Complete, calculated only from % Done (0%, between, 100%). Read-only -- always freshly recomputed, never typed directly
 
 **Example Setup:**
 ```

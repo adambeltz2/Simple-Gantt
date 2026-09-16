@@ -795,7 +795,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.41.0";
+        const APP_VERSION = "2.42.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -1710,33 +1710,80 @@
             // turns embedded newlines into <br> during that round-trip --
             // escaping the whole multi-line block first would destroy the
             // very newlines this function needs to detect list items.
+            //
+            // A fenced code block (a line that's just ``` , optionally with
+            // a language tag, up to the next ``` line) takes precedence over
+            // everything else, same as real Markdown: no inline formatting
+            // (bold/italic/links/inline code) and no block-level parsing
+            // (headings/bullets/numbered lists) applies to a line inside one
+            // -- it's rendered completely literally, only HTML-escaped for
+            // safety. Tracked here, across the same single pass that already
+            // escapes every line, rather than as a second pass, since the
+            // fence state has to carry from one line to the next.
+            let inCode = false;
             const lines = text.split('\n').map(line => {
+                if (/^\s*```/.test(line)) { inCode = !inCode; return { fence: true }; }
+                if (inCode) return { fence: false, code: true, html: escapeHtml(line) };
                 let html = escapeHtml(line);
+                // Inline code (single backticks) has to be pulled out into a
+                // placeholder BEFORE any other inline regex runs, not just
+                // resolved first -- real Markdown gives a code span the
+                // highest inline precedence (its content is literal, never
+                // read as a link/bold/italic), and the regexes below are
+                // plain sequential string replacements with no concept of
+                // "already inside a tag," so `` `**not bold**` `` would
+                // otherwise still get matched by the bold regex a few lines
+                // later even after being wrapped in <code>. Restored verbatim
+                // (already escaped, so still safe) once every other inline
+                // regex has had its turn.  is a Private Use Area code
+                // point -- not producible by escapeHtml() or realistically
+                // typeable in a textarea, so it's safe as a sentinel that
+                // can't collide with real note content.
+                const codeSpans = [];
+                html = html.replace(/`([^`]+)`/g, (_, inner) => {
+                    codeSpans.push(inner);
+                    return `\uE000CODE${codeSpans.length - 1}\uE000`;
+                });
                 html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
                 html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
                 html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
                 html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
                 html = html.replace(/(^|[^\w])_([^_]+)_(?=$|[^\w])/g, '$1<em>$2</em>');
-                return html;
+                html = html.replace(/\uE000CODE(\d+)\uE000/g, (_, i) => `<code style="background:#f1f5f9; padding:1px 5px; border-radius:3px; font-family:ui-monospace,monospace; font-size:0.9em;">${codeSpans[Number(i)]}</code>`);
+                return { fence: false, code: false, html };
             });
-            let out = ''; let listType = null;
+            let out = ''; let listType = null; let codeBuffer = null;
             const closeList = () => {
                 if (listType === 'ol') out += '</ol>';
                 else if (listType === 'ul' || listType === 'task') out += '</ul>';
                 listType = null;
             };
+            const closeCodeBlock = () => {
+                if (codeBuffer === null) return;
+                out += `<pre style="margin:6px 0; padding:8px 10px; background:#f1f5f9; border-radius:4px; overflow-x:auto; white-space:pre-wrap; word-break:break-word;"><code style="font-family:ui-monospace,monospace; font-size:0.9em;">${codeBuffer.join('\n')}</code></pre>`;
+                codeBuffer = null;
+            };
 
             const headingSizes = { 1: '20px', 2: '17px', 3: '15px', 4: '13.5px', 5: '13px', 6: '12.5px' };
 
             lines.forEach(line => {
-                const heading = /^\s*(#{1,6})\s+(.*)$/.exec(line);
+                if (line.fence) {
+                    closeList();
+                    if (codeBuffer === null) codeBuffer = [];
+                    else closeCodeBlock();
+                    return;
+                }
+                if (line.code) { codeBuffer.push(line.html); return; }
+
+                const html = line.html;
+                const heading = /^\s*(#{1,6})\s+(.*)$/.exec(html);
                 // Task-list items ("- [ ] ..." / "- [x] ...") are checked
                 // before the plain-bullet regex, since they'd otherwise
                 // match that too -- the "[ ]"/"[x]" marker just becomes
                 // part of the bullet's text.
-                const task = /^\s*[-*]\s+\[([ xX])\]\s+(.*)$/.exec(line);
-                const bullet = !task && /^\s*[-*]\s+(.*)$/.exec(line);
-                const numbered = /^\s*\d+\.\s+(.*)$/.exec(line);
+                const task = /^\s*[-*]\s+\[([ xX])\]\s+(.*)$/.exec(html);
+                const bullet = !task && /^\s*[-*]\s+(.*)$/.exec(html);
+                const numbered = /^\s*\d+\.\s+(.*)$/.exec(html);
                 if (heading) {
                     closeList();
                     const level = heading[1].length;
@@ -1754,10 +1801,11 @@
                     out += `<li>${numbered[1]}</li>`;
                 } else {
                     closeList();
-                    out += line.trim() === '' ? '<br>' : `<p style="margin:4px 0;">${line}</p>`;
+                    out += html.trim() === '' ? '<br>' : `<p style="margin:4px 0;">${html}</p>`;
                 }
             });
             closeList();
+            closeCodeBlock(); // an unterminated ``` fence still renders whatever it captured
             return out;
         }
 

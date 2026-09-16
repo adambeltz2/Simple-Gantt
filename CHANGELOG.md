@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.39.0] - 2026-09-16
+
+### ✨ Added
+
+#### A 🔗 indicator for tasks other rows depend on, and a delete-time warning
+- User-raised gap: deleting a task that other tasks list in their own Depends column was completely silent. The survivors' Depends cell keeps referencing a Task ID that no longer exists, and `syncToGantt()`'s scheduling loop just skips a dangling dependency ID with no explanation -- the dependent task quietly stops being scheduled relative to anything, with nothing telling the user this happened.
+- The Depends column only ever showed what a task depends *on*; there was no way to see, at a glance, that a task is itself something *other* tasks depend on. A new 🔗 icon on the ID cell (next to the existing in-progress dot and cycle-detection outline) now appears whenever at least one other task lists this one in its Depends, with a tooltip naming every dependent by Task ID and name.
+- The row right-click menu's "Delete row" now checks, right before actually deleting, whether any surviving task (outside the rows being deleted -- this also covers a multi-row selection where the only dependent is deleted in the same action, which correctly triggers no warning) would be left depending on one of them. If so, a confirm names every affected task and explains that it will no longer be scheduled relative to the deleted one; cancelling leaves everything untouched.
+- Both pieces are purely computed/view-only, matching how dependency cycle detection already works: no new persisted column, no automatic cleanup of a dangling Depends reference after a confirmed delete (the app has never auto-rewritten Depends text, and doing so here would be a bigger, separate design decision than the warning itself).
+
 ## [2.38.0] - 2026-09-11
 
 ### 🐛 Fixed

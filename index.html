@@ -795,7 +795,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.38.0";
+        const APP_VERSION = "2.39.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -3061,6 +3061,19 @@
         let dependencyCycleIds = new Set();
         let dependencyCyclePaths = [];
 
+        // REVERSE DEPENDENTS (view-only, like the cycle detection above) --
+        // rowID -> [{id, name}] for every task that lists rowID in its own
+        // Depends. The Depends column only ever shows what a task depends ON;
+        // this is the other direction, so a task nobody's Gantt bar visibly
+        // points at doesn't look "safe to delete" when other rows are actually
+        // relying on its schedule. Rebuilt every sync alongside tasksMap,
+        // surfaced as a 🔗 icon on the ID cell and consulted by the row-delete
+        // confirm (findDependentsOutsideSet()) so removing a row that other
+        // tasks depend on -- which otherwise leaves their Depends referencing a
+        // Task ID that no longer exists, silently dropped from scheduling with
+        // no explanation -- warns first instead.
+        let taskDependents = {};
+
         function setsEqual(a, b) {
             if (a.size !== b.size) return false;
             for (const x of a) if (!b.has(x)) return false;
@@ -3100,6 +3113,25 @@
             });
 
             return { cycleIds, cyclePaths };
+        }
+
+        // Scans the live grid (not the cached taskDependents map, which is only
+        // as fresh as the last sync) for any row outside deletedIds whose
+        // Depends cell names one of them -- used right before an actual row
+        // deletion, where staleness would matter, unlike the always-visible 🔗
+        // indicator above which is fine re-rendering on the next sync.
+        function findDependentsOutsideSet(deletedIds) {
+            const data = sheet.getData();
+            const affected = [];
+            data.forEach((row) => {
+                const rowId = (row[COL.ID] != null) ? row[COL.ID].toString().trim() : '';
+                if (!rowId || deletedIds.has(rowId)) return;
+                const deps = (row[COL.DEP] ? row[COL.DEP].toString() : '').split(';').map((d) => d.trim()).filter((d) => d !== '');
+                if (deps.some((d) => deletedIds.has(d))) {
+                    affected.push({ id: rowId, name: row[COL.NAME] || '' });
+                }
+            });
+            return affected;
         }
 
         // CRITICAL PATH (view-only, opt-in via the "Critical path" toolbar
@@ -3310,6 +3342,22 @@
                             : 'Part of a dependency cycle';
                     } else {
                         cell.style.boxShadow = '';
+                    }
+
+                    // backlog: surfaces that OTHER tasks list this one in their own
+                    // Depends -- the reverse of what the Depends column itself shows.
+                    // Purely computed/visual (taskDependents, refreshed every sync),
+                    // not a persisted field -- exists so deleting this row isn't a
+                    // silent surprise for whatever depends on it (see the "Delete
+                    // row" confirm, which uses the same underlying relationship).
+                    const dependents = taskDependents[rowID];
+                    if (dependents && dependents.length > 0) {
+                        const link = document.createElement('span');
+                        link.textContent = '🔗';
+                        link.className = 'depended-on-indicator';
+                        link.style.cssText = 'margin-left:3px; font-size:11px; cursor:default;';
+                        link.title = `Depended on by: ${dependents.map(d => `${d.id}${d.name ? ' (' + d.name + ')' : ''}`).join(', ')} -- deleting this task will break their Depends link`;
+                        cell.appendChild(link);
                     }
                 }
 
@@ -4223,12 +4271,30 @@
                                 // Right-clicking inside a dragged multi-row selection should delete
                                 // the whole selection, not just the row under the cursor -- otherwise
                                 // "select 5 rows, Delete row" silently drops 4 of them.
+                                let top, count;
                                 if (lastSelectionRange && lastSelectionRange.bottom > lastSelectionRange.top &&
                                     rowIdx >= lastSelectionRange.top && rowIdx <= lastSelectionRange.bottom) {
-                                    sheet.deleteRow(lastSelectionRange.top, lastSelectionRange.bottom - lastSelectionRange.top + 1);
+                                    top = lastSelectionRange.top;
+                                    count = lastSelectionRange.bottom - lastSelectionRange.top + 1;
                                 } else {
-                                    sheet.deleteRow(rowIdx, 1);
+                                    top = rowIdx;
+                                    count = 1;
                                 }
+
+                                const data = sheet.getData();
+                                const deletedIds = new Set();
+                                for (let i = top; i < top + count; i++) {
+                                    const id = (data[i] && data[i][COL.ID] != null) ? data[i][COL.ID].toString().trim() : '';
+                                    if (id) deletedIds.add(id);
+                                }
+                                const affected = findDependentsOutsideSet(deletedIds);
+                                if (affected.length > 0) {
+                                    const list = affected.map((a) => `${a.id}${a.name ? ' (' + a.name + ')' : ''}`).join(', ');
+                                    const plural = affected.length > 1 ? 's' : '';
+                                    if (!confirm(`Deleting this will break the Depends link for ${affected.length} other task${plural}: ${list}.\n\nThose tasks will no longer be scheduled relative to this one. Delete anyway?`)) return;
+                                }
+
+                                sheet.deleteRow(top, count);
                             }
                         });
                     }
@@ -4612,6 +4678,15 @@
                 if (selfRefFound) {
                     pendingWarning = { text: "⚠ Removed a self-reference (task can't depend on or be parented to itself)", color: "#f59e0b" };
                 }
+
+                const newTaskDependents = {};
+                for (let id in tasksMap) {
+                    tasksMap[id].dependenciesArray.forEach((depId) => {
+                        if (!newTaskDependents[depId]) newTaskDependents[depId] = [];
+                        newTaskDependents[depId].push({ id: id, name: tasksMap[id].name || '' });
+                    });
+                }
+                taskDependents = newTaskDependents;
 
                 // Run cycle detection before the fixed-point loop below, purely to
                 // explain -- via a status message and a red outline on the ID cells

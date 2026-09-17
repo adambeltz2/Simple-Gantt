@@ -378,6 +378,17 @@
                         <label class="toggle-label" title="When a label is selected above, also narrow the Gantt chart to just that label" style="width:100%; box-sizing:border-box;"><input type="checkbox" id="applyLabelToChart" onchange="triggerSync()"> Label in chart</label>
                     </div>
                 </div>
+                <div style="position:relative; display:inline-block;">
+                    <button id="columnVisibilityBtn" type="button" class="tbtn" onclick="toggleColumnVisibilityDropdown(event)"
+                        title="Show/hide grid columns -- hidden columns keep their data and always appear in CSV export and Dropbox backup">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="16" rx="1"></rect><rect x="14" y="4" width="7" height="16" rx="1"></rect></svg>
+                        <span id="columnVisibilityBtnText">All Columns</span>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <div id="columnVisibilityDropdown" style="display:none; position:absolute; top:100%; left:0; margin-top:4px; background:#1e293b; border:1px solid #334155; border-radius:6px; padding:8px; min-width:170px; max-height:320px; overflow-y:auto; z-index:50; box-shadow:0 8px 20px rgba(0,0,0,0.35);">
+                        <div id="columnVisibilityOptions"></div>
+                    </div>
+                </div>
                 </span>
                 <button class="tbtn" onclick="snapPanes(92)" title="Show grid only">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="2" y="4" width="16" height="16" rx="1.5"></rect><rect x="20" y="4" width="2" height="16" rx="1" opacity="0.35"></rect></svg>
@@ -795,7 +806,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.42.0";
+        const APP_VERSION = "2.43.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -814,7 +825,7 @@
         let appDB = {
             activeId: 'proj_1',
             settings: { skipWeekends: true, zoom: 'Day' },
-            projects: { 'proj_1': { name: 'Example Project', columns: [], data: sampleProjectData, collapsed: [], flagged: [], resources: ['Alice', 'Bob', 'Charlie'], labels: ['Planning', 'Design', 'Development'], projectNotes: '' } }
+            projects: { 'proj_1': { name: 'Example Project', columns: [], data: sampleProjectData, collapsed: [], flagged: [], hiddenColumns: [], resources: ['Alice', 'Bob', 'Charlie'], labels: ['Planning', 'Design', 'Development'], projectNotes: '' } }
         };
 
         try {
@@ -834,6 +845,7 @@
                     if (!appDB.projects[pid].columns) appDB.projects[pid].columns = [];
                     if (!appDB.projects[pid].collapsed) appDB.projects[pid].collapsed = [];
                     if (!appDB.projects[pid].flagged) appDB.projects[pid].flagged = [];
+                    if (!appDB.projects[pid].hiddenColumns) appDB.projects[pid].hiddenColumns = [];
                     if (!appDB.projects[pid].resources) appDB.projects[pid].resources = [];
                     if (!appDB.projects[pid].labels) appDB.projects[pid].labels = [];
                     appDB.projects[pid].data = normalizeData(appDB.projects[pid].data, appDB.projects[pid].columns.length);
@@ -936,6 +948,7 @@
                 data: [['1', '1', '', '', '100', '0', '', '', '', '', '', '', '', '']],
                 collapsed: [],
                 flagged: [],
+                hiddenColumns: [],
                 resources: [],
                 labels: [],
                 projectNotes: ''
@@ -1676,6 +1689,7 @@
                                 dropboxProjectId: discovered.id,
                                 collapsed: [],
                                 flagged: [],
+                                hiddenColumns: [],
                                 resources: collectResourceNamesFromRows(data),
                                 labels: collectLabelNamesFromRows(data),
                                 projectNotes: discovered.projectNotes || ''
@@ -3570,6 +3584,13 @@
             let headers = sheet.options.columns.map(c => c.title);
             appDB.projects[appDB.activeId].columns = headers.slice(14);
             saveToLocal();
+            // Inserting/deleting a column shifts every later column's index in
+            // place (jexcel handles this internally without a renderGrid()
+            // rebuild), so any previously-applied hideColumn() calls need to be
+            // re-run against the new index layout, and the toolbar popover's
+            // checkbox list needs to pick up the new/removed column.
+            applyColumnVisibility();
+            refreshColumnVisibilityOptions();
         }
 
         function autoFitColumns() {
@@ -4136,6 +4157,100 @@
         }
 
         // ==========================================
+        // COLUMN HIDE/SHOW (view-only -- never mutates task data, CSV export,
+        // or Dropbox backup; same tier as collapsed/flagged above)
+        // ==========================================
+        // Stored by column TITLE, not raw index -- a custom column's index can
+        // shift when an earlier custom column is deleted, which would silently
+        // hide the wrong column if a raw index were persisted instead. Same
+        // title-matching precedent migrateLegacyNotesColumn() already uses.
+        function getHiddenColumnTitles() {
+            let proj = appDB.projects[appDB.activeId];
+            if (!proj.hiddenColumns) proj.hiddenColumns = [];
+            return proj.hiddenColumns;
+        }
+
+        function isColumnHidden(title) {
+            return getHiddenColumnTitles().includes(title);
+        }
+
+        function toggleColumnHidden(colIndex) {
+            if (!sheet) return;
+            const title = sheet.options.columns[colIndex].title;
+            let hidden = getHiddenColumnTitles();
+            let idx = hidden.indexOf(title);
+            if (idx > -1) hidden.splice(idx, 1); else hidden.push(title);
+            saveToLocal();
+            applyColumnVisibility();
+            refreshColumnVisibilityOptions();
+        }
+
+        // Hides/shows grid columns via jexcel's own native hideColumn/showColumn
+        // (the same pure CSS-display mechanism its hideRow/showRow already use
+        // for Collapse/Search above) -- never touches sheet.options.data, so
+        // sheet.getData(), exportCSV(), and backupToDropbox() all keep reading
+        // every column's data regardless of what's currently hidden. Must be
+        // re-invoked after every renderGrid() call (which rebuilds the table
+        // from scratch), not applied once.
+        function applyColumnVisibility() {
+            if (!sheet || typeof sheet.hideColumn !== 'function') return;
+            const hiddenSet = new Set(getHiddenColumnTitles());
+            sheet.options.columns.forEach((c, i) => {
+                if (hiddenSet.has(c.title)) sheet.hideColumn(i); else sheet.showColumn(i);
+            });
+        }
+
+        // Toolbar "Columns" popover -- mirrors the Label Filter dropdown's own
+        // pattern (one checkbox per item, built fresh whenever the column set
+        // can have changed) but stays open after each click like View Options,
+        // since toggling several columns in one visit is the expected workflow
+        // per the user's explicit "quickly hide/unhide" ask.
+        function refreshColumnVisibilityOptions() {
+            const container = document.getElementById('columnVisibilityOptions');
+            if (!container || !sheet) return;
+            container.innerHTML = sheet.options.columns.map(c => `
+                <label style="display:flex; align-items:center; gap:8px; padding:5px 4px; font-size:12.5px; color:#e2e8f0; cursor:pointer; white-space:nowrap;">
+                    <input type="checkbox" class="columnVisibilityCheckbox" value="${escapeHtml(c.title)}" ${isColumnHidden(c.title) ? '' : 'checked'} onchange="onColumnVisibilityCheckboxChange()">
+                    ${escapeHtml(c.title)}
+                </label>
+            `).join('');
+            updateColumnVisibilityButtonText();
+        }
+
+        function updateColumnVisibilityButtonText() {
+            const btnText = document.getElementById('columnVisibilityBtnText');
+            if (!btnText || !sheet) return;
+            const hiddenSet = new Set(getHiddenColumnTitles());
+            const n = sheet.options.columns.filter(c => hiddenSet.has(c.title)).length;
+            btnText.textContent = n === 0 ? 'All Columns' : `${n} hidden`;
+        }
+
+        function onColumnVisibilityCheckboxChange() {
+            if (!sheet) return;
+            const checked = new Set(Array.from(document.querySelectorAll('.columnVisibilityCheckbox:checked')).map(cb => cb.value));
+            appDB.projects[appDB.activeId].hiddenColumns = sheet.options.columns.map(c => c.title).filter(t => !checked.has(t));
+            saveToLocal();
+            applyColumnVisibility();
+            updateColumnVisibilityButtonText();
+        }
+
+        function toggleColumnVisibilityDropdown(event) {
+            if (event) event.stopPropagation();
+            const dropdown = document.getElementById('columnVisibilityDropdown');
+            if (!dropdown) return;
+            const opening = (dropdown.style.display === 'none' || !dropdown.style.display);
+            if (opening) refreshColumnVisibilityOptions();
+            dropdown.style.display = opening ? 'block' : 'none';
+        }
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('columnVisibilityDropdown');
+            const btn = document.getElementById('columnVisibilityBtn');
+            if (!dropdown || dropdown.style.display === 'none' || !dropdown.style.display) return;
+            if (dropdown.contains(e.target) || (btn && btn.contains(e.target))) return;
+            dropdown.style.display = 'none';
+        });
+
+        // ==========================================
         // PROJECT-LEVEL NOTES (Markdown, behind a click-to-expand modal)
         // ==========================================
         // Distinct from the per-task "Notes" custom column above -- this is
@@ -4366,9 +4481,13 @@
                                 }
                             });
                         }
-                        if (items.length === 0) {
-                            items.push({ title: '🔒 Core columns cannot be modified.', type: 'line' });
-                        }
+                        // Unconditional -- unlike Rename/Delete, hiding is a pure
+                        // view-state toggle with zero data risk, so it's offered
+                        // on every column, core or custom alike.
+                        items.push({
+                            title: isColumnHidden(sheet.options.columns[x].title) ? '👁️ Show Column' : '🙈 Hide Column',
+                            onclick: () => toggleColumnHidden(parseInt(x))
+                        });
                     } else {
                         let rowIdx = parseInt(y);
                         let rowCount = sheet.getData().length;
@@ -4424,6 +4543,8 @@
             };
 
             sheet = jspreadsheet(spreadsheetDiv, sheetOptions);
+            applyColumnVisibility();
+            refreshColumnVisibilityOptions();
             setTimeout(autoFitColumns, 0);
             
             spreadsheetDiv.onkeydown = function(e) {

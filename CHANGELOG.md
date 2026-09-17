@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.43.0] - 2026-09-17
+
+### ✨ Added
+
+#### Column hide/show: a per-column visibility toggle for system-led columns
+- **User-requested:** "Is it possible to hide some system columns with a clear indication that it is hidden?" -- with three hard constraints: data can never be lost, it has to be view/UI state (not a data-model change), and CSV import/export must keep showing every column regardless of hidden state.
+- Built entirely on jspreadsheet-ce's own native `hideColumn()`/`showColumn()` -- the same pure CSS-display toggle its `hideRow()`/`showRow()` already provides for the existing Collapse feature, confirmed by reading the pinned library's actual vendored source. It never touches the underlying column data, so `sheet.getData()`, `exportCSV()`, and `backupToDropbox()` all keep reading every column regardless of what's currently hidden -- satisfying all three constraints without any special-casing in the export path.
+- New `hiddenColumns` per-project array, same tier as `collapsed`/`flagged`: localStorage-only, never part of CSV export or a Dropbox backup's `meta.json`. Stored by column *title*, not raw index, so deleting an earlier custom column can never silently mis-hide the wrong one -- the same title-matching precedent `migrateLegacyNotesColumn()` already established.
+- Two ways to toggle, both live-updating the other: a "🙈 Hide Column" / "👁️ Show Column" entry on every column's right-click menu (core or custom alike -- hiding carries zero data risk, so unlike Rename/Delete it needs no gating), and a new "Columns" toolbar button whose popover lists every column as a checkbox and whose own label doubles as a clear, always-visible indicator ("All Columns" / "N hidden"). The popover stays open after each click, like View Options, since toggling several columns in one visit is the expected workflow.
+- The now-always-non-empty column context menu retires the old "🔒 Core columns cannot be modified" placeholder line that only ever appeared when no other action was available.
+
 ## [2.42.0] - 2026-09-16
 
 ### ✨ Added

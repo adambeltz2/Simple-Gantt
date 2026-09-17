@@ -93,9 +93,10 @@ test('right-clicking the Notes column header offers no rename/delete/insert -- S
   expect(titles.some((t) => t.includes('Delete Column'))).toBe(false);
 });
 
-test('right-clicking Labels no longer offers Insert Column Right (Notes must stay immediately after it)', async ({ page }) => {
+test('right-clicking Labels no longer offers Insert Column Right (Notes must stay immediately after it), but Hide Column is still offered', async ({ page }) => {
   const titles = await page.evaluate((c) => sheet.options.contextMenu(sheet, c, null, {}).map((i) => i.title), COL.LABELS);
-  expect(titles.some((t) => t.includes('Core columns cannot be modified'))).toBe(true);
+  expect(titles.some((t) => t.includes('Insert Column Right'))).toBe(false);
+  expect(titles.some((t) => t.includes('Hide Column'))).toBe(true);
 });
 
 test('clicking outside the modal while editing prompts before discarding unsaved changes', async ({ page }) => {

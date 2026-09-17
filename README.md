@@ -36,6 +36,7 @@ A lightweight, browser-based Gantt chart and task management tool. No server req
 - **Depends** – a finish-to-start constraint. If task B Depends on task A, B's Start is kept equal to A's End date. This runs live on every edit; it's calendar-only and never looks at % Done, so it's on you to keep dates accurate as work runs long or short.
 - **Parent dates automatically span all children** – a parent's Start/End/% Done are continuously rolled up from its children (earliest start, latest end, duration-weighted % Done), all the way up through grandparents. Also live on every edit.
 - **Manual "Sync Dependencies" button** – both rules above already run automatically, so you shouldn't need this. It forces a full recompute of every row anyway, mainly useful right after pasting in a large block of rows.
+- **Renumber Task IDs** – A Tools-menu action that reassigns Task ID 1, 2, 3... in current row order, closing gaps left by deleted tasks for cleaner CSV/PDF exports. Depends, Parent, and any collapsed/flagged rows are rewritten to match in the same pass, so nothing breaks; explicit and opt-in only, never automatic, and undoes as a single Ctrl+Z step. A plain-text ID mention inside Notes/Labels isn't rewritten.
 - **Dependency cycle detection** – if the Depends graph loops back on itself (A depends on B depends on A, or a longer chain), the affected Task IDs get a red outline with a tooltip naming the cycle, plus a one-time status-bar warning. Purely informational -- it doesn't remove the Depends link or block anything, it just explains why those tasks' dates might not settle.
 
 ### 🌐 Flexible Deployment
@@ -59,7 +60,7 @@ A lightweight, browser-based Gantt chart and task management tool. No server req
 - **Dropbox Backup** – Optional encrypted sync to Dropbox (~1 min after edit)
 - **Version History** – Restore any previous backup
 - **Project Import** – Discover and import projects from Dropbox across devices
-- **Factory Reset** – Clear all data with one confirmation
+- **Delete Project** – Removes a project from this browser; if it has Dropbox backups, a separate explicit prompt ("Yes, delete from Dropbox" / "No, keep backups") asks whether to remove those too. Deleting your only remaining project is gated behind typing "DELETE" to confirm, and leaves you on a fresh blank project afterward rather than none at all
 
 ---
 
@@ -221,16 +222,12 @@ View team allocation at a glance:
 Click **"Rename"** button, enter new name
 
 ### Delete Project
-Click **"Delete"** button (keeps Dropbox backups intact if connected)
+Click **"Delete"** button. If the project has Dropbox backups, you're asked separately whether to delete those too ("Yes, delete from Dropbox" / "No, keep backups") -- keeping them just means the project may show up again later under "Check Dropbox for other projects."
+
+Deleting your only remaining project requires typing **DELETE** to confirm, the same as the old "Reset" button used to (now removed) -- afterward you're left on a fresh, blank project rather than no project at all.
 
 ### Switch Project
 Select different project from dropdown at top-left
-
-### Factory Reset
-⚠️ **Deletes ALL projects locally** (but not Dropbox backups)
-1. Click **"Reset"** button
-2. Type "DELETE" to confirm
-3. All data cleared; reload page to continue
 
 ---
 
@@ -285,7 +282,7 @@ Select different project from dropdown at top-left
 ### Local Storage
 - 100% in your browser
 - Not sent to any server (except Dropbox if you enable it)
-- Cleared only if you clear browser cache OR click "Reset"
+- Cleared only if you clear browser cache OR delete a project (per-project, via "Delete")
 
 ### Dropbox Storage
 - Your choice to enable; disabled by default

@@ -248,13 +248,9 @@
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
                     Rename
                 </button>
-                <button class="header-btn" onclick="deleteProject()">
+                <button class="header-btn btn-danger" onclick="deleteProject()">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                     Delete
-                </button>
-                <button class="header-btn btn-danger" onclick="factoryReset()">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                    Reset
                 </button>
             </div>
             <div style="display:flex; align-items:center;">
@@ -448,6 +444,10 @@
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36M20.49 15a9 9 0 0 1-14.85 3.36"></path></svg>
                             Sync Dependencies
                         </button>
+                        <button class="tbtn" style="width:100%; box-sizing:border-box; justify-content:flex-start; margin-top:4px;" onclick="renumberTaskIds()" title="Reassign Task IDs 1, 2, 3... in current row order, closing any gaps left by deleted tasks">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line><line x1="10" y1="3" x2="8" y2="21"></line><line x1="16" y1="3" x2="14" y2="21"></line></svg>
+                            Renumber Task IDs
+                        </button>
                     </div>
                 </div>
                 <div style="position:relative; display:inline-block;">
@@ -554,28 +554,47 @@
         </div>
     </div>
 
-    <div id="resetModal" class="modal" onclick="if(event.target===this) closeResetModal()">
+    <div id="deleteLastProjectModal" class="modal" onclick="if(event.target===this) closeDeleteLastProjectModal()">
         <div class="modal-content" style="max-width: 480px; height: auto; padding: 30px;">
             <div style="display:flex; align-items:center; gap: 12px; margin-bottom: 15px;">
                 <span style="font-size: 28px;">🚨</span>
-                <h2 style="margin:0; color:#0f172a; font-size: 19px;">Reset App</h2>
+                <h2 style="margin:0; color:#0f172a; font-size: 19px;">Delete Your Last Project</h2>
             </div>
             <p style="color:#334155; font-size: 14px; line-height: 1.5;">
-                This permanently deletes <strong id="resetProjectCount">all projects</strong> saved in this browser. It cannot be undone.
+                <strong id="deleteLastProjectName"></strong> is your only project. Deleting it permanently removes all of its data from this browser and replaces it with a new, blank project. It cannot be undone.
             </p>
             <p style="color:#334155; font-size: 14px; line-height: 1.5;">
-                Consider using <strong>Export CSV</strong> or <strong>Back up</strong> on any project you want to keep before continuing.
+                Consider using <strong>Export CSV</strong> or <strong>Back up</strong> first if you want to keep a copy.
             </p>
-            <p style="color:#64748b; font-size: 12.5px; line-height: 1.5;">
-                This only clears data saved in this browser. Any Dropbox backups are untouched, and you'll stay logged into Dropbox (use <strong>Disconnect</strong> separately if you want to log out).
+            <p id="deleteLastProjectDropboxNote" style="color:#64748b; font-size: 12.5px; line-height: 1.5; display:none;">
+                This project also has backups saved in Dropbox -- you'll be asked separately whether to delete those too.
             </p>
             <p style="color:#475569; font-size: 13px; margin-bottom: 6px;">Type <strong>DELETE</strong> to confirm:</p>
-            <input id="resetConfirmInput" type="text" autocomplete="off" placeholder="DELETE" oninput="onResetInputChange()"
+            <input id="deleteLastProjectInput" type="text" autocomplete="off" placeholder="DELETE" oninput="onDeleteLastProjectInputChange()"
                 style="width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; margin-bottom: 20px;">
             <div style="display:flex; justify-content:flex-end; gap: 10px;">
-                <button onclick="closeResetModal()" style="padding: 8px 16px; background: #e2e8f0; color: #334155; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Cancel</button>
-                <button id="resetConfirmBtn" onclick="confirmFactoryReset()" disabled
-                    style="padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: not-allowed; opacity: 0.5;">Delete Everything</button>
+                <button onclick="closeDeleteLastProjectModal()" style="padding: 8px 16px; background: #e2e8f0; color: #334155; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Cancel</button>
+                <button id="deleteLastProjectConfirmBtn" onclick="confirmDeleteLastProject()" disabled
+                    style="padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: not-allowed; opacity: 0.5;">Delete Project</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dropboxDeleteModal" class="modal" onclick="if(event.target===this) declineDropboxDelete()">
+        <div class="modal-content" style="max-width: 440px; height: auto; padding: 30px;">
+            <div style="display:flex; align-items:center; gap: 12px; margin-bottom: 15px;">
+                <span style="font-size: 28px;">☁️</span>
+                <h2 style="margin:0; color:#0f172a; font-size: 19px;">Delete Dropbox Backups Too?</h2>
+            </div>
+            <p style="color:#334155; font-size: 14px; line-height: 1.5;">
+                <strong id="dropboxDeleteProjectName"></strong> also has backups saved in Dropbox.
+            </p>
+            <p style="color:#64748b; font-size: 12.5px; line-height: 1.5;">
+                If you keep them, this project may show up again under "Check Dropbox for other projects."
+            </p>
+            <div style="display:flex; justify-content:flex-end; gap: 10px; margin-top: 6px;">
+                <button onclick="declineDropboxDelete()" style="padding: 8px 16px; background: #e2e8f0; color: #334155; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">No, keep backups</button>
+                <button onclick="confirmDropboxDelete()" style="padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Yes, delete from Dropbox</button>
             </div>
         </div>
     </div>
@@ -806,7 +825,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.43.0";
+        const APP_VERSION = "2.44.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -937,12 +956,11 @@
             }
         }
 
-        function createNewProject() {
-            let name = prompt("Enter new project name:", "New Project");
-            if (!name) { updateProjectDropdown(); return; } 
-            
-            let newId = 'proj_' + Date.now();
-            appDB.projects[newId] = {
+        // Shared shape for a brand new, empty project -- used both when the
+        // user explicitly creates one and when deleting your last remaining
+        // project needs to leave the app in a valid state afterward.
+        function createBlankProject(name) {
+            return {
                 name: name,
                 columns: [],
                 data: [['1', '1', '', '', '100', '0', '', '', '', '', '', '', '', '']],
@@ -953,6 +971,14 @@
                 labels: [],
                 projectNotes: ''
             };
+        }
+
+        function createNewProject() {
+            let name = prompt("Enter new project name:", "New Project");
+            if (!name) { updateProjectDropdown(); return; }
+
+            let newId = 'proj_' + Date.now();
+            appDB.projects[newId] = createBlankProject(name);
             appDB.activeId = newId;
             resetGridSearch();
             resetLabelFilter();
@@ -973,18 +999,72 @@
             }
         }
 
+        // Deleting your only remaining project used to be blocked outright,
+        // pushing people toward the much more dangerous "Reset" button (which
+        // wiped every project in one shot with no per-project Dropbox
+        // cleanup). Reset is gone -- Delete now handles that last-project
+        // case too, gated behind the same type-to-confirm friction Reset
+        // used to have, and still leaves the app on a valid (fresh, blank)
+        // project afterward rather than an empty project list.
+        let pendingLastProjectDelete = null;
+
         function deleteProject() {
-            let ids = Object.keys(appDB.projects);
-            if (ids.length <= 1) { alert("You cannot delete your only project."); return; }
-
+            const ids = Object.keys(appDB.projects);
             const project = appDB.projects[appDB.activeId];
-            if (!confirm(`Are you sure you want to delete '${project.name}'?`)) return;
 
+            if (ids.length === 1) {
+                pendingLastProjectDelete = project;
+                document.getElementById('deleteLastProjectName').innerText = project.name;
+                document.getElementById('deleteLastProjectDropboxNote').style.display = project.dropboxProjectId ? '' : 'none';
+                document.getElementById('deleteLastProjectInput').value = '';
+                onDeleteLastProjectInputChange();
+                document.getElementById('deleteLastProjectModal').classList.add('active');
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to delete '${project.name}'?`)) return;
+            finishProjectDeletion(project);
+        }
+
+        function closeDeleteLastProjectModal() {
+            document.getElementById('deleteLastProjectModal').classList.remove('active');
+            pendingLastProjectDelete = null;
+        }
+
+        function onDeleteLastProjectInputChange() {
+            const match = document.getElementById('deleteLastProjectInput').value.trim() === 'DELETE';
+            const btn = document.getElementById('deleteLastProjectConfirmBtn');
+            btn.disabled = !match;
+            btn.style.cursor = match ? 'pointer' : 'not-allowed';
+            btn.style.opacity = match ? 1 : 0.5;
+        }
+
+        function confirmDeleteLastProject() {
+            if (document.getElementById('deleteLastProjectInput').value.trim() !== 'DELETE') return;
+            const project = pendingLastProjectDelete;
+            document.getElementById('deleteLastProjectModal').classList.remove('active');
+            pendingLastProjectDelete = null;
+            finishProjectDeletion(project);
+        }
+
+        // Shared tail end for both delete paths above -- removes the project,
+        // leaves the app on a valid active project (a fresh blank one if that
+        // was the last project left), and if the deleted project had Dropbox
+        // backups, hands off to the explicit Yes/No modal below rather than
+        // a bare confirm() (whose OK/Cancel buttons don't say what they mean).
+        function finishProjectDeletion(project) {
             const dropboxProjectId = project.dropboxProjectId;
             const deletedId = appDB.activeId;
+            const wasLastProject = Object.keys(appDB.projects).length === 1;
 
             delete appDB.projects[deletedId];
-            appDB.activeId = Object.keys(appDB.projects)[0];
+            if (wasLastProject) {
+                const newId = 'proj_' + Date.now();
+                appDB.projects[newId] = createBlankProject('New Project');
+                appDB.activeId = newId;
+            } else {
+                appDB.activeId = Object.keys(appDB.projects)[0];
+            }
             clearUndoHistory(deletedId);
             resetGridSearch();
             resetLabelFilter();
@@ -1002,9 +1082,27 @@
                 return;
             }
 
-            if (confirm(`This project also has backups saved in Dropbox. Delete those too?\n\nIf you keep them, this project may show up again under "Check Dropbox for other projects."`)) {
-                deleteDropboxProjectFolder(dropboxProjectId, project.name);
-            }
+            openDropboxDeleteModal(dropboxProjectId, project.name);
+        }
+
+        let pendingDropboxDelete = null;
+
+        function openDropboxDeleteModal(dropboxProjectId, projectName) {
+            pendingDropboxDelete = { dropboxProjectId, projectName };
+            document.getElementById('dropboxDeleteProjectName').innerText = projectName;
+            document.getElementById('dropboxDeleteModal').classList.add('active');
+        }
+
+        function declineDropboxDelete() {
+            document.getElementById('dropboxDeleteModal').classList.remove('active');
+            pendingDropboxDelete = null;
+        }
+
+        function confirmDropboxDelete() {
+            const pending = pendingDropboxDelete;
+            document.getElementById('dropboxDeleteModal').classList.remove('active');
+            pendingDropboxDelete = null;
+            if (pending) deleteDropboxProjectFolder(pending.dropboxProjectId, pending.projectName);
         }
 
         function deleteDropboxProjectFolder(dropboxProjectId, projectName) {
@@ -1018,39 +1116,6 @@
                 showStatus("✗ Dropbox cleanup failed", "#ef4444");
                 alert(`Couldn't delete '${projectName}''s backups from Dropbox. You can remove the "${dropboxProjectId}" folder manually from Dropbox's Simple Gantt Backups folder if needed.`);
             });
-        }
-
-        const LEGACY_DB_KEYS = ["simple_gantt_portfolio_v25","simple_gantt_portfolio_v24","simple_gantt_portfolio_v23",
-            "simple_gantt_portfolio_v22","simple_gantt_portfolio_v21","simple_gantt_portfolio_v20",
-            "simple_gantt_portfolio_v19","simple_gantt_portfolio_v18","simple_gantt_portfolio_v17"];
-
-        function factoryReset() {
-            const projectNames = Object.values(appDB.projects).map(p => p.name);
-            const label = projectNames.length === 1
-                ? `all data in "${projectNames[0]}"`
-                : `all ${projectNames.length} projects (${projectNames.join(', ')})`;
-            document.getElementById('resetProjectCount').innerText = label;
-            document.getElementById('resetConfirmInput').value = '';
-            onResetInputChange();
-            document.getElementById('resetModal').classList.add('active');
-        }
-
-        function closeResetModal() {
-            document.getElementById('resetModal').classList.remove('active');
-        }
-
-        function onResetInputChange() {
-            const match = document.getElementById('resetConfirmInput').value.trim() === 'DELETE';
-            const btn = document.getElementById('resetConfirmBtn');
-            btn.disabled = !match;
-            btn.style.cursor = match ? 'pointer' : 'not-allowed';
-            btn.style.opacity = match ? 1 : 0.5;
-        }
-
-        function confirmFactoryReset() {
-            localStorage.removeItem(DB_KEY);
-            LEGACY_DB_KEYS.forEach(k => localStorage.removeItem(k));
-            location.reload();
         }
 
         function saveToLocal() {
@@ -4345,6 +4410,65 @@
             }
             syncToGantt(true);
             showStatus("✓ Dates recalculated", "#10b981");
+        }
+
+        // ==========================================
+        // RENUMBER TASK IDS (close gaps left by deleted tasks, for cleaner
+        // CSV/PDF exports) -- explicit, opt-in, one-way; never runs on its own
+        // ==========================================
+        // Reassigns Task ID 1, 2, 3... in current top-to-bottom row order --
+        // the same order Outline/WBS numbers already use -- then rewrites
+        // every structural reference to the old IDs in lockstep: Depends (a
+        // ';'-joined list), Parent (a single ID), and the collapsed/flagged
+        // view-state arrays. A reference that was already dangling (pointing
+        // at an ID that doesn't exist) is left as-is rather than dropped --
+        // that's a pre-existing data issue this action isn't meant to fix.
+        // Free-text mentions of an ID inside Notes/Labels prose are NOT
+        // rewritten -- there's no structural way to find those safely.
+        // Goes through the normal renderGrid()/syncToGantt() pipeline, same
+        // as moveRow() above, which is what gives this one automatic Undo
+        // step for free via saveToLocal()'s own before/after diff.
+        function renumberTaskIds() {
+            if (!sheet) return;
+            const data = sheet.getData();
+            if (!data || data.length === 0) {
+                showStatus("⚠ No tasks to renumber", "#f59e0b");
+                return;
+            }
+
+            const oldToNew = {};
+            let anyChange = false;
+            data.forEach((row, index) => {
+                const oldId = (row[COL.ID] != null) ? row[COL.ID].toString().trim() : '';
+                const newId = String(index + 1);
+                if (oldId) oldToNew[oldId] = newId;
+                if (oldId !== newId) anyChange = true;
+            });
+
+            if (!anyChange) {
+                showStatus("IDs are already sequential", "#64748b");
+                return;
+            }
+
+            if (!confirm(`Renumber every Task ID to match its current row order (1, 2, 3...)?\n\nDepends, Parent, and any collapsed/flagged rows are updated to match. A note or label that mentions an ID as plain text is not rewritten.`)) return;
+
+            const remapId = (ref) => Object.prototype.hasOwnProperty.call(oldToNew, ref) ? oldToNew[ref] : ref;
+
+            data.forEach((row, index) => {
+                const depIds = (row[COL.DEP] ? row[COL.DEP].toString() : '').split(';').map(d => d.trim()).filter(d => d !== '');
+                row[COL.DEP] = depIds.map(remapId).join(';');
+                const parentId = (row[COL.PARENT] != null) ? row[COL.PARENT].toString().trim() : '';
+                if (parentId) row[COL.PARENT] = remapId(parentId);
+                row[COL.ID] = String(index + 1);
+            });
+
+            const proj = appDB.projects[appDB.activeId];
+            if (proj.collapsed) proj.collapsed = proj.collapsed.map(remapId);
+            if (proj.flagged) proj.flagged = proj.flagged.map(remapId);
+
+            renderGrid(data);
+            syncToGantt(true);
+            showStatus(`✓ Renumbered ${data.length} task${data.length === 1 ? '' : 's'}`, "#10b981");
         }
 
         function renderGrid(overrideData = null) {

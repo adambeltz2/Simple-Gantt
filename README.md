@@ -11,6 +11,7 @@ A lightweight, browser-based Gantt chart and task management tool. No server req
 - **Spreadsheet Grid** – Edit tasks in a familiar table format
 - **Task Hierarchy** – Support for parent-child task relationships
 - **Collapse/Expand** – Fold a parent's children out of view in both the grid and chart, with "Expand All"/"Collapse All" toolbar controls; purely visual, your data is never touched
+- **Column Hide/Show** – Hide any grid column, core or custom, via a "🙈 Hide Column" entry on its right-click menu or the toolbar's "Columns" popover (a checkbox per column, doubling as a clear "N hidden" indicator); toggle it back with "👁️ Show Column" or by re-checking the box. Purely visual, like Collapse -- a hidden column's data is never touched and it still appears in full in CSV export and Dropbox backup
 - **Manual "In Progress" Flag** – Click the marker next to any Task ID, or right-click the row and choose "Mark In Progress," to tint that grid row purple for your own ad-hoc tracking; grid-only, never touches the Gantt chart or CSV export
 - **100%-Done Checkmark** – A task at 100% gets a small ✓ next to its name in the grid, in the same spot the critical-path ⚡ icon uses (both can show together). Grid-only, applies to parent rows too since their % Done is itself a live rollup of their children
 - **Late Indicator** – The End column tints itself automatically: red if it's in the past, yellow if it's today, no color if it's not due yet. Pure date math (doesn't consult % Done), applies to every row including parents. Grid-only, like the In Progress flag
@@ -102,7 +103,7 @@ No server, no npm, no build step required.
 - **Dur.** – Duration in days
 - **End** – Completion date (YYYY-MM-DD format). Editable directly on a leaf task (no children) -- Duration is back-solved from Start + End. A task with children keeps its End read-only and rolled up from its children instead
 - **Depends** – Parent task IDs (comma-separated)
-- **Parent** – Read-only; set via "Depends"
+- **Parent** – Which task this one is nested under, for outline grouping. Directly editable (its own dropdown); independent of "Depends," which is a separate finish-to-start scheduling link, not a hierarchy setting
 - **Labels** – Free-text tags, comma or semicolon-separated
 - **Notes** – Click-to-expand Markdown note for the task. Read-only at the cell level; click the flag to view/edit in a modal
 - **Status** – Not Started / In Progress / Complete, calculated only from % Done (0%, between, 100%). Read-only -- always freshly recomputed, never typed directly

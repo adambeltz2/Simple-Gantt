@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.44.1] - 2026-09-17
+
+### 🐛 Fixed
+
+#### Resource/Labels quick-pick toggle was invisible on long, multi-value cells
+- **User-reported:** "When I add multiple resources to the task the toggle to add/remove them is now missing."
+- The picker toggle (▾) was appended right after the cell's own text in the DOM, inside the same inline content jexcel's default cell CSS clips with `text-overflow: ellipsis; overflow: hidden`. Once a Resource (or Labels) value was long enough to overflow the column's current width -- several comma-separated names, for instance -- that clipping cut off the toggle along with the overflow text, not just visually truncating it.
+- Fixed by pinning the toggle absolutely to the cell's right edge (the cell is now `position: relative`) and giving the text its own truncating span (`.resource-cell-text` / `.label-cell-text`) with room reserved for the icon. The toggle is now always visible regardless of text length; only the displayed text ellipsizes -- purely a display concern, `sheet.getData()` and CSV export still carry the full untruncated value.
+
 ## [2.44.0] - 2026-09-17
 
 ### 🐛 Fixed / Changed

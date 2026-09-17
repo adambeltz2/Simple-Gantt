@@ -151,15 +151,26 @@
         .jexcel_row:active { cursor: grabbing !important; }
 
         /* Resource cell's quick-pick toggle -- a filled badge rather than a bare
-           glyph so it reads as a clickable control at a glance, not stray text. */
-        .resource-picker-toggle { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 5px; border-radius: 50%; background: #64748b; color: #fff; font-size: 9px; line-height: 1; vertical-align: middle; cursor: pointer; user-select: none; flex: none; }
+           glyph so it reads as a clickable control at a glance, not stray text.
+           Pinned to the cell's right edge (the cell itself is made
+           position:relative in JS) rather than sitting inline after the text --
+           jexcel's own cell CSS applies text-overflow:ellipsis+overflow:hidden
+           to the cell's inline content, which silently clipped this icon
+           entirely off-screen whenever the Resource text was long enough to
+           overflow (e.g. several comma-separated names). Pinning it outside
+           that overflow-clipped text flow keeps it visible regardless of how
+           long the text is; see the matching .resource-cell-text/.label-cell-text
+           truncation below. */
+        .resource-picker-toggle { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: #64748b; color: #fff; font-size: 9px; line-height: 1; cursor: pointer; user-select: none; flex: none; position: absolute; right: 2px; top: 50%; transform: translateY(-50%); }
         .resource-picker-toggle:hover { background: #2563eb; }
+        .resource-cell-text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 20px; }
 
         /* Same pattern as .resource-picker-toggle, its own class per this
            app's convention (each picker icon owns its own CSS rule even when
            visually identical) rather than reusing the Resource one. */
-        .label-picker-toggle { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 5px; border-radius: 50%; background: #64748b; color: #fff; font-size: 9px; line-height: 1; vertical-align: middle; cursor: pointer; user-select: none; flex: none; }
+        .label-picker-toggle { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: #64748b; color: #fff; font-size: 9px; line-height: 1; cursor: pointer; user-select: none; flex: none; position: absolute; right: 2px; top: 50%; transform: translateY(-50%); }
         .label-picker-toggle:hover { background: #2563eb; }
+        .label-cell-text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 20px; }
 
         .header-btn { padding: 6px 10px !important; background: transparent; color: #94a3b8; border: 0.5px solid #334155; border-radius: 6px; font-size: 12.5px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 5px; }
         .header-btn:hover { background: #1e293b; color: #e2e8f0; }
@@ -825,7 +836,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.44.0";
+        const APP_VERSION = "2.44.1";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -3555,12 +3566,19 @@
                 }
 
                 if (col == COL.RESOURCE) {
-                    // A small quick-pick icon appended after the cell's own text --
+                    // A small quick-pick icon pinned to the cell's right edge --
                     // the cell itself stays fully editable free text (see the
                     // "NAMED RESOURCE REGISTRY" comment above splitResourceEntry for
-                    // why), this is just a faster path to it than typing.
+                    // why), this is just a faster path to it than typing. Text
+                    // lives in its own truncating span (.resource-cell-text) so a
+                    // long comma-separated Resource value ellipsizes instead of
+                    // pushing the icon out of jexcel's own overflow-clipped cell.
                     cell.innerHTML = '';
-                    cell.appendChild(document.createTextNode(val != null ? val : ''));
+                    cell.style.position = 'relative';
+                    const text = document.createElement('span');
+                    text.className = 'resource-cell-text';
+                    text.textContent = val != null ? val : '';
+                    cell.appendChild(text);
                     const picker = document.createElement('span');
                     picker.textContent = '▾';
                     picker.title = 'Pick from named resources';
@@ -3575,7 +3593,11 @@
                     // "NAMED LABEL REGISTRY" comment for why the cell itself
                     // stays plain free text.
                     cell.innerHTML = '';
-                    cell.appendChild(document.createTextNode(val != null ? val : ''));
+                    cell.style.position = 'relative';
+                    const text = document.createElement('span');
+                    text.className = 'label-cell-text';
+                    text.textContent = val != null ? val : '';
+                    cell.appendChild(text);
                     const picker = document.createElement('span');
                     picker.textContent = '▾';
                     picker.title = 'Pick from named labels';

@@ -102,7 +102,7 @@ No server, no npm, no build step required.
 - **Dur.** – Duration in days
 - **End** – Completion date (YYYY-MM-DD format). Editable directly on a leaf task (no children) -- Duration is back-solved from Start + End. A task with children keeps its End read-only and rolled up from its children instead
 - **Depends** – Parent task IDs (comma-separated)
-- **Parent** – Read-only; set via "Depends"
+- **Parent** – Which task this one is nested under, for outline grouping. Directly editable (its own dropdown); independent of "Depends," which is a separate finish-to-start scheduling link, not a hierarchy setting
 - **Labels** – Free-text tags, comma or semicolon-separated
 - **Notes** – Click-to-expand Markdown note for the task. Read-only at the cell level; click the flag to view/edit in a modal
 - **Status** – Not Started / In Progress / Complete, calculated only from % Done (0%, between, 100%). Read-only -- always freshly recomputed, never typed directly

@@ -40,13 +40,14 @@ test('changing Zoom inside the View options menu still works', async ({ page }) 
   await expect(page.locator('#zoomScale')).toHaveValue('Week');
 });
 
-test('Tools menu is closed by default and opens on click, revealing Fit columns and Sync Dependencies', async ({ page }) => {
+test('Tools menu is closed by default and opens on click, revealing Fit columns, Sync Dependencies, and Renumber Task IDs', async ({ page }) => {
   await expect(page.locator('#toolsMenuDropdown')).toBeHidden();
 
   await page.click('#toolsMenuBtn');
   await expect(page.locator('#toolsMenuDropdown')).toBeVisible();
   await expect(page.locator('button[onclick="autoFitColumns()"]')).toBeVisible();
   await expect(page.locator('button[onclick="syncDependencies()"]')).toBeVisible();
+  await expect(page.locator('button[onclick="renumberTaskIds()"]')).toBeVisible();
 });
 
 test('clicking outside the Tools menu closes it', async ({ page }) => {

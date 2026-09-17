@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.44.0] - 2026-09-17
+
+### 🐛 Fixed / Changed
+
+#### Removed the "Reset" button; Delete now handles your last project too
+- **User-requested:** "I also want to remove the 'Reset' button. Its too dangerous. I instead want people to click 'Delete' for each project AND have it prompt them to also delete from dropbox Yes/No."
+- "Reset" wiped every project in the browser in one shot with a single type-DELETE-to-confirm gate, and had no awareness of Dropbox at all -- any of the projects it nuked could still have live backups sitting untouched in Dropbox afterward. It's gone.
+- `deleteProject()` already asked about Dropbox backups when the project being deleted had any -- that part wasn't new. The actual gap: it refused outright to delete your last remaining project, which is why Reset still existed as a separate escape hatch. It now handles that case too, behind the same type-DELETE-to-confirm friction Reset used to have, and leaves the app on a fresh blank project afterward (never an empty project list).
+- **User follow-up, from a live screenshot:** the Dropbox follow-up question rendered as a native `confirm()`, whose buttons are just the browser's generic "OK"/"Cancel" -- not the explicit Yes/No the request asked for. Replaced it with a custom modal with unambiguous button labels, "Yes, delete from Dropbox" / "No, keep backups", so it's clear which button does what without reading the sentence above them.
+
+### ✨ Added
+
+#### Renumber Task IDs: a one-way, explicit cleanup for gappy/out-of-order IDs
+- **User-requested:** "the ability to regenerate the IDs based on sequence... it would keep the import/export files clean," explicitly agreeing this should be intentional/opt-in rather than automatic given the risk of a stale reference.
+- New "Renumber Task IDs" entry in the Tools menu reassigns Task ID 1, 2, 3... in current top-to-bottom row order (the same order Outline/WBS numbers already use), closing any gaps left by deleted tasks. Rewrites every structural reference to the old IDs in the same pass -- Depends (a `;`-joined list), Parent, and the collapsed/flagged view-state -- so nothing silently breaks. A reference that was already dangling (pointing at a nonexistent ID) is left as-is rather than dropped, since fixing pre-existing broken links isn't this action's job. A free-text mention of an ID inside Notes/Labels prose is deliberately not touched -- there's no structural way to find those safely.
+- Never runs automatically -- not on load, save, import, or project switch. A confirm dialog spells out exactly what changes before anything happens, and a no-op (IDs are already sequential) is detected up front with no dialog at all.
+- Goes through the same `renderGrid()`/`syncToGantt()` pipeline `moveRow()` already uses, which gets it one automatic, single Undo step for free -- no separate undo-stack wiring needed.
+
 ## [2.43.0] - 2026-09-17
 
 ### ✨ Added

@@ -85,7 +85,7 @@ No server, no npm, no build step required.
 
 | Action | How |
 |--------|-----|
-| **Add Task** | Click "➕ Add row" button or right-click → Add row |
+| **Add Task** | Click "➕ Add row" -- inserts right after whatever row you have selected, or at the bottom if nothing's selected. Right-click a row for "Insert row above"/"Insert row below" instead |
 | **Edit Cell** | Double-click any cell in the grid |
 | **Delete Task** | Right-click row → Delete row |
 | **Reorder Tasks** | Drag rows up/down, or right-click a row → "Move to Task ID..." to jump it next to a specific task by ID (also reparents it to match, so it lands at the right outline depth) |

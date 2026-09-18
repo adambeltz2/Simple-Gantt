@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.45.0] - 2026-09-18
+
+### ✨ Added
+
+#### Add row now inserts after the current selection, not always at the bottom
+- **User-requested:** "When user clicks the 'Add Row' button it should insert row AFTER whatever row the user has selected. If they don't have any selected then it should insert at the bottom."
+- `addRow()` now checks `lastSelectionRange` (the same selection tracking Bulk Edit already relies on) -- a single cell counts as a one-row selection, and a multi-row drag selection inserts after its *last* row. With nothing selected (e.g. right after a project switch/reload, before any selection has been made), it falls back to appending at the bottom exactly as before.
+
+### 🐛 Fixed
+
+#### Inserting a row "after" a reference row silently corrupted that row's own Task ID and Def. Alloc
+- Found while building the above: jexcel's own `insertRow(count, rowNumber, insertBefore)` reports the *reference* row's index to the `oninsertrow` callback, not the new row's, whenever `insertBefore` is 0 (insert AFTER rowNumber -- "Insert row below" on the row context menu, and now Add row too). The auto-ID/Def. Alloc assignment used to trust that index blindly, so it silently overwrote the reference row's own real Task ID and Def. Alloc with freshly auto-assigned junk values instead of touching the actual new row.
+- This went unnoticed because `syncToGantt()`'s own blank-ID backfill pass then separately fixed up the real new row moments later -- the new row always ended up with *some* Task ID, just never checked against which row actually got corrupted in the process.
+- `oninsertrow` now locates the true new row by checking which of the two candidate slots is actually blank (a real task never has an empty Task ID) rather than trusting the reported index -- correct regardless of which `insertBefore` mode the caller used.
+
 ## [2.44.1] - 2026-09-17
 
 ### 🐛 Fixed

@@ -836,7 +836,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.44.1";
+        const APP_VERSION = "2.45.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -4569,13 +4569,27 @@
                 oninsertrow: function(instance, rowNumber) {
                     setTimeout(() => {
                         let data = sheet.getData();
+                        // jexcel's own insertRow(count, rowNumber, insertBefore) reports
+                        // different things here depending on that insertBefore flag:
+                        // inserting BEFORE rowNumber (or a plain append) correctly
+                        // reports the new row's own index, but inserting AFTER
+                        // rowNumber (insertBefore=0, e.g. "Insert row below"/Add row
+                        // after a selection) reports the *reference* row's index
+                        // instead -- the new blank row actually lands one index
+                        // later. Rather than special-case every call site's flag,
+                        // just check which of the two candidate slots is actually
+                        // blank (a real task never has an empty Task ID), since
+                        // that's the reliable signal of "this is the new row."
+                        let targetRow = rowNumber;
+                        const isBlankId = (r) => !r || r[COL.ID] == null || r[COL.ID].toString().trim() === '';
+                        if (!isBlankId(data[targetRow]) && isBlankId(data[targetRow + 1])) targetRow = targetRow + 1;
                         let maxId = Math.max(0, ...data.map(r => parseInt(r[COL.ID]) || 0));
                         // Suppressed so the ID/Alloc auto-assignment below and the
                         // row insert itself land as one undo step (see the same
                         // comment on applyBulkEdit), not two separate ones.
                         isSyncing = true;
-                        sheet.setValueFromCoords(COL.ID, rowNumber, (maxId + 1).toString(), true);
-                        sheet.setValueFromCoords(COL.ALLOC, rowNumber, '100', true);
+                        sheet.setValueFromCoords(COL.ID, targetRow, (maxId + 1).toString(), true);
+                        sheet.setValueFromCoords(COL.ALLOC, targetRow, '100', true);
                         isSyncing = false;
                         triggerSync();
                     }, 0);
@@ -5354,8 +5368,20 @@
             syncToGantt(); 
         }
 
-        function addRow() { 
-            try { sheet.insertRow(); } catch(e) { console.error(e); }
+        // Inserts after the last row of whatever's currently selected (a
+        // single cell counts as a one-row selection, its own top/bottom) --
+        // falls back to appending at the bottom when nothing is selected,
+        // e.g. right after a project switch/reload, before lastSelectionRange
+        // has ever been set. Same insertRow(count, rowNumber, insertBefore)
+        // call the "Insert row below" context-menu action already uses.
+        function addRow() {
+            try {
+                if (lastSelectionRange) {
+                    sheet.insertRow(1, lastSelectionRange.bottom, 0);
+                } else {
+                    sheet.insertRow();
+                }
+            } catch(e) { console.error(e); }
         }
         
         function exportCSV() {

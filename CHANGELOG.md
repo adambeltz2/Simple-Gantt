@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.46.0] - 2026-09-19
+
+### ✨ Added
+
+#### Plan My Day: a focused, per-project daily checklist
+- **User-requested:** "a feature that is a 'plan my day', similar to Todo based platforms to keep focus," refined through discussion to: per-project (not cross-project), a bounded "Recommended" list based on Late/upcoming tasks (never showing too many at once), the user curating those into their own list, and task Notes reachable and editable right from that same view.
+- New "Plan My Day" toolbar button (with a live count badge) opens a docked drawer over the grid/chart area -- the header and toolbar stay fully usable while it's open, unlike every other modal in the app.
+- **Recommended**: computed live from the same Late-Indicator data the grid's own red/yellow End-date tinting already reads -- overdue tasks first (most overdue first), then due today, then due within the next 3 days. Excludes parent/summary rows (same exclusion Workload Dashboard already uses), anything already 100% done, anything with no End date to judge by, and anything already pinned. Capped at 3 visible with a "show more" link rather than ever dumping the whole grid into the panel.
+- **Today's Plan**: the user's own curated pins, persisted per project (new `today` array, same localStorage-only tier as `collapsed`/`flagged`/`hiddenColumns` -- never in CSV export or a Dropbox backup's `meta.json`). Pin from a Recommended card's "+", or star any row's Task ID cell directly in the grid -- both stay in sync. Checking a pinned task off sets % Done to 100 through the exact same `setValueFromCoords()` path a real grid edit uses, so it's one Undo step like anything else.
+- **Notes, right from the drawer**: every Recommended and Today's Plan row carries the same 📝/+ notes indicator the grid's Notes column already uses. Clicking it opens the task's real Notes modal -- same Markdown renderer, same Edit/Save -- so notes can be reviewed and edited while planning without leaving the panel.
+
 ## [2.45.0] - 2026-09-18
 
 ### ✨ Added

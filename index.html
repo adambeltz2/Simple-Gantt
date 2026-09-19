@@ -98,7 +98,7 @@
         #cloudStatus.syncing { color: #85B7EB; }
         #cloudStatus.synced { color: #639922; }
         
-        .workspace { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+        .workspace { display: flex; flex: 1; min-height: 0; overflow: hidden; position: relative; }
         .grid-panel { width: 55%; overflow: auto; background: #f8fafc; padding: 20px; box-sizing: border-box; }
         .resizer { width: 8px; background: #cbd5e1; cursor: col-resize; flex-shrink: 0; z-index: 10; transition: background 0.2s;}
         .resizer:hover, .resizer.resizing { background: #3b82f6; }
@@ -286,6 +286,11 @@
                 <button class="tbtn" onclick="openWorkloadModal()">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                     Workload
+                </button>
+                <button id="planMyDayBtn" class="tbtn" onclick="togglePlanMyDayDrawer(event)" title="A focused checklist for today -- recommended from Late/upcoming tasks, plus whatever you pin">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="M9 16l2 2 4-4"></path></svg>
+                    Plan My Day
+                    <span id="planMyDayBadge" style="display:none; background:#38bdf8; color:#0f172a; border-radius:9px; padding:0 6px; font-size:11px; font-weight:700; line-height:16px; min-width:16px; text-align:center;"></span>
                 </button>
                 <button class="tbtn" onclick="expandAllTasks()" title="Expand all parent tasks">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"></polyline><polyline points="7 6 12 11 17 6"></polyline></svg>
@@ -523,6 +528,30 @@
             <div id="ganttRangeBar" class="gantt-range-bar"></div>
             <div id="ganttLegend" class="gantt-legend"></div>
             <div id="gantt"></div>
+        </div>
+
+        <!-- PLAN MY DAY drawer -- overlays the grid/chart area only, never the
+             header, so Search/Filters/project switching stay reachable while
+             it's open. Docked, not a .modal: doesn't block interacting with
+             the grid underneath (e.g. clicking a row's own ★ pin toggle). -->
+        <div id="planMyDayDrawer" style="display:none; position:absolute; top:0; right:0; bottom:0; width:360px; max-width:90vw; background:#f8fafc; border-left:1px solid #e2e8f0; box-shadow:-8px 0 24px rgba(15,23,42,0.12); flex-direction:column; z-index:40;">
+            <div style="padding:16px 16px 12px; border-bottom:1px solid #e2e8f0; background:#ffffff; display:flex; align-items:center; justify-content:space-between;">
+                <div style="font-size:15px; font-weight:700; color:#0f172a;">📅 Plan My Day</div>
+                <span onclick="togglePlanMyDayDrawer(event)" style="color:#94a3b8; font-size:15px; cursor:pointer;">✕</span>
+            </div>
+            <div style="flex:1; overflow-y:auto; padding:14px 16px;">
+                <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:8px;">Recommended</div>
+                <div id="planMyDayRecommended"></div>
+
+                <div style="height:1px; background:#e2e8f0; margin:14px 0 16px;"></div>
+
+                <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:8px;">Today's Plan · <span id="planMyDayTodayCount">0</span></div>
+                <div id="planMyDayTodayList"></div>
+
+                <div style="margin-top:14px; color:#94a3b8; font-size:11.5px; line-height:1.5;">
+                    Checking a task off sets % Done to 100 in the grid -- same task, same Undo step. The 📝/+ icon opens that task's real Notes, right here.
+                </div>
+            </div>
         </div>
     </div>
     
@@ -836,7 +865,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.45.0";
+        const APP_VERSION = "2.46.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -855,7 +884,7 @@
         let appDB = {
             activeId: 'proj_1',
             settings: { skipWeekends: true, zoom: 'Day' },
-            projects: { 'proj_1': { name: 'Example Project', columns: [], data: sampleProjectData, collapsed: [], flagged: [], hiddenColumns: [], resources: ['Alice', 'Bob', 'Charlie'], labels: ['Planning', 'Design', 'Development'], projectNotes: '' } }
+            projects: { 'proj_1': { name: 'Example Project', columns: [], data: sampleProjectData, collapsed: [], flagged: [], hiddenColumns: [], today: [], resources: ['Alice', 'Bob', 'Charlie'], labels: ['Planning', 'Design', 'Development'], projectNotes: '' } }
         };
 
         try {
@@ -876,6 +905,7 @@
                     if (!appDB.projects[pid].collapsed) appDB.projects[pid].collapsed = [];
                     if (!appDB.projects[pid].flagged) appDB.projects[pid].flagged = [];
                     if (!appDB.projects[pid].hiddenColumns) appDB.projects[pid].hiddenColumns = [];
+                    if (!appDB.projects[pid].today) appDB.projects[pid].today = [];
                     if (!appDB.projects[pid].resources) appDB.projects[pid].resources = [];
                     if (!appDB.projects[pid].labels) appDB.projects[pid].labels = [];
                     appDB.projects[pid].data = normalizeData(appDB.projects[pid].data, appDB.projects[pid].columns.length);
@@ -978,6 +1008,7 @@
                 collapsed: [],
                 flagged: [],
                 hiddenColumns: [],
+                today: [],
                 resources: [],
                 labels: [],
                 projectNotes: ''
@@ -1766,6 +1797,7 @@
                                 collapsed: [],
                                 flagged: [],
                                 hiddenColumns: [],
+                                today: [],
                                 resources: collectResourceNamesFromRows(data),
                                 labels: collectLabelNamesFromRows(data),
                                 projectNotes: discovered.projectNotes || ''
@@ -1958,6 +1990,7 @@
             sheet.setValueFromCoords(col, row, newVal, true);
             saveToLocal();
             renderNotesView(newVal);
+            renderPlanMyDayDrawer(); // the 📝/+ icon there reflects hasContent too
         }
 
         function cancelNotesEdit() {
@@ -3536,6 +3569,19 @@
                     dot.addEventListener('mousedown', function(e) { e.stopPropagation(); });
                     dot.addEventListener('click', function(e) { e.stopPropagation(); toggleFlag(rowID); });
                     cell.appendChild(dot);
+
+                    // Plan My Day pin -- lets a task be added to today's plan
+                    // directly from the grid, without opening the drawer.
+                    let pinned = isPinnedToday(rowID);
+                    let pin = document.createElement('span');
+                    pin.textContent = '★';
+                    pin.title = pinned ? "On today's plan (click to unpin)" : "Add to today's plan";
+                    pin.className = 'today-pin-toggle';
+                    pin.style.cssText = 'cursor:pointer; user-select:none; font-size:13px; margin-right:3px; color:' + (pinned ? '#0ea5e9' : '#cbd5e1') + ';';
+                    pin.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+                    pin.addEventListener('click', function(e) { e.stopPropagation(); toggleTodayPin(rowID); });
+                    cell.appendChild(pin);
+
                     cell.appendChild(document.createTextNode(val != null ? val : ''));
 
                     if (dependencyCycleIds.has(rowID)) {
@@ -4241,6 +4287,197 @@
                     sheet.rows[index].style.boxShadow = isFlaggedRow ? 'inset 4px 0 0 0 #7e22ce' : '';
                 }
             });
+        }
+
+        // ==========================================
+        // PLAN MY DAY (view-only -- never mutates task data, CSV export, or
+        // Dropbox backup; same tier as collapsed/flagged/hiddenColumns above)
+        // ==========================================
+        // User-requested "keep focus" daily view: a per-project "today" list
+        // (Task IDs the user has pinned) plus a bounded, ranked set of
+        // Recommended candidates computed live from Late/upcoming End dates --
+        // same source data the existing Late Indicator (computeLateStatus)
+        // already reads, just bucketed into overdue/due-soon and capped so it
+        // never turns into a second copy of the whole grid. Marking a pinned
+        // task complete, or editing its Notes, goes through the exact same
+        // sheet.setValueFromCoords()/openNotesModal() calls the grid itself
+        // uses -- this is a second entry point onto the same data, not a
+        // parallel one.
+        const PLAN_MY_DAY_LOOKAHEAD_DAYS = 3; // "upcoming" horizon for Recommended
+        const PLAN_MY_DAY_VISIBLE_CAP = 3; // how many Recommended cards show before "show more"
+        let planMyDayOpen = false;
+        let planMyDayExpanded = false;
+
+        function getTodayIds() {
+            let proj = appDB.projects[appDB.activeId];
+            if (!proj.today) proj.today = [];
+            return proj.today;
+        }
+
+        function isPinnedToday(taskId) {
+            return getTodayIds().includes(String(taskId));
+        }
+
+        function toggleTodayPin(taskId) {
+            let ids = getTodayIds();
+            let key = String(taskId);
+            let idx = ids.indexOf(key);
+            if (idx > -1) ids.splice(idx, 1); else ids.push(key);
+            saveToLocal();
+            if (sheet) sheet.updateTable();
+            renderPlanMyDayDrawer();
+        }
+
+        // A pinned task's row index can shift (sort, insert, delete) between
+        // renders, so every drawer action resolves it fresh by Task ID rather
+        // than caching an index -- same reasoning renumberTaskIds() and the
+        // dependents lookup above already rely on.
+        function findRowIndexById(taskId) {
+            if (!sheet) return -1;
+            const key = String(taskId);
+            return sheet.getData().findIndex(r => ((r[COL.ID] != null) ? r[COL.ID].toString().trim() : '') === key);
+        }
+
+        function daysUntil(dateStr) {
+            if (!dateStr) return null;
+            const end = parseLocalDate(dateStr);
+            if (isNaN(end.getTime())) return null;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            end.setHours(0, 0, 0, 0);
+            return Math.round((end.getTime() - today.getTime()) / 86400000);
+        }
+
+        function formatDueLabel(daysLeft) {
+            if (daysLeft === null) return '';
+            if (daysLeft < 0) return `${Math.abs(daysLeft)} day${Math.abs(daysLeft) === 1 ? '' : 's'} overdue`;
+            if (daysLeft === 0) return 'Due today';
+            return `Due in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`;
+        }
+
+        // Overdue first (most overdue first), then due-today, then upcoming
+        // within PLAN_MY_DAY_LOOKAHEAD_DAYS -- excludes parent/summary rows
+        // (same isParent check Workload Dashboard already uses), anything
+        // already 100% done, anything with no End date to judge by, and
+        // anything already pinned (it belongs in Today's Plan, not repeated
+        // in Recommended).
+        function computeRecommendedTasks() {
+            if (!sheet) return [];
+            const data = sheet.getData();
+            const todaySet = new Set(getTodayIds());
+            return data
+                .map((row) => {
+                    const id = (row[COL.ID] != null) ? row[COL.ID].toString().trim() : '';
+                    const isParent = data.some((r) => r[COL.PARENT] == id && id !== '');
+                    return {
+                        id,
+                        name: row[COL.NAME] || '(untitled task)',
+                        resource: row[COL.RESOURCE] || '',
+                        pct: parseInt(row[COL.PCT]) || 0,
+                        isParent,
+                        daysLeft: daysUntil(row[COL.END]),
+                    };
+                })
+                .filter((t) => t.id && !t.isParent && t.pct < 100 && !todaySet.has(t.id) && t.daysLeft !== null && t.daysLeft <= PLAN_MY_DAY_LOOKAHEAD_DAYS)
+                .sort((a, b) => a.daysLeft - b.daysLeft);
+        }
+
+        function markTodayTaskComplete(taskId) {
+            const rowIndex = findRowIndexById(taskId);
+            if (rowIndex === -1) return;
+            sheet.setValueFromCoords(COL.PCT, rowIndex, '100', true);
+            triggerSync();
+        }
+
+        function openNotesFromPlanMyDay(taskId) {
+            const rowIndex = findRowIndexById(taskId);
+            if (rowIndex === -1) return;
+            openNotesModal(rowIndex, COL.NOTES);
+        }
+
+        function planMyDayNotesIcon(rowIndex, taskId) {
+            const noteVal = sheet.getData()[rowIndex][COL.NOTES];
+            const hasContent = noteVal != null && String(noteVal).trim() !== '';
+            return `<span title="${hasContent ? 'View/edit notes' : 'Add notes'}" onclick="openNotesFromPlanMyDay('${escapeHtml(taskId)}')"
+                style="display:flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; flex:none; cursor:pointer; font-size:${hasContent ? '11px' : '12px'}; font-weight:700;
+                background:${hasContent ? '#2563eb' : '#cbd5e1'}; color:${hasContent ? '#fff' : '#475569'};">${hasContent ? '📝' : '+'}</span>`;
+        }
+
+        function togglePlanMyDayDrawer(event) {
+            if (event) event.stopPropagation();
+            planMyDayOpen = !planMyDayOpen;
+            planMyDayExpanded = false;
+            document.getElementById('planMyDayDrawer').style.display = planMyDayOpen ? 'flex' : 'none';
+            if (planMyDayOpen) renderPlanMyDayDrawer();
+        }
+
+        function expandPlanMyDayRecommended() {
+            planMyDayExpanded = true;
+            renderPlanMyDayDrawer();
+        }
+
+        function updatePlanMyDayBadge() {
+            const badge = document.getElementById('planMyDayBadge');
+            if (!badge) return;
+            const n = getTodayIds().length;
+            badge.style.display = n === 0 ? 'none' : '';
+            badge.textContent = n;
+        }
+
+        // Re-renders both sections. Cheap no-op when the drawer is closed --
+        // safe to call unconditionally after every sync/edit, the same way
+        // refreshLabelFilterOptions() already is.
+        function renderPlanMyDayDrawer() {
+            updatePlanMyDayBadge();
+            if (!planMyDayOpen || !sheet) return;
+
+            const recommended = computeRecommendedTasks();
+            const visibleRecommended = planMyDayExpanded ? recommended : recommended.slice(0, PLAN_MY_DAY_VISIBLE_CAP);
+
+            const recommendedHtml = recommended.length === 0
+                ? '<div style="color:#94a3b8; font-size:12.5px; padding:6px 2px;">Nothing late or due in the next ' + PLAN_MY_DAY_LOOKAHEAD_DAYS + ' days.</div>'
+                : visibleRecommended.map((t) => {
+                    const rowIndex = findRowIndexById(t.id);
+                    const accent = t.daysLeft < 0 ? '#dc2626' : (t.daysLeft === 0 ? '#d97706' : '#94a3b8');
+                    const labelColor = t.daysLeft < 0 ? '#dc2626' : (t.daysLeft === 0 ? '#b45309' : '#64748b');
+                    return `<div style="display:flex; align-items:center; gap:8px; background:#ffffff; border:1px solid #e2e8f0; border-left:3px solid ${accent}; border-radius:8px; padding:10px 12px; margin-bottom:8px;">
+                        <div style="flex:1; min-width:0;">
+                            <div style="font-size:13px; font-weight:600; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(t.name)}</div>
+                            <div style="font-size:11.5px; font-weight:600; color:${labelColor}; margin-top:2px;">${formatDueLabel(t.daysLeft)}${t.resource ? ' · ' + escapeHtml(t.resource) : ''}</div>
+                        </div>
+                        ${planMyDayNotesIcon(rowIndex, t.id)}
+                        <span title="Add to today's plan" onclick="toggleTodayPin('${escapeHtml(t.id)}')"
+                            style="width:22px; height:22px; border-radius:50%; background:#64748b; color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; flex:none; cursor:pointer;">+</span>
+                    </div>`;
+                }).join('') + (recommended.length > PLAN_MY_DAY_VISIBLE_CAP && !planMyDayExpanded
+                    ? `<div style="text-align:center; padding:4px 0 6px;"><span style="font-size:11.5px; color:#94a3b8;">Showing ${PLAN_MY_DAY_VISIBLE_CAP} of ${recommended.length} · </span><span onclick="expandPlanMyDayRecommended()" style="font-size:11.5px; color:#2563eb; font-weight:600; cursor:pointer;">show more</span></div>`
+                    : '');
+
+            const todayIds = getTodayIds();
+            const todayHtml = todayIds.length === 0
+                ? '<div style="color:#94a3b8; font-size:12.5px; padding:6px 2px;">Nothing pinned yet -- add a few Recommended tasks above, or click ★ on any row in the grid.</div>'
+                : todayIds.map((id) => {
+                    const rowIndex = findRowIndexById(id);
+                    if (rowIndex === -1) return ''; // task deleted since being pinned
+                    const row = sheet.getData()[rowIndex];
+                    const complete = (parseInt(row[COL.PCT]) || 0) === 100;
+                    const daysLeft = daysUntil(row[COL.END]);
+                    return `<div style="display:flex; align-items:center; gap:10px; padding:9px 2px; border-bottom:1px solid #f1f5f9;">
+                        <span onclick="${complete ? '' : `markTodayTaskComplete('${escapeHtml(id)}')`}"
+                            style="width:18px; height:18px; border-radius:5px; flex:none; cursor:${complete ? 'default' : 'pointer'}; display:flex; align-items:center; justify-content:center; font-size:12px;
+                            ${complete ? 'background:#16a34a; color:#fff;' : 'border:1.5px solid #cbd5e1;'}">${complete ? '✓' : ''}</span>
+                        <div style="flex:1; min-width:0;">
+                            <div style="font-size:13px; font-weight:600; color:${complete ? '#94a3b8' : '#1e293b'}; ${complete ? 'text-decoration:line-through;' : ''} white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(row[COL.NAME] || '(untitled task)')}</div>
+                            <div style="font-size:11.5px; color:#94a3b8;">${complete ? 'Marked complete' : formatDueLabel(daysLeft)}</div>
+                        </div>
+                        ${planMyDayNotesIcon(rowIndex, id)}
+                        <span title="Remove from today's plan" onclick="toggleTodayPin('${escapeHtml(id)}')" style="color:#cbd5e1; font-size:13px; cursor:pointer; flex:none;">✕</span>
+                    </div>`;
+                }).join('');
+
+            document.getElementById('planMyDayRecommended').innerHTML = recommendedHtml;
+            document.getElementById('planMyDayTodayList').innerHTML = todayHtml;
+            document.getElementById('planMyDayTodayCount').textContent = todayIds.length;
         }
 
         // ==========================================
@@ -5039,6 +5276,7 @@
                 sheet.options.columns[COL.DEP].source = sourceList;
                 sheet.options.columns[COL.PARENT].source = sourceList;
                 refreshLabelFilterOptions();
+                renderPlanMyDayDrawer();
 
                 let tasksMap = {};
                 let parentIDs = [...new Set(rawData.map(r => (r[COL.PARENT] !== r[COL.ID] ? r[COL.PARENT] : "")).filter(p => p !== ""))];

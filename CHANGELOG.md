@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.46.1] - 2026-09-20
+
+### ✨ Added
+
+#### Plan My Day: an explicit "Start New Day" reset
+- **User-requested:** "it feels like we should leave it to the user to 'Start New Day' and begin the selection process again" -- rather than yesterday's pins silently rolling forward and quietly meaning something other than *today*.
+- A "Start New Day" link appears next to the Today's Plan heading once anything is pinned (hidden when there's nothing to clear) and empties the pin list in one click. Purely a reset of the view-state pin list -- never touches any task's data, so a cleared task simply goes back to being a Recommended candidate (if it still qualifies) rather than being lost.
+
 ## [2.46.0] - 2026-09-19
 
 ### ✨ Added

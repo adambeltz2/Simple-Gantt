@@ -181,6 +181,55 @@ test('checking a pinned task off sets % Done to 100 in the grid, strikes it thro
   expect(reverted).toBe('40');
 });
 
+test('"Start New Day" is hidden with nothing pinned, and appears once something is', async ({ page }) => {
+  await loadTasks(page, [row('1', 'Task A')]);
+  await page.click('#planMyDayBtn');
+  await page.waitForTimeout(200);
+  await expect(page.locator('#planMyDayStartNewDayBtn')).toBeHidden();
+
+  await page.evaluate(() => toggleTodayPin('1'));
+  await page.waitForTimeout(200);
+  await expect(page.locator('#planMyDayStartNewDayBtn')).toBeVisible();
+});
+
+test('"Start New Day" clears every pin, leaves task data untouched, and unpins the grid\'s own ★ toggle', async ({ page }) => {
+  await loadTasks(page, [row('1', 'Task A', { pct: '50' }), row('2', 'Task B')]);
+  await page.evaluate(() => { toggleTodayPin('1'); toggleTodayPin('2'); });
+  const before = await page.evaluate(() => sheet.getData());
+
+  await page.click('#planMyDayBtn');
+  await page.waitForTimeout(200);
+  await page.click('#planMyDayStartNewDayBtn');
+  await page.waitForTimeout(200);
+
+  const ids = await page.evaluate(() => appDB.projects[appDB.activeId].today);
+  expect(ids).toEqual([]);
+  await expect(page.locator('#planMyDayBadge')).toBeHidden();
+  await expect(page.locator('#planMyDayStartNewDayBtn')).toBeHidden();
+
+  const after = await page.evaluate(() => sheet.getData());
+  expect(after).toEqual(before); // clearing pins never touches task data
+
+  const pinColors = await page.evaluate(() => Array.from(document.querySelectorAll('.today-pin-toggle')).map((el) => el.style.color));
+  expect(pinColors).not.toContain('rgb(14, 165, 233)');
+});
+
+test('a task cleared by "Start New Day" reappears in Recommended if it still qualifies', async ({ page }) => {
+  const overdue = await dateOffset(page, -1);
+  await loadTasks(page, [row('1', 'Still overdue', { end: overdue })]);
+  await page.evaluate(() => toggleTodayPin('1'));
+  await page.click('#planMyDayBtn');
+  await page.waitForTimeout(200);
+
+  let html = await page.evaluate(() => document.getElementById('planMyDayRecommended').innerHTML);
+  expect(html).not.toContain('Still overdue'); // pinned, so excluded from Recommended
+
+  await page.click('#planMyDayStartNewDayBtn');
+  await page.waitForTimeout(200);
+  html = await page.evaluate(() => document.getElementById('planMyDayRecommended').innerHTML);
+  expect(html).toContain('Still overdue'); // unpinned again, so it's back
+});
+
 test('the 📝/+ notes icon opens the task\'s real Notes modal, and editing there updates the icon after save', async ({ page }) => {
   await loadTasks(page, [row('1', 'Needs notes')]);
   await page.evaluate(() => toggleTodayPin('1'));

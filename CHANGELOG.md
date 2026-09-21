@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.47.0] - 2026-09-21
+
+### 🔧 Changed
+
+#### Dropbox integration refactored behind a provider-agnostic adapter (step 1 of backlog #29/#30)
+- **Context:** Google Drive and OneDrive sync were scoped as new backlog items, and scoping them surfaced that the existing Dropbox code (`backupToDropbox()`, `restoreBackup()`, `discoverDropboxProjects()`, `importDiscoveredProject()`, `pruneOldBackups()`, `readMetaJson()`, `deleteDropboxProjectFolder()`) is already almost entirely provider-agnostic business logic sitting on top of exactly five raw Dropbox SDK calls (`filesUpload`/`filesDownload`/`filesListFolder`+`filesListFolderContinue`/`filesDeleteV2`, plus `filesDeleteV2` again for folder deletion). Building Google Drive and OneDrive as straight copy-paste of that logic would have tripled that code for no reason, and any future fix to it (e.g. the still-open CSV-header-migration debt tracked separately) would then need to land in three places.
+- A new `dropboxAdapter` -- `{uploadFile, listFolder, downloadFile, deleteFile, deleteFolder, isConnected, login, logout, ensureFreshToken}` -- is now the one seam that knows Dropbox's actual SDK shape; every cloud-sync function above was rewritten to call through it instead of touching the raw `dbx` client directly. This is a pure extraction with **zero intended behavior change**: adapter methods read the live `dbx` global at call time rather than capturing a reference, so login/logout/reconnect (which reassign `dbx`) work exactly as before.
+- **Regression testing:** the full Playwright suite (452 tests across 55 files) was run against real vendored npm-published copies of all 10 pinned CDN libraries -- including the exact Dropbox SDK version this app pins -- SRI-verified byte-for-byte against `index.html`'s own hashes before and after the refactor, since this sandbox can't reach the live CDN hosts. Result: identical to the established baseline both before and after (451 passed, the one known pre-existing `row-id-backfill` timing flake unrelated to this change), meaning every existing Dropbox test (`dropbox-pagination.spec.js`, `dropbox-reconnect.spec.js`, `dropbox-backup-notes.spec.js`) -- all of which mock the `dbx` global directly -- kept passing completely unmodified, proving the extraction didn't change what those functions actually do.
+- **New:** `tests/dropbox-adapter.spec.js` (15 tests) specifically targets the new seam: each adapter method's translation onto the real Dropbox SDK shape (upload mode/autorename for create-vs-overwrite, pagination, download-to-text, delete, connection state), plus a decoupling proof -- swapping `dropboxAdapter`'s methods for synthetic fakes with zero relationship to `dbx`/the Dropbox SDK shape while setting `dbx`'s own methods to throw, confirming `backupToDropbox`/`restoreBackup`/`discoverDropboxProjects`/`importDiscoveredProject`/`pruneOldBackups`/`deleteDropboxProjectFolder` all still succeed without ever touching `dbx` directly.
+- This is step 1 of the sequencing backlog #29/#30 laid out: refactor Dropbox behind the interface first with the existing test suite green, before a second provider (Google Drive next, then OneDrive) ever touches the code.
+
 ## [2.46.1] - 2026-09-20
 
 ### ✨ Added

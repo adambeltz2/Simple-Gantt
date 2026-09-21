@@ -868,7 +868,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.46.1";
+        const APP_VERSION = "2.47.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -1153,7 +1153,7 @@
         function deleteDropboxProjectFolder(dropboxProjectId, projectName) {
             const folder = `/Simple Gantt Backups/${dropboxProjectId}`;
             showStatus("Removing from Dropbox...", "#f59e0b");
-            dbx.filesDeleteV2({ path: folder })
+            dropboxAdapter.deleteFolder(folder)
             .then(() => showStatus("✓ Removed from Dropbox", "#10b981"))
             .catch(err => {
                 if (handleDropboxAuthError(err)) return;
@@ -1306,6 +1306,58 @@
         const AUTO_BACKUP_DELAY_MS = 60000;
         let dbx = null;
         let dbxAutoBackupTimer = null;
+
+        // ==========================================
+        // CLOUD PROVIDER ADAPTER
+        // ==========================================
+        // Backup/restore/discovery/import/prune below is provider-agnostic
+        // business logic -- it was only ever coupled to Dropbox by calling
+        // `dbx.*` SDK methods directly. This adapter is the one seam that
+        // knows Dropbox's actual API shape (path-based upload/download/list/
+        // delete via the official SDK); every function below calls through
+        // it instead of touching `dbx` itself. Each method reads the live
+        // `dbx` global at call time rather than capturing a reference, so
+        // login/logout/reconnect (which reassign `dbx`) stay exactly as
+        // correct as before, and every existing test that mocks `dbx`
+        // directly (`dbx = {filesUpload: ...}`, established in
+        // tests/dropbox-pagination.spec.js) continues to exercise the same
+        // code path with zero changes.
+        // This is also the interface shape a future Google Drive or OneDrive
+        // adapter is meant to implement (backlog #29/#30) -- `uploadFile`/
+        // `listFolder`/`downloadFile`/`deleteFile`/`deleteFolder` stay
+        // provider-neutral; `ensureFreshToken` exists for that same reason
+        // even though Dropbox's own implicit-grant auth (no refresh token)
+        // makes it a trivial check here rather than a real silent-refresh
+        // attempt.
+        const dropboxAdapter = {
+            id: 'dropbox',
+            displayName: 'Dropbox',
+            isConnected() { return dbx !== null; },
+            login() { dropboxLogin(); },
+            logout() { disconnectDropbox(); },
+            ensureFreshToken() { return Promise.resolve(dbx !== null); },
+            uploadFile(path, contents, opts) {
+                const overwrite = !!(opts && opts.overwrite);
+                return dbx.filesUpload({ path, contents, mode: { '.tag': overwrite ? 'overwrite' : 'add' }, autorename: !overwrite });
+            },
+            listFolder(path) {
+                return listAllDropboxEntries(path);
+            },
+            downloadFile(path) {
+                return dbx.filesDownload({ path }).then(response => new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject(new Error('Could not read file'));
+                    reader.readAsText(response.result.fileBlob);
+                }));
+            },
+            deleteFile(path) {
+                return dbx.filesDeleteV2({ path });
+            },
+            deleteFolder(path) {
+                return dbx.filesDeleteV2({ path });
+            },
+        };
 
         if (window.location.hash.includes('access_token')) {
             const params = new URLSearchParams(window.location.hash.substring(1));
@@ -1481,8 +1533,8 @@
             const metaContents = JSON.stringify({ name: appDB.projects[projectId].name, updatedAt: new Date().toISOString(), projectNotes: getProjectNotes() });
 
             Promise.all([
-                dbx.filesUpload({ path: filepath, contents: csvString, mode: { '.tag': 'add' }, autorename: true }),
-                dbx.filesUpload({ path: metaPath, contents: metaContents, mode: { '.tag': 'overwrite' } })
+                dropboxAdapter.uploadFile(filepath, csvString, { overwrite: false }),
+                dropboxAdapter.uploadFile(metaPath, metaContents, { overwrite: true })
             ])
             .then(() => {
                 updateCloudStatus('synced');
@@ -1498,13 +1550,13 @@
         }
 
         function pruneOldBackups(folder) {
-            listAllDropboxEntries(folder)
+            dropboxAdapter.listFolder(folder)
             .then(allEntries => {
                 let entries = allEntries.filter(e => e['.tag'] === 'file' && e.name.toLowerCase().endsWith('.csv'));
                 if (entries.length <= MAX_BACKUPS_PER_PROJECT) return;
                 entries.sort((a, b) => new Date(b.client_modified) - new Date(a.client_modified));
                 entries.slice(MAX_BACKUPS_PER_PROJECT).forEach(e => {
-                    dbx.filesDeleteV2({ path: e.path_lower }).catch(err => console.error("Prune delete failed:", err));
+                    dropboxAdapter.deleteFile(e.path_lower).catch(err => console.error("Prune delete failed:", err));
                 });
             })
             .catch(err => console.error("Dropbox prune list failed:", err));
@@ -1654,14 +1706,7 @@
             const folder = path.substring(0, path.lastIndexOf('/'));
 
             Promise.all([
-                new Promise((resolve, reject) => {
-                    dbx.filesDownload({ path: path }).then(response => {
-                        const reader = new FileReader();
-                        reader.onload = () => resolve(reader.result);
-                        reader.onerror = () => reject(new Error('Could not read backup file'));
-                        reader.readAsText(response.result.fileBlob);
-                    }).catch(reject);
-                }),
+                dropboxAdapter.downloadFile(path),
                 readMetaJson(folder)
             ])
             .then(([csvText, meta]) => {
@@ -1690,23 +1735,18 @@
         // only care about the name (discoverDropboxProjects) just read
         // meta.name off the result; restoreBackup also reads meta.projectNotes.
         function readMetaJson(folderPathLower) {
-            return dbx.filesDownload({ path: `${folderPathLower}/meta.json` })
-                .then(r => new Promise(resolve => {
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                        try { resolve(JSON.parse(reader.result)); }
-                        catch(e) { resolve(null); }
-                    };
-                    reader.onerror = () => resolve(null);
-                    reader.readAsText(r.result.fileBlob);
-                }))
+            return dropboxAdapter.downloadFile(`${folderPathLower}/meta.json`)
+                .then(text => {
+                    try { return JSON.parse(text); }
+                    catch(e) { return null; }
+                })
                 .catch(() => null);
         }
 
         function discoverDropboxProjects(manualTrigger) {
             if (!dbx) { if (manualTrigger) dropboxLogin(); return; }
 
-            listAllDropboxEntries('/Simple Gantt Backups')
+            dropboxAdapter.listFolder('/Simple Gantt Backups')
             .then(allEntries => {
                 let folders = allEntries.filter(e => e['.tag'] === 'folder');
                 const localIds = new Set(Object.values(appDB.projects).map(p => p.dropboxProjectId).filter(Boolean));
@@ -1770,45 +1810,41 @@
         }
 
         function importDiscoveredProject(discovered) {
-            return listAllDropboxEntries(discovered.pathLower)
+            return dropboxAdapter.listFolder(discovered.pathLower)
             .then(allEntries => {
                 let files = allEntries.filter(e => e['.tag'] === 'file' && e.name.toLowerCase().endsWith('.csv'));
                 if (files.length === 0) return null;
                 files.sort((a, b) => new Date(b.client_modified) - new Date(a.client_modified));
-                return dbx.filesDownload({ path: files[0].path_lower });
+                return dropboxAdapter.downloadFile(files[0].path_lower);
             })
-            .then(response => {
-                if (!response) return;
+            .then(text => {
+                if (!text) return;
                 return new Promise(resolve => {
-                    const reader = new FileReader();
-                    reader.onload = function() {
-                        Papa.parse(reader.result, { skipEmptyLines: true, complete: function(results) {
-                            let data = results.data;
-                            let columns = [];
-                            let headers = [];
-                            if (data.length > 0 && (data[0][0] === 'ID' || data[0][1] === 'Outline')) {
-                                headers = data.shift();
-                                columns = headers.slice(13);
-                            }
-                            data = sanitizeImportedRows(data, headers);
-                            const newId = 'proj_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-                            appDB.projects[newId] = {
-                                name: discovered.name,
-                                columns: columns,
-                                data: normalizeData(data, columns.length),
-                                dropboxProjectId: discovered.id,
-                                collapsed: [],
-                                flagged: [],
-                                hiddenColumns: [],
-                                today: [],
-                                resources: collectResourceNamesFromRows(data),
-                                labels: collectLabelNamesFromRows(data),
-                                projectNotes: discovered.projectNotes || ''
-                            };
-                            resolve();
-                        }});
-                    };
-                    reader.readAsText(response.result.fileBlob);
+                    Papa.parse(text, { skipEmptyLines: true, complete: function(results) {
+                        let data = results.data;
+                        let columns = [];
+                        let headers = [];
+                        if (data.length > 0 && (data[0][0] === 'ID' || data[0][1] === 'Outline')) {
+                            headers = data.shift();
+                            columns = headers.slice(13);
+                        }
+                        data = sanitizeImportedRows(data, headers);
+                        const newId = 'proj_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+                        appDB.projects[newId] = {
+                            name: discovered.name,
+                            columns: columns,
+                            data: normalizeData(data, columns.length),
+                            dropboxProjectId: discovered.id,
+                            collapsed: [],
+                            flagged: [],
+                            hiddenColumns: [],
+                            today: [],
+                            resources: collectResourceNamesFromRows(data),
+                            labels: collectLabelNamesFromRows(data),
+                            projectNotes: discovered.projectNotes || ''
+                        };
+                        resolve();
+                    }});
                 });
             })
             .catch(err => console.error("Import failed for", discovered.name, err));

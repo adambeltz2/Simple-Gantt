@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.47.1] - 2026-09-23
+
+### ✨ Added
+
+#### Both Notes modals: the whole window is now resizable
+- **User-requested:** "Can we resize the project notes so that the window can be resizable?", followed by "This behavior should be mirrored to the task based notes as well. All notes should behave the same."
+- Previously only the edit textarea itself could be resized (`resize:vertical`, one direction, only while actively editing). The outer modal window (`.modal-content`) is now the resizable surface instead, on both the project-level Notes modal and the per-task Notes modal -- drag its bottom-right corner to grow it both wider and taller, in either view or edit mode, bounded to a sensible minimum (320x260) and a maximum of 95% of the viewport. Each textarea's own resize handle was removed (`resize:none`) so there's a single, unambiguous resize affordance instead of two overlapping grips in the same corner.
+
+### 🐛 Fixed
+
+#### Clicking outside a Notes modal while editing could close it without prompting
+- **User-reported** on the Project Notes modal, with screenshots showing an in-progress edit and then the modal simply gone. Investigated extensively via real-browser (Chromium) automation first: a plain click on the backdrop, a real mousedown-inside-textarea-then-drag-outside-then-mouseup sequence, clicking the red Close button, and clicking right at the modal's edge all correctly triggered the existing "unsaved changes -- discard?" confirmation in every attempt -- the dirty-check logic itself couldn't be made to fail through any of those paths.
+- **User's follow-up direction:** rather than keep chasing the exact click sequence that triggers it, don't let the modal close "automatically" at all -- require a deliberate click on the Close button every time, and apply the same behavior to the per-task Notes modal too so "all notes behave the same." Both modals' backdrop click-to-close listeners are removed entirely; each now only ever closes via its explicit Close button, which still guards unsaved edits with the same "discard changes?" confirmation as before. This closes off the entire class of accidental-close interactions (whatever the exact one turns out to have been) rather than patching one specific path.
+
 ## [2.47.0] - 2026-09-21
 
 ### 🔧 Changed

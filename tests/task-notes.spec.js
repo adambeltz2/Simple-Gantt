@@ -99,7 +99,42 @@ test('right-clicking Labels no longer offers Insert Column Right (Notes must sta
   expect(titles.some((t) => t.includes('Hide Column'))).toBe(true);
 });
 
-test('clicking outside the modal while editing prompts before discarding unsaved changes', async ({ page }) => {
+test('clicking outside the modal while editing never closes it -- only the explicit Close button can', async ({ page }) => {
+  // Mirrors the same fix applied to the Project Notes modal: rather than
+  // rely on a confirm() dialog to catch every possible way of clicking
+  // outside, the backdrop's click-to-close listener is removed entirely --
+  // the modal only ever closes via a deliberate click on the red "Close"
+  // button, which still guards unsaved edits with the same confirm()
+  // dirty-check as before. All notes modals behave the same way.
+  const flag = await notesFlag(page, 0);
+  await flag.click();
+  await page.click('#notesEditBtn');
+  await page.fill('#notesEditTextarea', 'unsaved draft');
+
+  let dialogFired = false;
+  page.on('dialog', (dialog) => { dialogFired = true; dialog.dismiss(); });
+  await page.click('#notesModal', { position: { x: 5, y: 5 } });
+  await page.waitForTimeout(100);
+
+  expect(dialogFired).toBe(false);
+  await expect(page.locator('#notesModal')).toHaveClass(/active/);
+  await expect(page.locator('#notesEditTextarea')).toHaveValue('unsaved draft');
+});
+
+test('clicking outside the modal with no unsaved changes also never closes it', async ({ page }) => {
+  const flag = await notesFlag(page, 0);
+  await flag.click();
+
+  let dialogFired = false;
+  page.once('dialog', (dialog) => { dialogFired = true; dialog.dismiss(); });
+  await page.click('#notesModal', { position: { x: 5, y: 5 } });
+  await page.waitForTimeout(100);
+
+  expect(dialogFired).toBe(false);
+  await expect(page.locator('#notesModal')).toHaveClass(/active/);
+});
+
+test('the explicit Close button still prompts before discarding unsaved changes', async ({ page }) => {
   const flag = await notesFlag(page, 0);
   await flag.click();
   await page.click('#notesEditBtn');
@@ -110,30 +145,46 @@ test('clicking outside the modal while editing prompts before discarding unsaved
     dialogMessage = dialog.message();
     await dialog.dismiss();
   });
-  await page.click('#notesModal', { position: { x: 5, y: 5 } });
+  await page.click('#notesModal .modal-content button:has-text("Close")');
   expect(dialogMessage).toContain('unsaved changes');
   await expect(page.locator('#notesModal')).toHaveClass(/active/);
   await expect(page.locator('#notesEditTextarea')).toHaveValue('unsaved draft');
 
   page.once('dialog', (dialog) => dialog.accept());
-  await page.click('#notesModal', { position: { x: 5, y: 5 } });
+  await page.click('#notesModal .modal-content button:has-text("Close")');
   await expect(page.locator('#notesModal')).not.toHaveClass(/active/);
 
   const stored = await page.evaluate((c) => sheet.getData()[0][c], COL.NOTES);
   expect(stored).not.toBe('unsaved draft');
 });
 
-test('clicking outside the modal does not prompt when there are no unsaved changes', async ({ page }) => {
+test('the modal window itself is resizable, with sensible bounds, mirroring Project Notes', async ({ page }) => {
   const flag = await notesFlag(page, 0);
   await flag.click();
+  const modalContent = page.locator('#notesModal .modal-content');
 
-  let dialogFired = false;
-  page.once('dialog', (dialog) => { dialogFired = true; dialog.dismiss(); });
-  await page.click('#notesModal', { position: { x: 5, y: 5 } });
-  await page.waitForTimeout(100);
+  const style = await modalContent.evaluate((el) => {
+    const computed = getComputedStyle(el);
+    return { resize: computed.resize, overflow: computed.overflowY, minWidth: computed.minWidth, minHeight: computed.minHeight };
+  });
+  expect(style.resize).toBe('both');
+  expect(style.overflow).not.toBe('visible');
+  expect(parseInt(style.minWidth, 10)).toBeGreaterThan(0);
+  expect(parseInt(style.minHeight, 10)).toBeGreaterThan(0);
 
-  expect(dialogFired).toBe(false);
-  await expect(page.locator('#notesModal')).not.toHaveClass(/active/);
+  const before = await modalContent.boundingBox();
+  await modalContent.evaluate((el) => { el.style.width = '900px'; el.style.height = '700px'; });
+  const after = await modalContent.boundingBox();
+  expect(after.width).toBeGreaterThan(before.width);
+  expect(after.height).toBeGreaterThan(before.height);
+});
+
+test('the edit textarea no longer has its own resize handle (the outer window is the single resize affordance)', async ({ page }) => {
+  const flag = await notesFlag(page, 0);
+  await flag.click();
+  await page.click('#notesEditBtn');
+  const resize = await page.locator('#notesEditTextarea').evaluate((el) => getComputedStyle(el).resize);
+  expect(resize).toBe('none');
 });
 
 test('Notes round-trips through CSV export/import at its fixed core position', async ({ page }) => {

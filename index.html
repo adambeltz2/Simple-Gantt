@@ -811,7 +811,7 @@
     </div>
 
     <div id="projectNotesModal" class="modal" onclick="if(event.target===this) closeProjectNotesModal()">
-        <div class="modal-content" style="max-width: 560px; height: 65vh; padding: 25px;">
+        <div class="modal-content" style="width: min(560px, 95vw); height: 65vh; padding: 25px; resize: both; overflow: auto; min-width: 320px; min-height: 260px; max-width: 95vw; max-height: 95vh;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
                 <h2 id="projectNotesModalTitle" style="margin:0; color:#0f172a; font-size: 17px;">Project Notes</h2>
                 <button onclick="closeProjectNotesModal()" style="padding: 6px 15px; background: #ef4444; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Close</button>
@@ -868,7 +868,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.47.0";
+        const APP_VERSION = "2.47.1";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -4687,7 +4687,7 @@
             textarea.id = 'projectNotesEditTextarea';
             textarea.value = val;
             textarea.placeholder = 'Markdown supported: **bold**, *italic*, [link](https://...), - bullets, 1. numbered lists';
-            textarea.style.cssText = 'width:100%; height:100%; min-height:260px; box-sizing:border-box; font-family:ui-monospace,monospace; font-size:13px; padding:10px; border:1px solid #cbd5e1; border-radius:4px; resize:vertical;';
+            textarea.style.cssText = 'width:100%; height:100%; min-height:260px; box-sizing:border-box; font-family:ui-monospace,monospace; font-size:13px; padding:10px; border:1px solid #cbd5e1; border-radius:4px; resize:none;';
             body.appendChild(textarea);
             document.getElementById('projectNotesEditBtn').style.display = 'none';
             document.getElementById('projectNotesSaveBtn').style.display = '';

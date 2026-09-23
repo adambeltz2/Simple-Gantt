@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.47.1] - 2026-09-23
+
+### ✨ Added
+
+#### Project Notes: the whole modal window is now resizable
+- **User-requested:** "Can we resize the project notes so that the window can be resizable?"
+- Previously only the edit textarea itself could be resized (`resize:vertical`, one direction, only while actively editing). The outer modal window (`.modal-content`) is now the resizable surface instead -- drag its bottom-right corner to grow it both wider and taller, in either view or edit mode, bounded to a sensible minimum (320x260) and a maximum of 95% of the viewport. The textarea's own resize handle was removed (`resize:none`) so there's a single, unambiguous resize affordance instead of two overlapping grips in the same corner.
+
+### 🐛 Fixed (investigated, not conclusively reproduced)
+
+#### Clicking outside the Project Notes modal while editing could close it without prompting
+- **User-reported**, with screenshots showing an in-progress edit and then the modal simply gone. Investigated extensively via real-browser (Chromium) automation: a plain click on the backdrop, a real mousedown-inside-textarea-then-drag-outside-then-mouseup sequence, clicking the red Close button, and clicking right at the modal's edge all correctly triggered the existing "unsaved changes -- discard?" confirmation in every attempt -- the dirty-check logic itself (`isProjectNotesEditDirty()`/`closeProjectNotesModal()`) could not be made to fail.
+- Strongest remaining theory: the textarea's own native resize-handle drag (removed above) is a distinct OS/browser-level interaction from an ordinary click or text-selection drag, and dragging that handle in a way that released outside the modal's bounds may have been able to dismiss the modal without going through the click-outside handler at all. Since that resize handle no longer exists (superseded by the whole-window resize above), this specific interaction is no longer possible. Flagged as "investigated, not conclusively reproduced" rather than a confirmed root-cause fix -- please retest and report back if it still happens, ideally with the exact click location and browser/OS.
+
 ## [2.47.0] - 2026-09-21
 
 ### 🔧 Changed

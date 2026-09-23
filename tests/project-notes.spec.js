@@ -110,7 +110,41 @@ test('project notes are per-project, not shared globally', async ({ page }) => {
   await expect(page.locator('#projectNotesBody')).toContainText('No project notes yet');
 });
 
-test('clicking outside the modal while editing prompts before discarding unsaved changes', async ({ page }) => {
+test('clicking outside the modal while editing never closes it -- only the explicit Close button can', async ({ page }) => {
+  // User-reported regression: clicking outside the modal while editing
+  // could close it without warning. Rather than relying on a confirm()
+  // dialog to catch every possible way of clicking outside (backdrop click,
+  // a drag that lands outside, etc.), the backdrop's click-to-close
+  // listener is removed entirely -- the modal now only ever closes via a
+  // deliberate click on the red "Close" button, which still guards unsaved
+  // edits with the same confirm() dirty-check as before.
+  await page.click('#btnProjectNotes');
+  await page.click('#projectNotesEditBtn');
+  await page.fill('#projectNotesEditTextarea', 'unsaved draft');
+
+  let dialogFired = false;
+  page.on('dialog', (dialog) => { dialogFired = true; dialog.dismiss(); });
+  await page.click('#projectNotesModal', { position: { x: 5, y: 5 } });
+  await page.waitForTimeout(100);
+
+  expect(dialogFired).toBe(false);
+  await expect(page.locator('#projectNotesModal')).toHaveClass(/active/);
+  await expect(page.locator('#projectNotesEditTextarea')).toHaveValue('unsaved draft');
+});
+
+test('clicking outside the modal with no unsaved changes also never closes it', async ({ page }) => {
+  await page.click('#btnProjectNotes');
+
+  let dialogFired = false;
+  page.once('dialog', (dialog) => { dialogFired = true; dialog.dismiss(); });
+  await page.click('#projectNotesModal', { position: { x: 5, y: 5 } });
+  await page.waitForTimeout(100);
+
+  expect(dialogFired).toBe(false);
+  await expect(page.locator('#projectNotesModal')).toHaveClass(/active/);
+});
+
+test('the explicit Close button still prompts before discarding unsaved changes', async ({ page }) => {
   await page.click('#btnProjectNotes');
   await page.click('#projectNotesEditBtn');
   await page.fill('#projectNotesEditTextarea', 'unsaved draft');
@@ -120,29 +154,17 @@ test('clicking outside the modal while editing prompts before discarding unsaved
     dialogMessage = dialog.message();
     await dialog.dismiss();
   });
-  await page.click('#projectNotesModal', { position: { x: 5, y: 5 } });
+  await page.click('#projectNotesModal .modal-content button:has-text("Close")');
   expect(dialogMessage).toContain('unsaved changes');
   await expect(page.locator('#projectNotesModal')).toHaveClass(/active/);
   await expect(page.locator('#projectNotesEditTextarea')).toHaveValue('unsaved draft');
 
   page.once('dialog', (dialog) => dialog.accept());
-  await page.click('#projectNotesModal', { position: { x: 5, y: 5 } });
+  await page.click('#projectNotesModal .modal-content button:has-text("Close")');
   await expect(page.locator('#projectNotesModal')).not.toHaveClass(/active/);
 
   const stored = await page.evaluate(() => appDB.projects[appDB.activeId].projectNotes);
   expect(stored).not.toBe('unsaved draft');
-});
-
-test('clicking outside the modal does not prompt when there are no unsaved changes', async ({ page }) => {
-  await page.click('#btnProjectNotes');
-
-  let dialogFired = false;
-  page.once('dialog', (dialog) => { dialogFired = true; dialog.dismiss(); });
-  await page.click('#projectNotesModal', { position: { x: 5, y: 5 } });
-  await page.waitForTimeout(100);
-
-  expect(dialogFired).toBe(false);
-  await expect(page.locator('#projectNotesModal')).not.toHaveClass(/active/);
 });
 
 test('project notes have no footprint in CSV export headers', async ({ page }) => {

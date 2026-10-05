@@ -152,6 +152,54 @@ test('re-checking a hidden column in the popover shows it again and the badge re
   expect(hidden).toEqual([]);
 });
 
+test('user-requested: a "Show all" link in the Columns popover restores every hidden column in one click', async ({ page }) => {
+  await page.evaluate((x) => {
+    sheet.options.contextMenu(sheet, String(x), null, {}).find((i) => i.title.includes('Hide Column')).onclick();
+  }, COL.RESOURCE);
+  await page.waitForTimeout(200);
+  await page.evaluate((x) => {
+    sheet.options.contextMenu(sheet, String(x), null, {}).find((i) => i.title.includes('Hide Column')).onclick();
+  }, COL.LABELS);
+  await page.waitForTimeout(200);
+
+  await page.click('#columnVisibilityBtn');
+  await expect(page.locator('#columnVisibilityBtnText')).toHaveText('2 hidden');
+
+  await page.click('text=Show all');
+  await page.waitForTimeout(200);
+
+  await expect(page.locator('#columnVisibilityBtnText')).toHaveText('All Columns');
+  const hiddenAfter = await page.evaluate(() => appDB.projects[appDB.activeId].hiddenColumns);
+  expect(hiddenAfter).toEqual([]);
+
+  const boxes = page.locator('.columnVisibilityCheckbox');
+  const uncheckedCount = await boxes.evaluateAll((els) => els.filter((el) => !el.checked).length);
+  expect(uncheckedCount).toBe(0);
+
+  const resourceDisplay = await page.evaluate((x) => sheet.headers[x].style.display, COL.RESOURCE);
+  const labelsDisplay = await page.evaluate((x) => sheet.headers[x].style.display, COL.LABELS);
+  expect(resourceDisplay).toBe('');
+  expect(labelsDisplay).toBe('');
+});
+
+test('"Show all" is a no-op (no crash, nothing to restore) when nothing is hidden', async ({ page }) => {
+  await page.click('#columnVisibilityBtn');
+  await page.click('text=Show all');
+  await page.waitForTimeout(200);
+
+  await expect(page.locator('#columnVisibilityBtnText')).toHaveText('All Columns');
+  const hidden = await page.evaluate(() => appDB.projects[appDB.activeId].hiddenColumns);
+  expect(hidden).toEqual([]);
+});
+
+test('"Show all" keeps the popover open, unlike a one-shot auto-closing menu', async ({ page }) => {
+  await page.click('#columnVisibilityBtn');
+  await page.click('text=Show all');
+  await page.waitForTimeout(200);
+
+  await expect(page.locator('#columnVisibilityDropdown')).toBeVisible();
+});
+
 test('the Columns popover stays open after toggling a checkbox, unlike the auto-closing Export menu', async ({ page }) => {
   await page.click('#columnVisibilityBtn');
   await page.locator('.columnVisibilityCheckbox[value="Labels"]').uncheck();

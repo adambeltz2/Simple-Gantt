@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.48.0] - 2026-10-05
+
+### ✨ Added
+
+#### "Show all" link in the Columns popover
+- **User-requested**, with a screenshot of the toolbar's "Columns" popover showing several columns unchecked: "For columns there should be a way to add all of them back quickly 'select all' or something similar."
+- A "Show all" link now sits above the checkbox list in that popover, same visual treatment as the existing "Clear filters" link in the Filters dropdown. Clicking it clears `hiddenColumns` for the active project in one action -- every column reappears, every checkbox re-checks, and the toolbar badge reverts from "N hidden" to "All Columns" -- instead of re-checking each one individually. The popover stays open afterward (same as toggling any single checkbox), matching how this menu already behaves rather than auto-closing like the one-shot Export menu.
+
 ## [2.47.1] - 2026-09-23
 
 ### ✨ Added

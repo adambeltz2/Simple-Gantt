@@ -63,6 +63,13 @@ async function setResourceChecked(page, name, checked) {
   await page.waitForTimeout(200);
 }
 
+async function setParentChecked(page, taskId, checked) {
+  await openFilters(page);
+  const checkbox = page.locator(`.parentFilterCheckbox[value="${taskId}"]`);
+  if (checked) await checkbox.check(); else await checkbox.uncheck();
+  await page.waitForTimeout(200);
+}
+
 async function setPctChecked(page, bucket, checked) {
   await openFilters(page);
   const checkbox = page.locator(`.pctFilterCheckbox[value="${bucket}"]`);
@@ -110,6 +117,62 @@ test('unchecking every resource restores full visibility', async ({ page }) => {
   await setResourceChecked(page, 'Bob', false);
   expect(await visibleRowCount(page)).toBe(4);
   expect(await filtersBadgeText(page)).toBe('');
+});
+
+test('user-requested: the Filters dropdown lists a "Parent" section with every task actually used as a parent', async ({ page }) => {
+  await openFilters(page);
+  const options = await page.locator('.parentFilterCheckbox').evaluateAll((els) =>
+    els.map((e) => ({ value: e.value, label: e.closest('label').textContent.trim() }))
+  );
+  // Only "Parent Project" (ID 1) is ever referenced as a Parent in the fixture.
+  expect(options).toEqual([{ value: '1', label: 'Parent Project' }]);
+});
+
+test('checking a Parent filters the grid to its children plus itself (ancestor context)', async ({ page }) => {
+  await setParentChecked(page, '1', true);
+
+  // Every child row has Parent=1, so all four rows stay visible here --
+  // verified more meaningfully below with a nested grandchild instead.
+  expect(await visibleRowCount(page)).toBe(4);
+  expect(await filtersBadgeText(page)).toBe('1');
+});
+
+test('a Parent filter only shows that parent\'s own direct children, with the parent itself kept for context', async ({ page }) => {
+  await page.evaluate((COL) => {
+    const data = sheet.getData();
+    // Give "Build Feature X" (ID 3) its own child, so filtering by Parent=1
+    // should exclude this grandchild (its Parent is 3, not 1) while still
+    // keeping Build Feature X itself visible as the grandchild's ancestor.
+    const grandchild = Array(12).fill('');
+    grandchild[COL.ID] = '5'; grandchild[COL.OUTLINE] = '1.2.1'; grandchild[COL.NAME] = 'Sub-task of Build';
+    grandchild[COL.PARENT] = '3'; grandchild[COL.START] = '2026-08-27'; grandchild[COL.DUR] = '1'; grandchild[COL.END] = '2026-08-27';
+    data.push(grandchild);
+    appDB.projects[appDB.activeId].data = data;
+    renderGrid(data);
+    syncToGantt(true);
+  }, COL);
+  await page.waitForTimeout(300);
+
+  await setParentChecked(page, '3', true);
+
+  expect(await visibleRowCount(page)).toBe(3); // Parent Project (ancestor) + Build Feature X (the selected parent) + Sub-task of Build
+  const names = await page.evaluate(() => sheet.getData().filter((r, i) => sheet.rows[i].style.display !== 'none').map((r) => r[2]));
+  expect(names.sort()).toEqual(['Build Feature X', 'Parent Project', 'Sub-task of Build'].sort());
+});
+
+test('unchecking a Parent restores full visibility', async ({ page }) => {
+  await setParentChecked(page, '1', true);
+  await setParentChecked(page, '1', false);
+
+  expect(await visibleRowCount(page)).toBe(4);
+  expect(await filtersBadgeText(page)).toBe('');
+});
+
+test('the Parent filter composes with Resource via AND', async ({ page }) => {
+  await setParentChecked(page, '1', true);
+  await setResourceChecked(page, 'Bob', true);
+
+  expect(await visibleRowCount(page)).toBe(2); // Parent Project (ancestor) + Build Feature X (Bob, child of 1)
 });
 
 test('% Done buckets classify Not started / In progress / Complete correctly', async ({ page }) => {
@@ -189,8 +252,9 @@ test('a structured filter composes with a manual collapse via AND', async ({ pag
   expect(kickoffHidden).toBe('none'); // collapse still wins even though Kickoff matches
 });
 
-test('"Clear filters" resets Resource, % Done, and both date ranges at once', async ({ page }) => {
+test('"Clear filters" resets Resource, Parent, % Done, and both date ranges at once', async ({ page }) => {
   await setResourceChecked(page, 'Alice', true);
+  await setParentChecked(page, '1', true);
   await setPctChecked(page, 'none', true);
   await setDateRange(page, 'end', '2026-08-01', '2026-08-25');
   expect(await visibleRowCount(page)).toBeLessThan(4);
@@ -202,7 +266,7 @@ test('"Clear filters" resets Resource, % Done, and both date ranges at once', as
   expect(await visibleRowCount(page)).toBe(4);
   expect(await filtersBadgeText(page)).toBe('');
   const anyResourceChecked = await page.evaluate(() =>
-    Array.from(document.querySelectorAll('.resourceFilterCheckbox')).some((cb) => cb.checked)
+    Array.from(document.querySelectorAll('.resourceFilterCheckbox, .parentFilterCheckbox')).some((cb) => cb.checked)
   );
   expect(anyResourceChecked).toBe(false);
 });
@@ -217,6 +281,7 @@ test('clicking outside the Filters dropdown closes it', async ({ page }) => {
 
 test('switching projects resets all structured filters', async ({ page }) => {
   await setResourceChecked(page, 'Alice', true);
+  await setParentChecked(page, '1', true);
   await setPctChecked(page, 'done', true);
 
   page.once('dialog', (d) => d.accept('Another Project'));
@@ -225,7 +290,7 @@ test('switching projects resets all structured filters', async ({ page }) => {
 
   expect(await filtersBadgeText(page)).toBe('');
   const anyChecked = await page.evaluate(() =>
-    Array.from(document.querySelectorAll('.resourceFilterCheckbox, .pctFilterCheckbox')).some((cb) => cb.checked)
+    Array.from(document.querySelectorAll('.resourceFilterCheckbox, .parentFilterCheckbox, .pctFilterCheckbox')).some((cb) => cb.checked)
   );
   expect(anyChecked).toBe(false);
 });

@@ -326,7 +326,7 @@
                 </div>
                 <div style="position:relative; display:inline-block;">
                     <button id="filtersBtn" type="button" onclick="toggleFiltersDropdown(event)"
-                        title="Structured filters by Resource, % Done, Start date and End date -- composes with Search and Labels above"
+                        title="Structured filters by Resource, Parent, % Done, Start date and End date -- composes with Search and Labels above"
                         style="background:#1e293b; color:#e2e8f0; border:0.5px solid #334155; border-radius:6px; padding:6px 10px; font-size:12.5px; outline:none; cursor:pointer; display:flex; align-items:center; gap:6px; white-space:nowrap;">
                         Filters
                         <span id="filtersBadge" style="display:none; background:#3b82f6; color:#fff; border-radius:9px; padding:0 6px; font-size:11px; line-height:16px; min-width:16px; text-align:center;"></span>
@@ -335,6 +335,9 @@
                     <div id="filtersDropdown" style="display:none; position:absolute; top:100%; left:0; margin-top:4px; background:#1e293b; border:1px solid #334155; border-radius:6px; padding:10px; width:250px; max-height:420px; overflow-y:auto; z-index:50; box-shadow:0 8px 20px rgba(0,0,0,0.35);">
                         <div style="font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:0.03em; margin-bottom:6px;">Resource</div>
                         <div id="resourceFilterOptions" style="margin-bottom:10px;"></div>
+
+                        <div style="font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:0.03em; margin-bottom:6px;">Parent</div>
+                        <div id="parentFilterOptions" style="margin-bottom:10px;"></div>
 
                         <div style="font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:0.03em; margin-bottom:6px;">% Done</div>
                         <div style="margin-bottom:10px;">
@@ -869,7 +872,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.48.1";
+        const APP_VERSION = "2.49.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -4058,6 +4061,7 @@
         // below is the single place all of it comes together. View-only, like
         // every other filter here: never mutates task data.
         let resourceFilterValues = new Set();
+        let parentFilterValues = new Set(); // Task IDs selected as the "show only children of" filter
         let pctFilterBuckets = new Set(); // subset of 'none' | 'partial' | 'done'
         let startFilterFrom = '', startFilterTo = '';
         let endFilterFrom = '', endFilterTo = '';
@@ -4085,6 +4089,53 @@
         function onResourceFilterCheckboxChange() {
             const checked = Array.from(document.querySelectorAll('.resourceFilterCheckbox:checked')).map(cb => cb.value);
             resourceFilterValues = new Set(checked);
+            updateFiltersButtonBadge();
+            applyRowVisibility();
+            updateClearAllFiltersButtonState();
+        }
+
+        // Unlike Resource/Labels, Parent has no separate named registry --
+        // every valid value is already just another row's own Task ID, so
+        // the option list is scanned live from the grid's current data each
+        // time the dropdown opens (same approach Resource/Labels used before
+        // backlog #12/#13 gave them a persisted registry) rather than kept
+        // as separate stored state. Only Task IDs actually used as *some*
+        // row's Parent are offered -- an unused or dangling reference isn't
+        // a meaningful filter option. Each option is labeled with the
+        // parent's own Task Name (not just its ID) for readability, listed
+        // in the order those parent rows appear in the grid.
+        function refreshParentFilterOptions() {
+            const container = document.getElementById('parentFilterOptions');
+            if (!container || !sheet) return;
+            const data = sheet.getData();
+            const idToName = {};
+            data.forEach(row => {
+                const id = (row[COL.ID] != null) ? row[COL.ID].toString().trim() : '';
+                if (id) idToName[id] = (row[COL.NAME] != null) ? row[COL.NAME].toString() : '';
+            });
+            const usedParentIds = new Set();
+            const orderedParents = [];
+            data.forEach(row => {
+                const pid = (row[COL.PARENT] != null) ? row[COL.PARENT].toString().trim() : '';
+                if (pid && idToName[pid] !== undefined && !usedParentIds.has(pid)) {
+                    usedParentIds.add(pid);
+                    orderedParents.push(pid);
+                }
+            });
+            parentFilterValues = new Set(Array.from(parentFilterValues).filter(p => usedParentIds.has(p)));
+            container.innerHTML = orderedParents.length === 0
+                ? '<div style="color:#64748b; font-size:12px; padding:4px 2px;">No parent tasks yet</div>'
+                : orderedParents.map(pid => `
+                    <label style="display:flex; align-items:center; gap:8px; padding:4px 2px; font-size:12.5px; color:#e2e8f0; cursor:pointer; white-space:nowrap;">
+                        <input type="checkbox" class="parentFilterCheckbox" value="${escapeHtml(pid)}" ${parentFilterValues.has(pid) ? 'checked' : ''} onchange="onParentFilterCheckboxChange()">
+                        ${escapeHtml(idToName[pid] || pid)}
+                    </label>
+                `).join('');
+        }
+
+        function onParentFilterCheckboxChange() {
+            const checked = Array.from(document.querySelectorAll('.parentFilterCheckbox:checked')).map(cb => cb.value);
+            parentFilterValues = new Set(checked);
             updateFiltersButtonBadge();
             applyRowVisibility();
             updateClearAllFiltersButtonState();
@@ -4131,7 +4182,7 @@
         function updateFiltersButtonBadge() {
             const badge = document.getElementById('filtersBadge');
             if (!badge) return;
-            const n = resourceFilterValues.size + pctFilterBuckets.size
+            const n = resourceFilterValues.size + parentFilterValues.size + pctFilterBuckets.size
                 + ((startFilterFrom || startFilterTo) ? 1 : 0)
                 + ((endFilterFrom || endFilterTo) ? 1 : 0);
             badge.textContent = n > 0 ? n.toString() : '';
@@ -4143,7 +4194,7 @@
             const dropdown = document.getElementById('filtersDropdown');
             if (!dropdown) return;
             const opening = (dropdown.style.display === 'none' || !dropdown.style.display);
-            if (opening) refreshResourceFilterOptions();
+            if (opening) { refreshResourceFilterOptions(); refreshParentFilterOptions(); }
             dropdown.style.display = opening ? 'block' : 'none';
         }
 
@@ -4157,10 +4208,11 @@
 
         function resetStructuredFilters() {
             resourceFilterValues = new Set();
+            parentFilterValues = new Set();
             pctFilterBuckets = new Set();
             startFilterFrom = ''; startFilterTo = '';
             endFilterFrom = ''; endFilterTo = '';
-            document.querySelectorAll('.resourceFilterCheckbox, .pctFilterCheckbox').forEach(cb => { cb.checked = false; });
+            document.querySelectorAll('.resourceFilterCheckbox, .parentFilterCheckbox, .pctFilterCheckbox').forEach(cb => { cb.checked = false; });
             ['startFilterFrom', 'startFilterTo', 'endFilterFrom', 'endFilterTo'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.value = '';
@@ -4188,6 +4240,7 @@
             const btn = document.getElementById('clearAllFiltersBtn');
             if (!btn) return;
             const active = !!gridSearchQuery || labelFilterValues.size > 0 || resourceFilterValues.size > 0
+                || parentFilterValues.size > 0
                 || pctFilterBuckets.size > 0 || !!startFilterFrom || !!startFilterTo || !!endFilterFrom || !!endFilterTo;
             btn.disabled = !active;
         }
@@ -4252,6 +4305,13 @@
                 );
             }
 
+            let keepForParent = null;
+            if (parentFilterValues.size > 0) {
+                keepForParent = collectMatchesWithAncestors(row =>
+                    parentFilterValues.has((row[COL.PARENT] != null ? row[COL.PARENT].toString().trim() : ''))
+                );
+            }
+
             let keepForPct = null;
             if (pctFilterBuckets.size > 0) {
                 keepForPct = collectMatchesWithAncestors(row => pctFilterBuckets.has(pctFilterBucket(parseInt(row[COL.PCT]) || 0)));
@@ -4280,10 +4340,11 @@
                 const hiddenBySearch = keepForSearch !== null && !keepForSearch.has(index);
                 const hiddenByLabel = keepForLabel !== null && !keepForLabel.has(index);
                 const hiddenByResource = keepForResource !== null && !keepForResource.has(index);
+                const hiddenByParent = keepForParent !== null && !keepForParent.has(index);
                 const hiddenByPct = keepForPct !== null && !keepForPct.has(index);
                 const hiddenByStart = keepForStart !== null && !keepForStart.has(index);
                 const hiddenByEnd = keepForEnd !== null && !keepForEnd.has(index);
-                if (hiddenByCollapse || hiddenBySearch || hiddenByLabel || hiddenByResource || hiddenByPct || hiddenByStart || hiddenByEnd) sheet.hideRow(index); else sheet.showRow(index);
+                if (hiddenByCollapse || hiddenBySearch || hiddenByLabel || hiddenByResource || hiddenByParent || hiddenByPct || hiddenByStart || hiddenByEnd) sheet.hideRow(index); else sheet.showRow(index);
             });
         }
 

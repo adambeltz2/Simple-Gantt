@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.49.0] - 2026-10-06
+
+### ✨ Added
+
+#### Structured Filters: a "Parent" filter
+- **User-requested**, with a screenshot of the Filters dropdown's existing Resource checklist: "add filter for 'parent'."
+- A new "PARENT" section now sits between Resource and % Done in the "Filters ▾" dropdown (backlog #20's structured filters), same checkbox-multi-select treatment the others already use. Unlike Resource/Labels, Parent has no separate named registry -- every valid value is already just another row's own Task ID, so the option list is scanned live from the grid's current data each time the dropdown opens rather than kept as a second source of truth. Only Task IDs actually referenced as *some* row's Parent are offered (an unused or dangling reference isn't a meaningful filter option), each one labeled with that parent's own Task Name for readability, listed in the order those parent rows appear in the grid.
+- Checking a parent narrows the grid to that parent's own direct children, with the parent itself (and its own ancestors) kept visible for outline context -- the exact same OR-within-a-field, AND-across-fields, ancestors-stay-visible semantics every other structured filter already follows. Composes with Resource/% Done/Start/End/Search/Labels/Collapse the same way they already compose with each other, and is covered by the same "Clear filters" link and project-switch reset.
+- Covered in `tests/structured-filters.spec.js` (5 new tests): the dropdown lists exactly the tasks actually used as a parent; checking one filters to its children; a nested grandchild case confirms only *direct* children of the selected parent show, with the parent kept as ancestor context; unchecking restores full visibility; composes with Resource via AND. The existing "Clear filters" and "switching projects resets" tests were extended to cover the new filter too.
+- Full Playwright suite (486 tests) re-verified against real vendored CDN copies: 485 passed, the one known pre-existing `row-id-backfill` timing flake, zero regressions.
+
 ## [2.48.1] - 2026-10-06
 
 ### 🐛 Fixed

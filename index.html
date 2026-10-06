@@ -869,7 +869,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.48.0";
+        const APP_VERSION = "2.48.1";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -4579,6 +4579,77 @@
             });
         }
 
+        // User-reported: dragging the fill-handle (the small square at the
+        // corner of a selection, used to fill/replicate a row's values down
+        // into other rows) corrupts data into the wrong columns once any
+        // column is hidden -- e.g. a date ends up in % Done, or a cell shows
+        // "NaN-NaN-NaN 00:00:00". Root-caused by tracing jspreadsheet-ce
+        // 4.15.0's own source (this app has no custom paste/fill code of its
+        // own): its internal copyData() -- the fill-handle's implementation,
+        // distinct from (and unaffected by this bug, unlike) ordinary
+        // Ctrl+C/Ctrl+V -- builds its source-value array via
+        // `obj.getData(true, true)`, which filters to only cells carrying
+        // the "highlight" class (the ORIGINAL selection being replicated,
+        // tracked in `obj.selectedContainer`, not the destination cells
+        // under the drag) and re-indexes the result from 0. Hidden cells
+        // never get that class (confirmed in the same source), so that
+        // array ends up *shorter* than the real column count whenever a
+        // hidden column sits inside the source row's range. But copyData's
+        // own placement loop walks the *raw*, hidden-inclusive column range
+        // and advances its source-array index in lockstep with that raw
+        // walk -- not with the filtered array's own (shorter) length. The
+        // two index spaces drift apart the moment a hidden column is
+        // skipped, so every value after it reads one slot too far into the
+        // filtered array, landing in the wrong column for the rest of the
+        // row. (Ordinary copy/paste doesn't share this bug: its clipboard-
+        // building and its paste-placement both key off the same
+        // "highlight"/visible state, so they stay consistent with each
+        // other; copyData's placement loop is the one piece that doesn't.)
+        //
+        // Fixed here, not in the vendored library file: this repo pins every
+        // CDN dependency to an exact version with an SRI hash, so patching
+        // the library's own source isn't an option. Instead, copyData's
+        // single `getData(true, true)` call is intercepted for the duration
+        // of that one call and handed a correctly-shaped replacement: every
+        // column across the *source* selection's raw range (obj.selected-
+        // Container), hidden ones included -- exactly what copyData's raw
+        // column walk already assumes it's getting. None of copyData's own
+        // logic (auto-increment, formulas, style copying, readonly/hidden-
+        // cell skipping on the write side) needs to change; it was only
+        // ever fed the wrong input.
+        function patchFillHandleHiddenColumnBug(sheet) {
+            if (!sheet || typeof sheet.copyData !== 'function') return;
+            const originalCopyData = sheet.copyData;
+            sheet.copyData = function(startCell, endCell) {
+                const originalGetData = sheet.getData;
+                sheet.getData = function(highlightedOnly, raw) {
+                    if (!highlightedOnly) return originalGetData.call(sheet, highlightedOnly, raw);
+                    const sc = sheet.selectedContainer;
+                    if (!sc) return originalGetData.call(sheet, highlightedOnly, raw);
+                    const srcColStart = Math.min(parseInt(sc[0]), parseInt(sc[2]));
+                    const srcColEnd = Math.max(parseInt(sc[0]), parseInt(sc[2]));
+                    const srcRowStart = Math.min(parseInt(sc[1]), parseInt(sc[3]));
+                    const srcRowEnd = Math.max(parseInt(sc[1]), parseInt(sc[3]));
+                    const result = [];
+                    for (let row = srcRowStart; row <= srcRowEnd; row++) {
+                        if (sheet.rows[row] && sheet.rows[row].style.display === 'none') continue;
+                        const rowHasHighlight = sheet.records[row].some((cell, idx) =>
+                            idx >= srcColStart && idx <= srcColEnd && cell.classList.contains('highlight'));
+                        if (!rowHasHighlight) continue;
+                        const line = [];
+                        for (let col = srcColStart; col <= srcColEnd; col++) line.push(sheet.options.data[row][col]);
+                        result.push(line);
+                    }
+                    return result;
+                };
+                try {
+                    return originalCopyData.call(sheet, startCell, endCell);
+                } finally {
+                    sheet.getData = originalGetData;
+                }
+            };
+        }
+
         // Toolbar "Columns" popover -- mirrors the Label Filter dropdown's own
         // pattern (one checkbox per item, built fresh whenever the column set
         // can have changed) but stays open after each click like View Options,
@@ -5007,6 +5078,7 @@
 
             sheet = jspreadsheet(spreadsheetDiv, sheetOptions);
             applyColumnVisibility();
+            patchFillHandleHiddenColumnBug(sheet);
             refreshColumnVisibilityOptions();
             setTimeout(autoFitColumns, 0);
             

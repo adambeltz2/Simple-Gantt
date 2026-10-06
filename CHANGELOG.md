@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.49.2] - 2026-10-06
+
+### 🔧 Changed
+
+#### Task Name indentation tightened from 20px to 12px per outline level
+- **User-reported**, with a screenshot: a deeply nested outline (6-7 levels isn't unusual on a real project -- the user's own plan reaches `1.2.1.5.71.1.1`) burned a third of the Task Name column on left padding alone before any text started, at the original flat 20px/level. A mockup comparing four approaches (tighter flat step, diminishing step, thin per-level guide lines, and the current baseline) was shared for discussion first, alongside confirming the CSV import/export indentation (a separate, purely textual leading-space convention keyed off `computeTaskDepth()`, nothing to do with the grid's on-screen CSS) is completely unaffected by any of them.
+- Shipped the simplest of the four: the per-level step in `formatCells()` (`index.html`) drops from `8 + depth*20` to `6 + depth*12`. Same mechanism (flat per-level `paddingLeft`, same `border-left` marking a row as nested) -- shallow trees look almost identical, while a depth-6 row recovers 68px.
+- **New:** `tests/task-name-indent-width.spec.js` (3 tests) pins the exact padding at depth 0/1/2 and confirms the left-border nesting indicator is unchanged.
+- **Logged, not built:** a "nice to have" raised during the same discussion -- a user-facing toggle for a *diminishing* indent curve (full step for the first few levels, smaller step beyond that) -- is tracked as backlog #31 rather than bundled into this change.
+- Full Playwright suite (493 tests) re-verified against real vendored CDN copies: 492 passed, the one known pre-existing `row-id-backfill` timing flake, zero regressions.
+
 ## [2.49.1] - 2026-10-06
 
 ### 🐛 Fixed

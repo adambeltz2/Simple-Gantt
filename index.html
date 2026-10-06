@@ -872,7 +872,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.49.1";
+        const APP_VERSION = "2.49.2";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -3715,7 +3715,11 @@
                 if (col == COL.NAME) {
                     cell.style.textAlign = 'left';
                     if (depth > 0) {
-                        cell.style.paddingLeft = (8 + (depth * 20)) + 'px';
+                        // 12px/level rather than the original 20px -- user-reported,
+                        // a deeply nested outline (6-7 levels isn't unusual on a real
+                        // project) was burning a third of the Name column on left
+                        // padding alone before any text started.
+                        cell.style.paddingLeft = (6 + (depth * 12)) + 'px';
                         cell.style.borderLeft = '3px solid #cbd5e1';
                     } else {
                         cell.style.paddingLeft = '8px';

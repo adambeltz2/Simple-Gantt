@@ -872,7 +872,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.49.0";
+        const APP_VERSION = "2.49.1";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -2749,12 +2749,28 @@
             return match ? { name: match[1].trim(), suffix: match[2] } : { name: s.trim(), suffix: '' };
         }
 
+        // User-reported: a bogus "100" option showing up in the Resource
+        // filter with zero matching rows. Root cause -- a Def. Alloc/%
+        // Done value (plain digits, no name) landing in the Resource
+        // column, whether from the fill-handle hidden-columns bug (fixed
+        // in 2.48.1) or any other mis-paste, has no suffix for
+        // splitResourceEntry() to strip, so the whole cell is taken as the
+        // "name" and merged into the registry verbatim. A real resource
+        // name is never just digits, so that shape is rejected here before
+        // it ever reaches the registry. This stops new bogus entries from
+        // being created; an already-corrupted registry (like the one that
+        // produced "100") is cleaned up via the existing Resources Manager
+        // delete button, not by this guard retroactively.
+        function isPlausibleResourceName(name) {
+            return !/^\d+\s*\%?$/.test(name);
+        }
+
         function collectResourceNamesFromRows(rows) {
             const set = new Set();
             (rows || []).forEach(row => {
                 splitMultiValueCell(row ? row[COL.RESOURCE] : '').forEach(entry => {
                     const name = splitResourceEntry(entry).name;
-                    if (name) set.add(name);
+                    if (name && isPlausibleResourceName(name)) set.add(name);
                 });
             });
             return Array.from(set).sort((a, b) => a.localeCompare(b));
@@ -2802,7 +2818,7 @@
         // show up in the Resource Manager or the quick-pick popover, since
         // mergeResourceNamesFromRows() only ran on import.
         function mergeResourceNamesFromValue(value) {
-            const names = splitMultiValueCell(value).map(entry => splitResourceEntry(entry).name).filter(Boolean);
+            const names = splitMultiValueCell(value).map(entry => splitResourceEntry(entry).name).filter(name => name && isPlausibleResourceName(name));
             if (names.length === 0) return;
             const resources = getProjectResources();
             const known = new Set(resources.map(r => r.toLowerCase()));

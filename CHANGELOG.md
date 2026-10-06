@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.49.1] - 2026-10-06
+
+### 🐛 Fixed
+
+#### A bogus "100" option in the Resource filter, matching zero rows
+- **User-reported**, with screenshots: a "RESOURCE" filter option literally named "100" sat above the real names in the Filters dropdown, and checking it emptied the grid entirely -- no row's Resource cell actually contained "100". Confirmed against the user's own attached project CSV: every real Resource cell held either a name or nothing; the "100"-looking values in that data all belonged to the adjacent Def. Alloc/% Done columns instead.
+- Root cause: the named-resources registry (backlog #12) that feeds the Resource filter is additive-only by design (a name once registered stays available for future quick-pick suggestions even after every row stops using it -- the Resources Manager already lets you delete one by hand). But nothing ever stopped a *non-name* value from being merged into that registry in the first place. `splitResourceEntry()` strips a trailing allocation suffix like "(50%)" or "@ 25%" off a Resource-cell entry to get the bare name -- a plain-digits entry like "100" has no such suffix for it to strip, so the entire cell was taken as a "name" and merged in verbatim by `collectResourceNamesFromRows()` (CSV import, the one-time registry backfill) and `mergeResourceNamesFromValue()` (direct cell edits) alike. A real resource name is never just digits; this shape is the signature of an allocation/percent value landing in the wrong column, most likely a residual artifact of the fill-handle hidden-columns corruption fixed in 2.48.1 (long since corrected in the visible cell, but the stale registry entry it created was never cleaned up, since the registry has no automatic pruning).
+- Fixed with a new `isPlausibleResourceName()` guard (`index.html`), rejecting any bare-digits-with-optional-`%` value before it can enter the registry, wired into both merge paths above. This only stops *new* bogus entries from being created going forward; an already-corrupted registry (like the "100" the user is seeing right now) is removed via the existing Resources Manager delete button -- open "Resources" in the toolbar, find "100" in the list, and delete it.
+- **New:** 4 tests across `tests/named-resources.spec.js` and `tests/resource-registry-backfill.spec.js` covering: typing "100" or "100%" directly into a Resource cell, importing a CSV with a bare-numeric Resource value, and the one-time registry backfill -- all confirm the bogus value never reaches the registry while real names alongside it still merge normally.
+- Full Playwright suite (490 tests) re-verified against real vendored CDN copies: 489 passed, the one known pre-existing `row-id-backfill` timing flake, zero regressions.
+
 ## [2.49.0] - 2026-10-06
 
 ### ✨ Added

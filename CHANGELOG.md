@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.48.1] - 2026-10-06
+
+### 🐛 Fixed
+
+#### Hidden columns + the fill-handle (drag-to-fill a row into other rows) corrupted data into the wrong columns
+- **User-reported**, with a screenshot showing a row whose Start/End both read a garbage "...00:00:0" value and other cells showing "1900-03-3..." (an Excel-epoch-looking artifact), after dragging a row's fill-handle down into other rows while some columns were hidden.
+- Investigated by tracing the exact pinned `jspreadsheet-ce@4.15.0` source directly (this app has no custom copy/paste/fill code of its own -- it relies entirely on the library's own mechanisms). Confirmed via real-browser reproduction first that ordinary Ctrl+C/Ctrl+V and plain Tab/arrow-key column navigation were **not** affected -- both already correctly skip hidden columns. The one broken path: the fill-handle's internal `copyData()` builds its source-value array via `getData(true, true)`, which filters to only "highlight"-classed (visible) cells and re-indexes the result from 0 -- but `copyData`'s own placement loop walks the *raw*, hidden-inclusive column range, advancing its source index in lockstep with that raw walk rather than the filtered array's shorter length. The two index spaces drift apart the moment a hidden column is skipped, so every value after it lands one column off for the rest of the row -- exactly reproducing the reported symptoms (a date value landing in % Done, "NaN-NaN-NaN 00:00:00" landing in a date cell).
+- Fixed in a new `patchFillHandleHiddenColumnBug()` (`index.html`), applied to `sheet` right after every `renderGrid()` (since `jspreadsheet.destroy()` recreates the grid instance from scratch on every project switch/reload, not just once at page load). It intercepts only the one `getData(true, true)` call for the duration of a fill-drag and hands back a correctly-shaped replacement built directly from `sheet.selectedContainer` (the real source selection) and `sheet.options.data` -- none of the library's own fill logic (auto-increment, formulas, style copying, readonly/hidden-cell skipping on the write side) needed to change, it was only ever fed the wrong input. The vendored library file itself is never touched -- every CDN dependency here is pinned to an exact version with an SRI hash, so patching the library's own source isn't an option; this wraps the live instance from the outside instead.
+- **New:** `tests/fill-handle-hidden-columns.spec.js` (5 tests) drives the exact same internal sequence a real corner-drag triggers (`updateSelectionFromCoords` → `selectedCorner` → `updateCopySelection` → `copyData`), covering: a single-row fill lands every visible column correctly with hidden columns fully untouched and no garbage values; a multi-row fill stays aligned across every filled row; ordinary Ctrl+C/Ctrl+V (confirmed never broken) still works; a fill with nothing hidden is unaffected by the patch (no regression); and the patch is correctly re-applied after a project switch rebuilds the grid.
+- Full Playwright suite (481 tests) re-verified against real vendored CDN copies: 480 passed, the one known pre-existing `row-id-backfill` timing flake, zero regressions.
+- **Also logged, not fixed here** (`BACKLOG.md`): a separate, narrower, purely cosmetic quirk found during this investigation -- fill-dragging a Start/End (calendar-type) cell appends a literal " 00:00:00" to the result, confirmed present even with zero columns hidden, so it's unrelated to the bug above and out of scope for this fix.
+
 ## [2.48.0] - 2026-10-05
 
 ### ✨ Added

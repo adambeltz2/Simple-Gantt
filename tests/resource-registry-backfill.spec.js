@@ -75,6 +75,24 @@ test('an allocation suffix like "(50%)" is stripped, matching the same name-pars
   expect(resources).toEqual(['Alice', 'Bob']);
 });
 
+test('a bare allocation-looking Resource value ("100") is not backfilled into the registry', async ({ page }) => {
+  const resources = await page.evaluate(() => {
+    const proj = {
+      name: 'Bogus Allocation Value',
+      columns: [],
+      data: [
+        ['1', '1', 'Task A', '100', '100', '100', '2026-10-02', '1', '2026-10-02', '', '', '', ''],
+        ['2', '2', 'Task B', 'Adam Beltz', '100', '100', '2026-10-02', '1', '2026-10-02', '', '', '', ''],
+      ],
+      collapsed: [], flagged: [], resources: [], projectNotes: '',
+    };
+    backfillResourcesRegistry(proj);
+    return proj.resources;
+  });
+
+  expect(resources).toEqual(['Adam Beltz']);
+});
+
 test('is wired into the app startup migration loop, alongside normalizeData/migrateLegacyNotesColumn', async ({ page }) => {
   const isFunction = await page.evaluate(() => typeof backfillResourcesRegistry === 'function');
   expect(isFunction).toBe(true);

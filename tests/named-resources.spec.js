@@ -179,6 +179,37 @@ test('typing a new name directly into the grid Resource cell registers it too, n
   expect(labels.map((l) => l.trim())).toContain('Frank');
 });
 
+test('typing a bare allocation-looking value ("100") into a Resource cell does not register it as a name', async ({ page }) => {
+  await page.evaluate((COL) => sheet.setValueFromCoords(COL.RESOURCE, 1, '100', true), COL);
+  await page.waitForTimeout(200);
+
+  const resources = await page.evaluate(() => appDB.projects[appDB.activeId].resources);
+  expect(resources).not.toContain('100');
+});
+
+test('a Resource cell value like "100%" is also rejected as a name', async ({ page }) => {
+  await page.evaluate((COL) => sheet.setValueFromCoords(COL.RESOURCE, 1, '100%', true), COL);
+  await page.waitForTimeout(200);
+
+  const resources = await page.evaluate(() => appDB.projects[appDB.activeId].resources);
+  expect(resources).not.toContain('100%');
+});
+
+test('importing a CSV with a bare numeric Resource value does not register it as a name either', async ({ page }) => {
+  const fs = require('fs');
+  const csv = 'ID,Outline,Task Name,Resource,Def. Alloc,% Done,Start,Dur.,End,Depends,Parent,Labels\n' +
+    '1,1,Imported Task,"100, Alice",100,0,2026-08-24,1,2026-08-24,,,\n';
+  const tmpPath = require('path').join(require('os').tmpdir(), `import-bogus-resource-${Date.now()}.csv`);
+  fs.writeFileSync(tmpPath, csv);
+
+  await page.setInputFiles('#csvFile', tmpPath);
+  await page.waitForTimeout(400);
+
+  const resources = await page.evaluate(() => appDB.projects[appDB.activeId].resources);
+  expect(resources).not.toContain('100');
+  expect(resources).toEqual(expect.arrayContaining(['Alice']));
+});
+
 test('importing a CSV merges any not-yet-registered resource name into the registry instead of dropping it', async ({ page }) => {
   const fs = require('fs');
   const csv = 'ID,Outline,Task Name,Resource,Def. Alloc,% Done,Start,Dur.,End,Depends,Parent,Labels\n' +

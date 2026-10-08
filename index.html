@@ -726,6 +726,31 @@
         </div>
     </div>
 
+    <!-- Deliberately NO onclick="if(event.target===this) close...()" on this
+         backdrop, unlike every other modal here -- user-requested: a Detail
+         Card can hold several pending field edits at once (unlike the
+         single-textarea Notes modal or the pick-one-value Bulk Edit modal),
+         so an accidental click outside it must never silently discard them.
+         The only ways out are the explicit X, Cancel, Save, and Esc
+         (wired in closeDetailCardModal()'s keydown handler to the same
+         discard-and-close as Cancel). -->
+    <div id="detailCardModal" class="modal">
+        <div class="modal-content" style="max-width: 640px; height: auto; max-height: 88vh; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding: 16px 22px; border-bottom: 1px solid #eef1f5;">
+                <div style="min-width:0;">
+                    <div id="detailCardTaskName" style="font-size:15px; font-weight:700; color:#0f172a; overflow-wrap:break-word;"></div>
+                    <div id="detailCardTaskMeta" style="font-size:11px; color:#64748b; margin-top:2px;"></div>
+                </div>
+                <span onclick="closeDetailCardModal()" title="Cancel" style="cursor:pointer; color:#94a3b8; font-size:18px; line-height:1; flex:none;">✕</span>
+            </div>
+            <div id="detailCardBody" style="padding: 16px 22px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:14px;"></div>
+            <div style="display:flex; justify-content:flex-end; gap: 10px; padding: 12px 22px; border-top: 1px solid #eef1f5; background:#fafbfc;">
+                <button onclick="closeDetailCardModal()" style="padding: 8px 16px; background: #e2e8f0; color: #334155; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Cancel</button>
+                <button onclick="saveDetailCard()" style="padding: 8px 16px; background: #185FA5; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Save</button>
+            </div>
+        </div>
+    </div>
+
     <div id="resourceManagerModal" class="modal" onclick="if(event.target===this) closeResourceManagerModal()">
         <div class="modal-content" style="max-width: 420px; height: auto; padding: 24px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
@@ -872,7 +897,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.49.2";
+        const APP_VERSION = "2.50.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -5115,6 +5140,7 @@
                             title: (sheet.getData()[rowIdx][COL.NOTES] || '').trim() ? '📝 View/Edit Notes' : '📝 Add Notes',
                             onclick: () => openNotesModal(rowIdx, COL.NOTES)
                         });
+                        items.push({ title: '📋 Edit Details...', onclick: () => openDetailCardModal(rowIdx) });
                         items.push({ title: '⬆️ Move row up', disabled: rowIdx === 0, onclick: () => moveRow(rowIdx, -1) });
                         items.push({ title: '⬇️ Move row down', disabled: rowIdx === rowCount - 1, onclick: () => moveRow(rowIdx, 1) });
                         items.push({ title: '🎯 Move to Task ID...', onclick: () => openMoveTaskModal(rowIdx) });
@@ -5437,6 +5463,370 @@
                 '#10b981'
             );
         }
+
+        // ==========================================
+        // TASK DETAIL CARD (right-click a row -> "Edit Details...")
+        // ==========================================
+        // User-requested, with a screenshot of the right-click context menu:
+        // every field of one task (Resource, Parent, Start/Duration/End,
+        // Depends, Labels, custom columns...) in a single form, instead of
+        // tabbing cell-to-cell across the grid. Every field is staged in
+        // `detailCardContext.pending` -- a plain local object, not written to
+        // the sheet at all -- until Save, so Cancel/X/Esc never need to undo
+        // anything; they just drop the context and close. Save then applies
+        // every changed field in one isSyncing-suppressed batch (the same
+        // pattern applyBulkEdit() above and oninsertrow's ID/Alloc writes
+        // already use), so one Detail Card edit is one Undo step no matter
+        // how many fields changed.
+        let detailCardContext = null;
+
+        function openDetailCardModal(rowIndex) {
+            if (!sheet) return;
+            const row = sheet.getData()[rowIndex];
+            if (!row) return;
+
+            const customCols = [];
+            for (let c = 14; c < sheet.options.columns.length; c++) {
+                customCols.push({ col: c, title: sheet.options.columns[c].title, value: row[c] || '' });
+            }
+
+            detailCardContext = {
+                rowIndex,
+                original: row.slice(), // decoupled from the live row so Cancel/dirty-check can't be fooled by any later mutation
+                pending: {
+                    name: row[COL.NAME] || '',
+                    resource: row[COL.RESOURCE] || '',
+                    alloc: row[COL.ALLOC] || '',
+                    pct: row[COL.PCT] || '',
+                    start: row[COL.START] || '',
+                    duration: row[COL.DUR] || '',
+                    end: row[COL.END] || '',
+                    depends: row[COL.DEP] || '',
+                    parent: row[COL.PARENT] || '',
+                    labels: row[COL.LABELS] || '',
+                },
+                customCols,
+                endTouched: false,
+            };
+
+            document.getElementById('detailCardTaskName').innerText = row[COL.NAME] || '(untitled task)';
+            document.getElementById('detailCardTaskMeta').innerText = `Task ID ${row[COL.ID] || ''} · Outline ${row[COL.OUTLINE] || ''}`;
+
+            renderDetailCardBody();
+            document.getElementById('detailCardModal').classList.add('active');
+        }
+
+        function closeDetailCardModal() {
+            document.getElementById('detailCardModal').classList.remove('active');
+            detailCardContext = null;
+        }
+
+        function isDetailCardDirty() {
+            const ctx = detailCardContext;
+            if (!ctx) return false;
+            const o = ctx.original, p = ctx.pending;
+            return p.name !== (o[COL.NAME] || '') ||
+                p.resource !== (o[COL.RESOURCE] || '') ||
+                String(p.alloc) !== String(o[COL.ALLOC] || '') ||
+                String(p.pct) !== String(o[COL.PCT] || '') ||
+                p.start !== (o[COL.START] || '') ||
+                String(p.duration) !== String(o[COL.DUR] || '') ||
+                p.end !== (o[COL.END] || '') ||
+                (p.depends || '') !== (o[COL.DEP] || '') ||
+                (p.parent || '') !== (o[COL.PARENT] || '') ||
+                p.labels !== (o[COL.LABELS] || '') ||
+                ctx.customCols.some(cc => cc.value !== (o[cc.col] || ''));
+        }
+
+        function dcFieldWrap(labelText, inputEl, hint) {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'display:flex; flex-direction:column; gap:4px; min-width:0;';
+            const lbl = document.createElement('label');
+            lbl.style.cssText = 'font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:#64748b;';
+            lbl.textContent = labelText;
+            wrap.appendChild(lbl);
+            wrap.appendChild(inputEl);
+            if (hint) {
+                const h = document.createElement('div');
+                h.style.cssText = 'font-size:10px; color:#94a3b8;';
+                h.textContent = hint;
+                wrap.appendChild(h);
+            }
+            return wrap;
+        }
+
+        function dcRow(...fields) {
+            const row = document.createElement('div');
+            row.style.cssText = 'display:grid; grid-template-columns:1fr 1fr; gap:12px;';
+            fields.forEach(f => row.appendChild(f));
+            return row;
+        }
+
+        function dcTextInput(value, onInput, type) {
+            const input = document.createElement('input');
+            input.type = type || 'text';
+            input.value = value || '';
+            input.style.cssText = 'border:1px solid #d8dfe8; border-radius:6px; padding:7px 9px; font-size:12.5px; color:#1e293b; box-sizing:border-box; width:100%;';
+            input.addEventListener('input', () => onInput(input.value));
+            return input;
+        }
+
+        function dcReadOnly(value) {
+            const div = document.createElement('div');
+            div.style.cssText = 'border:1px solid #d8dfe8; border-radius:6px; padding:7px 9px; font-size:12.5px; color:#64748b; background:#eef2f7; font-weight:600; min-height:14px;';
+            div.textContent = (value != null && value !== '') ? value : '—';
+            return div;
+        }
+
+        function dcChip(text, on, onClick) {
+            const chip = document.createElement('span');
+            chip.textContent = text;
+            chip.className = 'dc-chip' + (on ? ' dc-chip-on' : '');
+            chip.style.cssText = `font-size:11px; padding:3px 9px; border-radius:999px; border:1px solid ${on ? '#0ea5e9' : '#d8dfe8'}; background:${on ? '#0ea5e9' : '#fff'}; color:${on ? '#fff' : '#334155'}; font-weight:${on ? '600' : '500'}; cursor:${onClick ? 'pointer' : 'default'};`;
+            if (onClick) chip.addEventListener('click', onClick);
+            return chip;
+        }
+
+        function buildResourceField(ctx) {
+            const ro = sheet.isReadOnly([COL.RESOURCE, ctx.rowIndex]);
+            if (ro) return dcReadOnly(ctx.pending.resource);
+
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'display:flex; flex-direction:column; gap:6px;';
+            wrap.appendChild(dcTextInput(ctx.pending.resource, v => { ctx.pending.resource = v; renderDetailCardBody(); }));
+
+            const chipRow = document.createElement('div');
+            chipRow.style.cssText = 'display:flex; gap:6px; flex-wrap:wrap;';
+            const resources = getProjectResources();
+            const currentNames = new Set(splitMultiValueCell(ctx.pending.resource).map(e => splitResourceEntry(e).name.toLowerCase()));
+            resources.forEach(name => {
+                const on = currentNames.has(name.toLowerCase());
+                chipRow.appendChild(dcChip(name, on, () => {
+                    const entries = splitMultiValueCell(ctx.pending.resource);
+                    const next = on
+                        ? entries.filter(e => splitResourceEntry(e).name.toLowerCase() !== name.toLowerCase())
+                        : entries.concat([name]);
+                    ctx.pending.resource = next.join(', ');
+                    renderDetailCardBody();
+                }));
+            });
+            wrap.appendChild(chipRow);
+            return wrap;
+        }
+
+        function buildLabelsField(ctx) {
+            const ro = sheet.isReadOnly([COL.LABELS, ctx.rowIndex]);
+            if (ro) return dcReadOnly(ctx.pending.labels);
+
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'display:flex; gap:6px; flex-wrap:wrap;';
+            const labels = getProjectLabels();
+            if (labels.length === 0) {
+                wrap.appendChild(dcReadOnly('No named labels yet -- add some via "Labels" in the toolbar.'));
+                return wrap;
+            }
+            const current = new Set(splitMultiValueCell(ctx.pending.labels).map(l => l.toLowerCase()));
+            labels.forEach(label => {
+                const on = current.has(label.toLowerCase());
+                wrap.appendChild(dcChip(label, on, () => {
+                    const entries = splitMultiValueCell(ctx.pending.labels);
+                    const next = on
+                        ? entries.filter(e => e.toLowerCase() !== label.toLowerCase())
+                        : entries.concat([label]);
+                    ctx.pending.labels = next.join(', ');
+                    renderDetailCardBody();
+                }));
+            });
+            return wrap;
+        }
+
+        function buildParentField(ctx) {
+            const ro = sheet.isReadOnly([COL.PARENT, ctx.rowIndex]);
+            const source = sheet.options.columns[COL.PARENT].source || [];
+            if (ro) {
+                const match = source.find(s => s.id === ctx.pending.parent);
+                return dcReadOnly(match ? match.name : ctx.pending.parent);
+            }
+            const selfId = (sheet.getData()[ctx.rowIndex][COL.ID] || '').toString().trim();
+            const select = document.createElement('select');
+            select.style.cssText = 'border:1px solid #d8dfe8; border-radius:6px; padding:7px 9px; font-size:12.5px; color:#1e293b; width:100%; box-sizing:border-box;';
+            select.innerHTML = '<option value="">(none)</option>' +
+                source.filter(s => s.id !== selfId).map(s => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`).join('');
+            select.value = ctx.pending.parent || '';
+            select.addEventListener('change', () => { ctx.pending.parent = select.value; });
+            return select;
+        }
+
+        function buildDependsField(ctx) {
+            const ro = sheet.isReadOnly([COL.DEP, ctx.rowIndex]);
+            if (ro) return dcReadOnly(ctx.pending.depends);
+
+            const selfId = (sheet.getData()[ctx.rowIndex][COL.ID] || '').toString().trim();
+            const source = (sheet.options.columns[COL.DEP].source || []).filter(s => s.id !== selfId);
+            const wrap = document.createElement('div');
+            if (source.length === 0) {
+                wrap.appendChild(dcReadOnly('No other tasks yet.'));
+                return wrap;
+            }
+            wrap.style.cssText = 'max-height:120px; overflow-y:auto; border:1px solid #d8dfe8; border-radius:6px; padding:6px 9px; display:flex; flex-direction:column; gap:4px;';
+            const current = new Set((ctx.pending.depends || '').split(';').map(d => d.trim()).filter(Boolean));
+            source.forEach(s => {
+                const label = document.createElement('label');
+                label.style.cssText = 'display:flex; align-items:center; gap:6px; font-size:12px; color:#334155; cursor:pointer;';
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.className = 'detailCardDependsCheckbox';
+                cb.value = s.id;
+                cb.checked = current.has(s.id);
+                cb.addEventListener('change', () => {
+                    if (cb.checked) current.add(s.id); else current.delete(s.id);
+                    ctx.pending.depends = Array.from(current).join(';');
+                });
+                label.appendChild(cb);
+                label.appendChild(document.createTextNode(s.name));
+                wrap.appendChild(label);
+            });
+            return wrap;
+        }
+
+        function buildNotesLinkField(ctx) {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:10px; border:1px solid #d8dfe8; border-radius:6px; padding:8px 10px; font-size:12px; color:#64748b;';
+            const hasNotes = (sheet.getData()[ctx.rowIndex][COL.NOTES] || '').trim() !== '';
+            const label = document.createElement('span');
+            label.textContent = hasNotes ? 'Notes added' : 'No notes yet';
+            const link = document.createElement('span');
+            link.className = 'detailCardOpenNotes';
+            link.textContent = (hasNotes ? 'Edit' : 'Add') + ' Notes ▸';
+            link.style.cssText = 'color:#0ea5e9; font-weight:600; cursor:pointer;';
+            link.addEventListener('click', () => {
+                // Leaving via this side door -- not one of the card's own three
+                // sanctioned exits (X/Cancel/Esc all discard without asking,
+                // Save commits) -- still needs the same confirm-before-discard
+                // guard closeNotesModal() itself already uses for its own
+                // textarea, since pending field edits would otherwise vanish
+                // silently the moment Notes opens on top of this modal.
+                if (isDetailCardDirty() && !confirm('You have unsaved changes in this detail card. Discard them to edit Notes?')) return;
+                const rowIndex = ctx.rowIndex;
+                closeDetailCardModal();
+                openNotesModal(rowIndex, COL.NOTES);
+            });
+            wrap.appendChild(label);
+            wrap.appendChild(link);
+            return wrap;
+        }
+
+        function updateDetailCardStatusPreview() {
+            const el = document.getElementById('detailCardStatusPreview');
+            if (el) el.textContent = computeStatus(detailCardContext.pending.pct);
+        }
+
+        function renderDetailCardBody() {
+            const ctx = detailCardContext;
+            if (!ctx) return;
+            const body = document.getElementById('detailCardBody');
+            body.innerHTML = '';
+            const { rowIndex, pending, customCols } = ctx;
+            const ro = (col) => sheet.isReadOnly([col, rowIndex]);
+
+            body.appendChild(dcFieldWrap('Task Name', ro(COL.NAME) ? dcReadOnly(pending.name) : dcTextInput(pending.name, v => pending.name = v)));
+
+            body.appendChild(dcRow(
+                dcFieldWrap('Resource', buildResourceField(ctx)),
+                dcFieldWrap('Parent', buildParentField(ctx))
+            ));
+
+            body.appendChild(dcRow(
+                dcFieldWrap('Def. Alloc', ro(COL.ALLOC) ? dcReadOnly(pending.alloc) : dcTextInput(pending.alloc, v => pending.alloc = v, 'number')),
+                dcFieldWrap('% Done', ro(COL.PCT) ? dcReadOnly(pending.pct) : dcTextInput(pending.pct, v => { pending.pct = v; updateDetailCardStatusPreview(); }, 'number'))
+            ));
+
+            body.appendChild(dcRow(
+                dcFieldWrap('Start', ro(COL.START) ? dcReadOnly(pending.start) : dcTextInput(pending.start, v => pending.start = v, 'date')),
+                dcFieldWrap('Duration (days)', ro(COL.DUR) ? dcReadOnly(pending.duration) : dcTextInput(pending.duration, v => pending.duration = v, 'number'))
+            ));
+
+            const statusPreview = dcReadOnly(computeStatus(pending.pct));
+            statusPreview.id = 'detailCardStatusPreview';
+            body.appendChild(dcRow(
+                dcFieldWrap('End', ro(COL.END) ? dcReadOnly(pending.end) : dcTextInput(pending.end, v => { pending.end = v; ctx.endTouched = true; }, 'date')),
+                dcFieldWrap('Status', statusPreview, 'read-only — derived from % Done')
+            ));
+
+            body.appendChild(dcFieldWrap('Depends', buildDependsField(ctx)));
+            body.appendChild(dcFieldWrap('Labels', buildLabelsField(ctx)));
+
+            customCols.forEach(cc => {
+                const isRO = sheet.isReadOnly([cc.col, rowIndex]);
+                body.appendChild(dcFieldWrap(cc.title, isRO ? dcReadOnly(cc.value) : dcTextInput(cc.value, v => cc.value = v)));
+            });
+
+            body.appendChild(dcFieldWrap('Notes', buildNotesLinkField(ctx)));
+        }
+
+        function saveDetailCard() {
+            const ctx = detailCardContext;
+            if (!ctx || !sheet) { closeDetailCardModal(); return; }
+            const { rowIndex, original, pending, customCols } = ctx;
+
+            if (pending.pct !== '' && pending.pct != null) {
+                const n = parseInt(pending.pct, 10);
+                if (isNaN(n) || n < 0 || n > 100) { alert("% Done must be a number from 0 to 100."); return; }
+            }
+
+            // Mirrors onGridCellChange's own End-edit-wins-over-Duration
+            // precedence (backlog #18) -- hoisted here and resolved to a
+            // Duration value up front, since the batch below holds isSyncing
+            // true, which would otherwise suppress that back-solve (it's
+            // itself guarded by !isSyncing) and let the ordinary
+            // Start+Duration -> End recompute during the Save sync silently
+            // revert a typed End edit back to its old value. COL.END is
+            // deliberately never written directly below -- the sync pipeline
+            // recomputes it from Start+Duration, reproducing exactly the End
+            // the user typed.
+            let durationToWrite = pending.duration;
+            const endChanged = ctx.endTouched && pending.end !== (original[COL.END] || '');
+            if (endChanged && pending.start && pending.end) {
+                const newDur = calculateWorkingDays(pending.start, pending.end);
+                if (newDur > 0) durationToWrite = newDur;
+            }
+
+            const writes = [
+                [COL.NAME, pending.name],
+                [COL.RESOURCE, pending.resource],
+                [COL.ALLOC, pending.alloc],
+                [COL.PCT, pending.pct],
+                [COL.START, pending.start],
+                [COL.DUR, durationToWrite],
+                [COL.DEP, pending.depends],
+                [COL.PARENT, pending.parent],
+                [COL.LABELS, pending.labels],
+            ];
+            customCols.forEach(cc => writes.push([cc.col, cc.value]));
+
+            // Same isSyncing-suppression as applyBulkEdit() above: every
+            // changed field here lands as part of one syncToGantt(true) call
+            // (and therefore one Undo step), not one per field.
+            isSyncing = true;
+            writes.forEach(([col, value]) => {
+                if (sheet.isReadOnly([col, rowIndex])) return;
+                if ((original[col] || '') === (value || '')) return;
+                sheet.setValueFromCoords(col, rowIndex, value, true);
+            });
+            isSyncing = false;
+
+            closeDetailCardModal();
+            syncToGantt(true);
+            showStatus('✓ Task details saved', '#10b981');
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key !== 'Escape') return;
+            const modal = document.getElementById('detailCardModal');
+            if (modal && modal.classList.contains('active')) {
+                closeDetailCardModal();
+            }
+        });
 
         function syncToGantt(forceRecalculateDates = false) {
             isSyncing = true;

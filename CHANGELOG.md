@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.50.0] - 2026-10-08
+
+### ✨ Added
+
+#### Task Detail Card: edit every field of one task in a single form
+- **User-requested**, with a screenshot of the grid's right-click context menu: "is it possible to add a right click feature where you can fill out the details of a given line as a 'detail card' style record... Start/End/Parent/etc." A mockup was shared first to settle the shape and the specific interaction decisions below before any code was written.
+- A new "📋 Edit Details..." entry on the row right-click menu (between Notes and Move row up) opens a form with every field of that task: Task Name, Resource (free text plus named-resource quick-pick chips, preserving allocation suffixes like `(50%)`), Parent (dropdown, reusing the same source list Bulk Edit's own Parent field already builds), Def. Alloc, % Done, Start/Duration/End, Depends (checkbox multi-select, excluding the task itself), Labels (quick-pick chips), any custom columns (e.g. a JIRA column), and a Notes summary linking out to the existing Notes modal rather than a second Markdown editor. A read-only field in the form (Task ID/Outline always, Status always, Start/Duration/End/%Done/Def. Alloc on a parent row, Start when the row has a dependency) is grayed exactly where the grid itself already treats it as read-only.
+- Deliberately staged, not live: every field edit lands in a local pending object, not the sheet -- so Cancel/✕/Esc never need to undo anything, they just drop the pending state and close. Save applies every changed field in one `isSyncing`-suppressed batch (the same pattern `applyBulkEdit()` already uses), so editing five fields in the card is one Undo step, not five. Editing End directly back-solves Duration before that batch runs (mirroring the grid's own direct-End-edit behavior, backlog #18) rather than being silently reverted by the ordinary Start+Duration recompute that `syncToGantt()` always runs.
+- **User-specified interaction details**, settled before implementation: unlike every other modal in this app, clicking the backdrop does nothing -- this card can hold several pending edits at once (unlike Notes' single textarea or Bulk Edit's pick-one-value form), so an accidental click away must never silently drop them. Esc maps to the same discard-and-close as Cancel.
+- **New:** `tests/detail-card.spec.js` (16 tests) covering: the context-menu entry's position, field population from the row, backdrop-click being a no-op, Esc/Cancel/✕ all discarding without saving, Save batching into one Undo step, % Done validation, Resource/Labels chip toggling (including allocation-suffix preservation), the Parent dropdown excluding the row itself, Depends checkboxes writing a semicolon-joined list, parent-row fields rendering read-only, the End-edit-to-Duration back-solve, a custom column saving, and the Notes link-out confirming only when the card actually has unsaved edits.
+- Full Playwright suite (509 tests) re-verified against real vendored CDN copies: 508 passed, the one known pre-existing `row-id-backfill` timing flake, zero regressions.
+
 ## [2.49.2] - 2026-10-06
 
 ### 🔧 Changed

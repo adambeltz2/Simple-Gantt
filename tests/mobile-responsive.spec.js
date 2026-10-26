@@ -27,6 +27,22 @@ test('tapping Chart switches to the chart pane, hiding the grid', async ({ page 
   await expect(page.locator('.grid-panel')).toBeHidden();
 });
 
+// The chart's own View options button (Zoom/Weekends/Critical path/Label in
+// chart -- moved out of the top toolbar and into the chart panel, since
+// those settings only ever act on the chart) now follows the chart pane's
+// own mobile visibility rather than the toolbar's separate "More" collapse,
+// since there's nothing useful for it to control while the chart itself is
+// off-screen.
+test('the chart\'s View options button is hidden with the grid pane by default, and reappears with the chart pane', async ({ page }) => {
+  await expect(page.locator('#viewOptionsBtn')).toBeHidden();
+
+  await page.click('button[onclick="snapPanes(8)"]');
+  await expect(page.locator('#viewOptionsBtn')).toBeVisible();
+
+  await page.click('button[onclick="snapPanes(92)"]');
+  await expect(page.locator('#viewOptionsBtn')).toBeHidden();
+});
+
 test('tapping Grid switches back, and the resizer stays hidden throughout', async ({ page }) => {
   await page.click('button[onclick="snapPanes(8)"]');
   await expect(page.locator('.workspace')).toHaveAttribute('data-mobile-pane', 'chart');

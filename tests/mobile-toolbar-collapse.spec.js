@@ -9,6 +9,14 @@ const { test, expect } = require('./fixtures');
 // everything else collapses behind a "More" toggle. Same DOM elements
 // either way (display:none vs. display:contents), nothing duplicated, and
 // desktop is completely unaffected -- see .tb-mobile-collapsible.
+//
+// #viewOptionsBtn (Zoom/Weekends/Critical path/Label in chart) used to live
+// in this toolbar and was covered here too, but has since moved into the
+// chart panel itself (user-requested: those settings only ever act on the
+// chart, so a toolbar menu with no visible link to it was the wrong home).
+// Its visibility is now governed by the chart pane's own mobile show/hide
+// rules, not this file's More-toggle mechanism -- see
+// mobile-responsive.spec.js / mobile-landscape.spec.js instead.
 
 test.use({ viewport: { width: 390, height: 844 } }); // iPhone 12-ish portrait
 
@@ -16,7 +24,6 @@ test('secondary toolbar controls are hidden by default on mobile', async ({ page
   await expect(page.locator('button[onclick="jumpToToday()"]')).toBeHidden();
   await expect(page.locator('button[onclick="openBulkEditModal()"]')).toBeHidden();
   await expect(page.locator('#btnDbxSave')).toBeHidden();
-  await expect(page.locator('#viewOptionsBtn')).toBeHidden();
 });
 
 test('the essential controls stay visible by default on mobile', async ({ page }) => {
@@ -38,7 +45,6 @@ test('tapping "More" reveals the secondary controls, and the label flips to "Les
   await expect(page.locator('button[onclick="jumpToToday()"]')).toBeVisible();
   await expect(page.locator('button[onclick="openBulkEditModal()"]')).toBeVisible();
   await expect(page.locator('#btnDbxSave')).toBeVisible();
-  await expect(page.locator('#viewOptionsBtn')).toBeVisible();
 });
 
 test('tapping "More" again collapses it back, and the label flips back to "More"', async ({ page }) => {
@@ -65,5 +71,4 @@ test('on desktop-width viewports the More toggle is hidden and nothing is collap
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect(page.locator('#toolbarMoreToggle')).toBeHidden();
   await expect(page.locator('button[onclick="jumpToToday()"]')).toBeVisible();
-  await expect(page.locator('#viewOptionsBtn')).toBeVisible();
 });

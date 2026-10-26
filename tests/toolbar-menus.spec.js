@@ -3,10 +3,13 @@ const { test, expect } = require('./fixtures');
 
 // Covers the remaining, previously-undone recommendations from backlog #17
 // ("Toolbar visual review"), whose first cut (the Export ▾ menu) shipped
-// earlier: Zoom/Weekends off/Critical path/Label in chart now live behind
-// one "View ▾" menu, and the rarely-touched Fit columns/Sync Dependencies
-// live behind a "Tools ▾" menu -- same anchored-popover pattern Export ▾
-// already established, at desktop width where nothing is mobile-collapsed.
+// earlier: Zoom/Weekends off/Critical path/Label in chart live behind one
+// "View ▾" menu (now hosted in the chart panel itself rather than the top
+// toolbar -- user-requested, since those settings only ever act on the
+// chart), and the rarely-touched Fit columns/Sync Dependencies live behind a
+// "Tools ▾" menu in the top toolbar -- same anchored-popover pattern
+// Export ▾ already established, at desktop width where nothing is
+// mobile-collapsed.
 
 test('View options menu is closed by default and opens on click, revealing Zoom/Weekends/Critical path/Label in chart', async ({ page }) => {
   await expect(page.locator('#viewOptionsDropdown')).toBeHidden();

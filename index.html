@@ -102,9 +102,26 @@
         .grid-panel { width: 55%; overflow: auto; background: #f8fafc; padding: 20px; box-sizing: border-box; }
         .resizer { width: 8px; background: #cbd5e1; cursor: col-resize; flex-shrink: 0; z-index: 10; transition: background 0.2s;}
         .resizer:hover, .resizer.resizing { background: #3b82f6; }
-        .chart-panel { flex: 1; overflow: auto; background: white; padding: 20px; box-sizing: border-box; }
+        .chart-panel { flex: 1; overflow: auto; background: white; padding: 20px; box-sizing: border-box; position: relative; scrollbar-width: thin; scrollbar-color: #cbd5e1 #f8fafc; }
+        /* User-reported: with most rows unscheduled (no Start date, so no
+           bar), the chart's own scrollable content can be mostly blank
+           between the few rows that do have bars -- and a native OS/browser
+           scrollbar can be thin or fully auto-hiding until a scroll gesture
+           is already underway, making a genuinely scrollable panel look
+           static. An explicit, always-visible scrollbar removes that doubt
+           regardless of platform. */
+        .chart-panel::-webkit-scrollbar { width: 12px; height: 12px; }
+        .chart-panel::-webkit-scrollbar-track { background: #f8fafc; }
+        .chart-panel::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; border: 3px solid #f8fafc; }
+        .chart-panel::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        /* Floats over the range bar's top-right corner rather than sitting in
+           normal flow -- #ganttRangeBar's own -20px top margin pulls it flush
+           against the panel's true top edge for its sticky positioning to
+           land correctly, so an in-flow sibling placed before it here would
+           get visually overlapped rather than pushing it down. */
+        #chartPanelControls { position: absolute; top: 14px; right: 20px; z-index: 6; display: flex; gap: 8px; }
 
-        .gantt-range-bar { position: sticky; top: -20px; z-index: 5; background: white; margin: -20px -20px 14px; padding: 10px 20px; border-bottom: 2px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; font-size: 13px; }
+        .gantt-range-bar { position: sticky; top: -20px; z-index: 5; background: white; margin: -20px -20px 14px; padding: 10px 210px 10px 20px; border-bottom: 2px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; font-size: 13px; }
         .gantt-range-bar .range-main { font-weight: 700; color: #0f172a; }
         .gantt-range-bar .range-sub { color: #64748b; }
         .gantt-range-bar .range-today { color: #185FA5; font-weight: 600; }
@@ -377,23 +394,6 @@
             <div class="toolbar-group">
                 <span class="tb-mobile-collapsible">
                 <div style="position:relative; display:inline-block;">
-                    <button id="viewOptionsBtn" type="button" class="tbtn" onclick="toggleViewOptionsMenu(event)" title="Zoom, weekends, critical path and label-in-chart display options">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                        View
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                    </button>
-                    <div id="viewOptionsDropdown" style="display:none; position:absolute; top:100%; left:0; margin-top:4px; background:#1e293b; border:1px solid #334155; border-radius:6px; padding:10px; min-width:190px; z-index:50; box-shadow:0 8px 20px rgba(0,0,0,0.35);">
-                        <select id="zoomScale" class="tbtn-select" onchange="changeZoom()" style="width:100%; box-sizing:border-box; margin-bottom:8px;">
-                            <option value="Day">Zoom: Day</option>
-                            <option value="Week">Zoom: Week</option>
-                            <option value="Month">Zoom: Month</option>
-                        </select>
-                        <label class="toggle-label" style="width:100%; box-sizing:border-box; margin-bottom:6px;"><input type="checkbox" id="skipWeekends" onchange="forceRecalc()"> Weekends off</label>
-                        <label class="toggle-label" style="width:100%; box-sizing:border-box; margin-bottom:6px;"><input type="checkbox" id="showCriticalPath" onchange="triggerSync()"> Critical path</label>
-                        <label class="toggle-label" title="When a label is selected above, also narrow the Gantt chart to just that label" style="width:100%; box-sizing:border-box;"><input type="checkbox" id="applyLabelToChart" onchange="triggerSync()"> Label in chart</label>
-                    </div>
-                </div>
-                <div style="position:relative; display:inline-block;">
                     <button id="columnVisibilityBtn" type="button" class="tbtn" onclick="toggleColumnVisibilityDropdown(event)"
                         title="Show/hide grid columns -- hidden columns keep their data and always appear in CSV export and Dropbox backup">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="16" rx="1"></rect><rect x="14" y="4" width="7" height="16" rx="1"></rect></svg>
@@ -529,6 +529,37 @@
         </div>
         <div class="resizer" id="dragDivider"></div>
         <div class="chart-panel">
+            <!-- User-requested: these controls only ever act on the chart, so
+                 they live here instead of the generic top toolbar, which had
+                 no visible connection to the chart it actually controlled.
+                 Deliberately a persistent sibling of #ganttRangeBar, not
+                 inside it -- renderGanttRangeBar() below rebuilds that
+                 element's innerHTML on every sync, which would otherwise
+                 wipe these controls (and any mid-interaction dropdown/
+                 checkbox state) out from under the user on every edit. -->
+            <div id="chartPanelControls">
+                <div style="position:relative; display:inline-block;">
+                    <button id="viewOptionsBtn" type="button" class="tbtn" onclick="toggleViewOptionsMenu(event)" title="Zoom, weekends, critical path and label-in-chart display options">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                        View
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <div id="viewOptionsDropdown" style="display:none; position:absolute; top:100%; right:0; margin-top:4px; background:#1e293b; border:1px solid #334155; border-radius:6px; padding:10px; min-width:190px; z-index:50; box-shadow:0 8px 20px rgba(0,0,0,0.35);">
+                        <select id="zoomScale" class="tbtn-select" onchange="changeZoom()" style="width:100%; box-sizing:border-box; margin-bottom:8px;">
+                            <option value="Day">Zoom: Day</option>
+                            <option value="Week">Zoom: Week</option>
+                            <option value="Month">Zoom: Month</option>
+                        </select>
+                        <label class="toggle-label" style="width:100%; box-sizing:border-box; margin-bottom:6px;"><input type="checkbox" id="skipWeekends" onchange="forceRecalc()"> Weekends off</label>
+                        <label class="toggle-label" style="width:100%; box-sizing:border-box; margin-bottom:6px;"><input type="checkbox" id="showCriticalPath" onchange="triggerSync()"> Critical path</label>
+                        <label class="toggle-label" title="When a label is selected above, also narrow the Gantt chart to just that label" style="width:100%; box-sizing:border-box;"><input type="checkbox" id="applyLabelToChart" onchange="triggerSync()"> Label in chart</label>
+                    </div>
+                </div>
+                <button id="btnPopoutChart" class="tbtn" onclick="openChartInNewWindow()" title="Open the chart in its own window">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                    Pop out
+                </button>
+            </div>
             <div id="ganttRangeBar" class="gantt-range-bar"></div>
             <div id="ganttLegend" class="gantt-legend"></div>
             <div id="gantt"></div>
@@ -897,7 +928,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.50.0";
+        const APP_VERSION = "2.51.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -2237,7 +2268,7 @@
                     <div style="font-size:10.5px; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px;">${escapeHtml(projectName)}</div>
                     <span class="range-main">📅 ${fmt(minStart)} &rarr; ${fmt(maxEnd)}</span>
                 </div>
-                <span class="range-sub">${span} &middot; ${zoom} view${todayInRange ? ` &middot; <span class="range-today">Today: ${fmt(today)}</span>` : ''}</span>
+                <span class="range-sub">${span} &middot; <span onclick="toggleViewOptionsMenu(event)" title="Change zoom, weekends, critical path, or label-in-chart" style="cursor:pointer; text-decoration:underline dotted; text-underline-offset:2px;">${zoom} view ▾</span>${todayInRange ? ` &middot; <span class="range-today">Today: ${fmt(today)}</span>` : ''}</span>
             `;
         }
 
@@ -2331,9 +2362,57 @@
             });
         }
         
-        function changeZoom() { 
-            if (ganttChart) ganttChart.change_view_mode(document.getElementById('zoomScale').value); 
-            saveToLocal(); 
+        function changeZoom() {
+            const zoomValue = document.getElementById('zoomScale').value;
+            if (ganttChart) ganttChart.change_view_mode(zoomValue);
+            // Keep the range bar's own "<zoom> view" label in sync immediately --
+            // it's only ever rebuilt by renderGanttRangeBar() on the next full
+            // sync, which change_view_mode() deliberately avoids triggering (a
+            // lighter in-place mode switch, not a full chart rebuild), so without
+            // this the label would silently show the old zoom level until some
+            // unrelated edit happened to resync it.
+            const zoomLabel = document.querySelector('#ganttRangeBar .range-sub span[onclick]');
+            if (zoomLabel) zoomLabel.textContent = `${zoomValue} view ▾`;
+            saveToLocal();
+        }
+
+        // User-requested: open the chart in its own window. Deliberately
+        // NOT a DOM-move trick (detach .chart-panel and re-attach it inside
+        // a popup's own document) -- frappe-gantt's drag-to-reschedule and
+        // hover-popup wiring, like most libraries, binds some of its
+        // listeners to the one `document` it was loaded against, and plain
+        // HTML `onclick="..."` attributes (View/Weekends/zoom, all through
+        // this app) resolve against whichever document currently owns the
+        // element, not the one that defined the function -- both break
+        // silently once the node's owner document changes. Opening a second,
+        // fully independent instance of this same page sidesteps all of
+        // that for free: every interaction in the popup is wired up fresh,
+        // correctly, exactly like the main window's own copy already is,
+        // because it IS the main window's own code, just loaded a second
+        // time. Same-origin localStorage (the actual data) is shared, so
+        // edits made in either window persist; a named target window means
+        // clicking "Pop out" again re-focuses the same popup instead of
+        // spawning another one.
+        function openChartInNewWindow() {
+            const popup = window.open(window.location.href, 'simple-gantt-chart-popup', 'width=1300,height=800');
+            if (!popup) {
+                alert('Pop-up blocked -- allow pop-ups for this site to open the chart in its own window.');
+                return;
+            }
+            popup.addEventListener('load', function () {
+                // Chart-only starting view in the new window. Deliberately
+                // NOT snapPanes(8) -- that persists to the same
+                // "simple_gantt_pane_width" localStorage key the main
+                // window's own saved layout reads on every load, which
+                // would silently change the main window's split next time
+                // it reloads. This is a one-off visual default local to the
+                // popup only.
+                try {
+                    const gp = popup.document.getElementById('gridPanel');
+                    if (gp) gp.style.width = '8%';
+                    if (typeof popup.updateMobilePaneVisibility === 'function') popup.updateMobilePaneVisibility(8);
+                } catch (e) { /* cross-window timing edge case -- the popup still opens and works fine at its default split */ }
+            });
         }
 
         function jumpToToday() {

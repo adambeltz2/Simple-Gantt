@@ -35,25 +35,44 @@ test('the View options button and dropdown live inside the chart panel, not the 
   await expect(page.locator('#viewOptionsDropdown')).toBeHidden();
   await page.click('#viewOptionsBtn');
   await expect(page.locator('#viewOptionsDropdown')).toBeVisible();
-  await expect(page.locator('#zoomScale')).toBeVisible();
+  await expect(page.locator('#skipWeekends')).toBeVisible();
+  await expect(page.locator('#showCriticalPath')).toBeVisible();
 });
 
-test('the "Pop out" button also lives in the chart panel', async ({ page }) => {
+test('the "Pop out" button also lives in the chart panel, styled as the emphasized action', async ({ page }) => {
   const inChartPanel = await page.evaluate(() => !!document.querySelector('.chart-panel #btnPopoutChart'));
   expect(inChartPanel).toBe(true);
+  await expect(page.locator('#btnPopoutChart')).toHaveClass(/tbtn-primary/);
 });
 
-test('clicking the clickable "Day view" text in the range bar opens the View options dropdown', async ({ page }) => {
-  await expect(page.locator('#viewOptionsDropdown')).toBeHidden();
-  await page.click('#ganttRangeBar .range-sub span[onclick]');
-  await expect(page.locator('#viewOptionsDropdown')).toBeVisible();
+// User-requested: Zoom promoted out of the View ▾ menu into its own
+// always-visible Day/Week/Month segmented control, matching the existing
+// Grid/Split/Chart pattern, so it's obvious without a click -- and the
+// option labels read "Day view"/"Week view"/"Month view" rather than
+// "Zoom: Day".
+test('Zoom is an always-visible Day/Week/Month toggle, not hidden behind View ▾', async ({ page }) => {
+  await expect(page.locator('.zoom-btn[data-zoom="Day"]')).toBeVisible();
+  await expect(page.locator('.zoom-btn[data-zoom="Week"]')).toBeVisible();
+  await expect(page.locator('.zoom-btn[data-zoom="Month"]')).toBeVisible();
+  await expect(page.locator('.zoom-btn[data-zoom="Day"]')).toHaveClass(/active/);
+
+  const labels = await page.evaluate(() => Array.from(document.querySelectorAll('#zoomScale option')).map(o => o.textContent));
+  expect(labels).toEqual(['Day view', 'Week view', 'Month view']);
+});
+
+test('clicking a zoom button changes the zoom level and its own active state', async ({ page }) => {
+  await page.click('.zoom-btn[data-zoom="Week"]');
+  await expect(page.locator('.zoom-btn[data-zoom="Week"]')).toHaveClass(/active/);
+  await expect(page.locator('.zoom-btn[data-zoom="Day"]')).not.toHaveClass(/active/);
+  const zoomValue = await page.evaluate(() => document.getElementById('zoomScale').value);
+  expect(zoomValue).toBe('Week');
 });
 
 test('the range bar shows the current zoom level by name', async ({ page }) => {
   await expect(page.locator('#ganttRangeBar')).toContainText('Day view');
 
-  await page.click('#viewOptionsBtn');
-  await page.selectOption('#zoomScale', 'Week');
+  await page.click('.zoom-btn[data-zoom="Week"]');
+  await page.evaluate(() => syncToGantt(true));
   await page.waitForTimeout(200);
   await expect(page.locator('#ganttRangeBar')).toContainText('Week view');
 });

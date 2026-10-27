@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.51.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-FFDD00)](https://buymeacoffee.com/adambeltz)
+![Version](https://img.shields.io/badge/version-2.51.1-blue) ![License](https://img.shields.io/badge/license-MIT-green) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-FFDD00)](https://buymeacoffee.com/adambeltz)
 
 ## Features
 
@@ -30,7 +30,7 @@ A lightweight, browser-based Gantt chart and task management tool. No server req
 - **Type an explicit End date on a leaf task** – A task with no children now accepts a direct edit to its End date, back-solving Duration from Start + End instead of only deriving End forward from Start + Duration. A task with children still gets its End rolled up from them and stays read-only. CSV import honors an explicit End on a leaf row the same way
 - **Resource Color-Coding** – Each resource gets a deterministic color, shown as a stripe on the left edge of its bars (first-listed resource wins on multi-resource tasks) and listed in the chart legend; complements the Workload dashboard's per-resource view
 - **Critical Path Highlighting** – Opt-in toggle ("Critical path", off by default, in the chart's own "View ▾" menu) that runs the chain of zero-slack tasks determining the project's overall end date through a standard CPM pass over the Depends graph. Critical tasks get a small ⚡ next to their name in the grid and an outlined bar in the chart; parallel branches with float are correctly left unmarked. Suppressed while a dependency cycle exists, since a cycle has no well-defined critical path.
-- **Chart View Controls, in the chart itself** – Zoom (Day/Week/Month), Weekends off, Critical path, and Label in chart live in a "View ▾" menu on the chart panel, not the generic toolbar, since none of them ever touch the grid; the range bar's own "Day view" text is a shortcut into the same menu. "Pop out" opens the chart in its own window -- really a second, fully independent instance of the app defaulted to chart-only view, so dragging, hovering, and zooming there all work exactly like the main window (same code, same project data via shared local storage)
+- **Chart View Controls, in the chart itself** – Zoom is an always-visible Day/Week/Month toggle directly on the chart panel, not buried in a menu; Weekends off, Critical path, and Label in chart live in a "View ▾" menu right next to it. None of these ever touch the grid, so they live with the chart, not the generic toolbar. "Pop out" opens the chart in its own window -- really a second, fully independent instance of the app defaulted to chart-only view, so dragging, hovering, and zooming there all work exactly like the main window (same code, same project data via shared local storage)
 - **Chart Scrollbar** – An explicit, always-visible scrollbar on the chart panel (rather than relying on the browser's own, which can be thin or fully auto-hiding depending on OS/browser) makes clear there's more to scroll to when most rows are unscheduled and the chart's own content is mostly blank between the few that have bars
 - **Progress Tracking** – Mark tasks as not started, in progress, complete, or overdue
 - **Dependencies** – Link tasks to show sequential relationships

@@ -114,14 +114,22 @@
         .chart-panel::-webkit-scrollbar-track { background: #f8fafc; }
         .chart-panel::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; border: 3px solid #f8fafc; }
         .chart-panel::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        /* Floats over the range bar's top-right corner rather than sitting in
-           normal flow -- #ganttRangeBar's own -20px top margin pulls it flush
-           against the panel's true top edge for its sticky positioning to
-           land correctly, so an in-flow sibling placed before it here would
-           get visually overlapped rather than pushing it down. */
-        #chartPanelControls { position: absolute; top: 14px; right: 20px; z-index: 6; display: flex; gap: 8px; }
+        /* Normal flow, not an absolute overlay -- user-reported screenshot
+           showed the previous absolute-positioned version colliding with
+           (and clipping under) the range bar's own text once the chart
+           panel got narrow, since the two were laid out independently with
+           no way to coordinate or wrap around each other. This is now the
+           one sticky, flush-to-the-panel's-top element (the range bar below
+           it no longer needs that trick), with flex-wrap so a narrow panel
+           wraps the controls onto a second line instead of overlapping
+           anything. */
+        #chartPanelControls { position: sticky; top: -20px; z-index: 7; background: white; margin: -20px -20px 14px; padding: 10px 20px; border-bottom: 2px solid #e2e8f0; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+        .zoom-toggle { display: flex; border: 1px solid #334155; border-radius: 6px; overflow: hidden; margin-right: auto; }
+        .zoom-toggle .zoom-btn { border-radius: 0; }
+        .zoom-toggle .zoom-btn + .zoom-btn { border-left: 1px solid #334155; }
+        .zoom-toggle .zoom-btn.active { background: #0ea5e9; color: #fff; }
 
-        .gantt-range-bar { position: sticky; top: -20px; z-index: 5; background: white; margin: -20px -20px 14px; padding: 10px 210px 10px 20px; border-bottom: 2px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; font-size: 13px; }
+        .gantt-range-bar { background: white; padding: 0 0 10px; border-bottom: 1px solid #e2e8f0; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; font-size: 13px; }
         .gantt-range-bar .range-main { font-weight: 700; color: #0f172a; }
         .gantt-range-bar .range-sub { color: #64748b; }
         .gantt-range-bar .range-today { color: #185FA5; font-weight: 600; }
@@ -538,24 +546,46 @@
                  wipe these controls (and any mid-interaction dropdown/
                  checkbox state) out from under the user on every edit. -->
             <div id="chartPanelControls">
+                <!-- User-requested ("can we change the zoom so its more
+                     obvious? Also just call it Day/Week/Month view"): Zoom
+                     is the one chart setting people reach for constantly, so
+                     it's now its own always-visible segmented control,
+                     matching the Grid/Split/Chart pattern already
+                     established in the toolbar, instead of living one click
+                     deep inside the View ▾ menu. #zoomScale itself is kept
+                     exactly as-is (same id, same change event) so every
+                     existing call site (changeZoom(), the range bar, the
+                     Gantt's own view_mode, appDB.settings.zoom restore)
+                     needs no changes -- it's just visually hidden and driven
+                     by these buttons instead of shown as a raw <select>. -->
+                <div class="zoom-toggle" role="group" aria-label="Zoom">
+                    <button type="button" class="tbtn zoom-btn" data-zoom="Day" onclick="setZoom('Day')" title="Day view">Day</button>
+                    <button type="button" class="tbtn zoom-btn" data-zoom="Week" onclick="setZoom('Week')" title="Week view">Week</button>
+                    <button type="button" class="tbtn zoom-btn" data-zoom="Month" onclick="setZoom('Month')" title="Month view">Month</button>
+                </div>
+                <select id="zoomScale" onchange="changeZoom()" style="display:none;">
+                    <option value="Day">Day view</option>
+                    <option value="Week">Week view</option>
+                    <option value="Month">Month view</option>
+                </select>
                 <div style="position:relative; display:inline-block;">
-                    <button id="viewOptionsBtn" type="button" class="tbtn" onclick="toggleViewOptionsMenu(event)" title="Zoom, weekends, critical path and label-in-chart display options">
+                    <button id="viewOptionsBtn" type="button" class="tbtn" onclick="toggleViewOptionsMenu(event)" title="Weekends and critical-path display options">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                         View
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                     </button>
                     <div id="viewOptionsDropdown" style="display:none; position:absolute; top:100%; right:0; margin-top:4px; background:#1e293b; border:1px solid #334155; border-radius:6px; padding:10px; min-width:190px; z-index:50; box-shadow:0 8px 20px rgba(0,0,0,0.35);">
-                        <select id="zoomScale" class="tbtn-select" onchange="changeZoom()" style="width:100%; box-sizing:border-box; margin-bottom:8px;">
-                            <option value="Day">Zoom: Day</option>
-                            <option value="Week">Zoom: Week</option>
-                            <option value="Month">Zoom: Month</option>
-                        </select>
                         <label class="toggle-label" style="width:100%; box-sizing:border-box; margin-bottom:6px;"><input type="checkbox" id="skipWeekends" onchange="forceRecalc()"> Weekends off</label>
                         <label class="toggle-label" style="width:100%; box-sizing:border-box; margin-bottom:6px;"><input type="checkbox" id="showCriticalPath" onchange="triggerSync()"> Critical path</label>
                         <label class="toggle-label" title="When a label is selected above, also narrow the Gantt chart to just that label" style="width:100%; box-sizing:border-box;"><input type="checkbox" id="applyLabelToChart" onchange="triggerSync()"> Label in chart</label>
                     </div>
                 </div>
-                <button id="btnPopoutChart" class="tbtn" onclick="openChartInNewWindow()" title="Open the chart in its own window">
+                <!-- User-reported ("The Pop Out is still fairly hidden"):
+                     tbtn-primary gives it the same visual emphasis "Add row"
+                     already uses elsewhere, so it reads as the one
+                     highlighted action in this row instead of blending in
+                     as another dark pill next to View. -->
+                <button id="btnPopoutChart" class="tbtn tbtn-primary" onclick="openChartInNewWindow()" title="Open the chart in its own window">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                     Pop out
                 </button>
@@ -928,7 +958,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.51.0";
+        const APP_VERSION = "2.51.1";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -1029,6 +1059,7 @@
 
         document.getElementById('skipWeekends').checked = appDB.settings.skipWeekends;
         document.getElementById('zoomScale').value = appDB.settings.zoom || 'Day';
+        updateZoomButtonsActiveState();
 
         function updateProjectDropdown() {
             const selector = document.getElementById('projectSelector');
@@ -2268,7 +2299,7 @@
                     <div style="font-size:10.5px; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px;">${escapeHtml(projectName)}</div>
                     <span class="range-main">📅 ${fmt(minStart)} &rarr; ${fmt(maxEnd)}</span>
                 </div>
-                <span class="range-sub">${span} &middot; <span onclick="toggleViewOptionsMenu(event)" title="Change zoom, weekends, critical path, or label-in-chart" style="cursor:pointer; text-decoration:underline dotted; text-underline-offset:2px;">${zoom} view ▾</span>${todayInRange ? ` &middot; <span class="range-today">Today: ${fmt(today)}</span>` : ''}</span>
+                <span class="range-sub">${span} &middot; ${zoom} view${todayInRange ? ` &middot; <span class="range-today">Today: ${fmt(today)}</span>` : ''}</span>
             `;
         }
 
@@ -2362,17 +2393,30 @@
             });
         }
         
+        // Single source of truth for #zoomScale's value, called both by the
+        // zoom-toggle buttons (via setZoom()) and anything else that sets
+        // #zoomScale directly (e.g. a test driving the hidden <select>) --
+        // keeps the buttons' own active state from ever drifting out of
+        // sync with whatever zoom level is actually in effect.
+        function updateZoomButtonsActiveState() {
+            const current = document.getElementById('zoomScale').value;
+            document.querySelectorAll('.zoom-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.zoom === current);
+            });
+        }
+
+        // User-requested: Zoom promoted to its own always-visible Day/Week/
+        // Month segmented control (see #chartPanelControls above) instead of
+        // a <select> buried in the View ▾ menu. Drives the same hidden
+        // #zoomScale every other zoom-reading call site already uses.
+        function setZoom(value) {
+            document.getElementById('zoomScale').value = value;
+            changeZoom();
+        }
+
         function changeZoom() {
-            const zoomValue = document.getElementById('zoomScale').value;
-            if (ganttChart) ganttChart.change_view_mode(zoomValue);
-            // Keep the range bar's own "<zoom> view" label in sync immediately --
-            // it's only ever rebuilt by renderGanttRangeBar() on the next full
-            // sync, which change_view_mode() deliberately avoids triggering (a
-            // lighter in-place mode switch, not a full chart rebuild), so without
-            // this the label would silently show the old zoom level until some
-            // unrelated edit happened to resync it.
-            const zoomLabel = document.querySelector('#ganttRangeBar .range-sub span[onclick]');
-            if (zoomLabel) zoomLabel.textContent = `${zoomValue} view ▾`;
+            if (ganttChart) ganttChart.change_view_mode(document.getElementById('zoomScale').value);
+            updateZoomButtonsActiveState();
             saveToLocal();
         }
 
@@ -5559,6 +5603,30 @@
         // how many fields changed.
         let detailCardContext = null;
 
+        // User-reported, with a screenshot: a row whose Start was clearly
+        // populated in the grid showed completely blank in the Detail Card.
+        // Root cause -- a native <input type="date"> requires its value in
+        // the *exact* "YYYY-MM-DD" format; even a single stray character
+        // (a trailing space, a " 00:00:00" suffix, an unpadded month) makes
+        // the browser silently reset it to empty, with no error, no matter
+        // how the grid's own jexcel cell happens to render that same string.
+        // This app has a history of exactly that kind of stray-suffix date
+        // (the fill-handle bug fixed in 2.48.1 being one source), so rather
+        // than trust the stored string is always pristine, every date goes
+        // through parseLocalDate() (this file's own canonical, timezone-safe
+        // parser) and gets rebuilt into a guaranteed-valid value before ever
+        // reaching the date input. original[] is normalized the same way so
+        // the two stay comparable -- an untouched Start never shows as
+        // "changed" (and is therefore never rewritten) just because its
+        // on-disk form happened to be slightly malformed; only an actual
+        // edit touches it.
+        function toDateInputValue(raw) {
+            if (!raw) return '';
+            const d = parseLocalDate(raw);
+            if (isNaN(d.getTime())) return '';
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
         function openDetailCardModal(rowIndex) {
             if (!sheet) return;
             const row = sheet.getData()[rowIndex];
@@ -5569,17 +5637,23 @@
                 customCols.push({ col: c, title: sheet.options.columns[c].title, value: row[c] || '' });
             }
 
+            const normalizedStart = toDateInputValue(row[COL.START]);
+            const normalizedEnd = toDateInputValue(row[COL.END]);
+            const original = row.slice(); // decoupled from the live row so Cancel/dirty-check can't be fooled by any later mutation
+            original[COL.START] = normalizedStart;
+            original[COL.END] = normalizedEnd;
+
             detailCardContext = {
                 rowIndex,
-                original: row.slice(), // decoupled from the live row so Cancel/dirty-check can't be fooled by any later mutation
+                original,
                 pending: {
                     name: row[COL.NAME] || '',
                     resource: row[COL.RESOURCE] || '',
                     alloc: row[COL.ALLOC] || '',
                     pct: row[COL.PCT] || '',
-                    start: row[COL.START] || '',
+                    start: normalizedStart,
                     duration: row[COL.DUR] || '',
-                    end: row[COL.END] || '',
+                    end: normalizedEnd,
                     depends: row[COL.DEP] || '',
                     parent: row[COL.PARENT] || '',
                     labels: row[COL.LABELS] || '',

@@ -48,6 +48,30 @@ test('the row context menu includes "Edit Details..." between Notes and Move row
   expect(detailsIdx).toBeLessThan(moveUpIdx);
 });
 
+test('a Start/End value with a stray " 00:00:00" suffix (the fill-handle bug\'s historical artifact) still populates the date inputs, not blank', async ({ page }) => {
+  await loadTasks(page, [
+    row({ [COL.ID]: '1', [COL.OUTLINE]: '1', [COL.NAME]: 'Task A', [COL.START]: '2026-08-24 00:00:00', [COL.DUR]: '3', [COL.END]: '2026-08-26 00:00:00' }),
+  ]);
+  await page.evaluate(() => openDetailCardModal(0));
+
+  const pending = await page.evaluate(() => detailCardContext.pending);
+  expect(pending.start).toBe('2026-08-24');
+  expect(pending.end).toBe('2026-08-26');
+
+  const startInputValue = await page.locator('#detailCardBody input[type="date"]').first().inputValue();
+  expect(startInputValue).toBe('2026-08-24');
+});
+
+test('a Start that genuinely is blank still shows as blank, not as some fallback date', async ({ page }) => {
+  await loadTasks(page, [
+    row({ [COL.ID]: '1', [COL.OUTLINE]: '1', [COL.NAME]: 'Task A' }),
+  ]);
+  await page.evaluate(() => openDetailCardModal(0));
+  const pending = await page.evaluate(() => detailCardContext.pending);
+  expect(pending.start).toBe('');
+  expect(pending.end).toBe('');
+});
+
 test('opening the card populates header and fields from the row', async ({ page }) => {
   await page.evaluate(() => sheet.options.contextMenu(sheet, undefined, '1', {}).find(i => i.title === '📋 Edit Details...').onclick());
   await expect(page.locator('#detailCardModal')).toHaveClass(/active/);

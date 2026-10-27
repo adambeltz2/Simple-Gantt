@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.51.1] - 2026-10-27
+
+### 🐛 Fixed
+
+#### Detail Card: a Start/End value visible in the grid showed blank in the form
+- **User-reported**, with screenshots: a row's Start was clearly populated in the grid, but opening "Edit Details..." on that exact row showed the Start/End date pickers empty, with every other field (Name, % Done, Parent, Labels, JIRA) populated correctly.
+- Root cause: a native `<input type="date">` requires its value in the *exact* `YYYY-MM-DD` format -- a single stray character (a trailing space, a leftover " 00:00:00" suffix, an unpadded month) makes the browser silently reset it to empty, with no error, regardless of how jexcel's own grid cell happens to render that same string. This app has a documented history of exactly that kind of stray-suffix date (the fill-handle bug fixed in 2.48.1 being one known source), so the stored value can't be assumed pristine.
+- Fixed by routing every date through this app's own `parseLocalDate()` (already the canonical, timezone-safe parser used everywhere else) and rebuilding it into a guaranteed-valid value before it ever reaches a date input, both for the initial population and the dirty-check baseline so an untouched Start is never mistaken for "changed" just because its on-disk form was slightly malformed.
+- **New:** 2 tests in `tests/detail-card.spec.js` -- a Start/End with a " 00:00:00" suffix still populates correctly, and a genuinely blank Start still shows as blank (not some fallback date).
+
+### 🔧 Changed
+
+#### Zoom promoted to an always-visible toggle; "Pop out" made more prominent
+- **User-requested**, following up on 2.51.0: "can we change the zoom so its more obvious? Also just call it Day/Week/Month view... The Pop Out is still fairly hidden."
+- Zoom moved out of the "View ▾" menu into its own always-visible Day/Week/Month segmented control on the chart panel, matching the existing Grid/Split/Chart pattern elsewhere in the toolbar -- the one chart setting people reach for constantly no longer needs a click to even see. Its option labels read "Day view"/"Week view"/"Month view" instead of "Zoom: Day", per the user's own suggested wording. The underlying `#zoomScale` element is unchanged (same id, same change event), just visually hidden and driven by the new buttons, so every existing call site needed no changes.
+- "Pop out" now uses the same accent-blue styling "Add row" already uses elsewhere, instead of blending in as another dark pill next to View.
+- The chart panel's control row (View ▾/Pop out/the new Zoom toggle) is no longer an absolutely-positioned overlay -- a real bug surfaced by a user screenshot showing it visually colliding with and clipping the range bar's own text once the chart panel got narrow. It's now a normal-flow, flex-wrapping sticky header, so a narrow panel wraps the controls onto their own line instead of overlapping anything.
+- Tests updated across `tests/chart-panel-controls.spec.js` and `tests/toolbar-menus.spec.js` to match: Zoom's new always-visible toggle and option labels, Pop out's new styling, and the View ▾ menu no longer including Zoom.
+- Full Playwright suite (518 tests) re-verified against real vendored CDN copies: 517 passed, the one known pre-existing `row-id-backfill` timing flake, zero regressions.
+
 ## [2.51.0] - 2026-10-26
 
 ### ✨ Added

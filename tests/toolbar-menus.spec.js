@@ -3,21 +3,22 @@ const { test, expect } = require('./fixtures');
 
 // Covers the remaining, previously-undone recommendations from backlog #17
 // ("Toolbar visual review"), whose first cut (the Export ▾ menu) shipped
-// earlier: Zoom/Weekends off/Critical path/Label in chart live behind one
-// "View ▾" menu (now hosted in the chart panel itself rather than the top
+// earlier: Weekends off/Critical path/Label in chart live behind one
+// "View ▾" menu (hosted in the chart panel itself rather than the top
 // toolbar -- user-requested, since those settings only ever act on the
 // chart), and the rarely-touched Fit columns/Sync Dependencies live behind a
 // "Tools ▾" menu in the top toolbar -- same anchored-popover pattern
 // Export ▾ already established, at desktop width where nothing is
-// mobile-collapsed.
+// mobile-collapsed. Zoom itself was later promoted out of this menu into
+// its own always-visible Day/Week/Month toggle (user-reported: a value
+// tucked inside a secondary dropdown "doesn't appear to be a way to...
+// interact outside of day view") -- see chart-panel-controls.spec.js.
 
-test('View options menu is closed by default and opens on click, revealing Zoom/Weekends/Critical path/Label in chart', async ({ page }) => {
+test('View options menu is closed by default and opens on click, revealing Weekends/Critical path/Label in chart', async ({ page }) => {
   await expect(page.locator('#viewOptionsDropdown')).toBeHidden();
-  await expect(page.locator('#zoomScale')).toBeHidden();
 
   await page.click('#viewOptionsBtn');
   await expect(page.locator('#viewOptionsDropdown')).toBeVisible();
-  await expect(page.locator('#zoomScale')).toBeVisible();
   await expect(page.locator('#skipWeekends')).toBeVisible();
   await expect(page.locator('#showCriticalPath')).toBeVisible();
   await expect(page.locator('#applyLabelToChart')).toBeVisible();
@@ -37,9 +38,8 @@ test('View options menu stays open after changing a setting inside it (unlike Ex
   await expect(page.locator('#viewOptionsDropdown')).toBeVisible();
 });
 
-test('changing Zoom inside the View options menu still works', async ({ page }) => {
-  await page.click('#viewOptionsBtn');
-  await page.selectOption('#zoomScale', 'Week');
+test('changing Zoom via the chart\'s own Day/Week/Month toggle still works', async ({ page }) => {
+  await page.click('.zoom-btn[data-zoom="Week"]');
   await expect(page.locator('#zoomScale')).toHaveValue('Week');
 });
 

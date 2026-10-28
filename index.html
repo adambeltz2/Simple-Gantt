@@ -493,7 +493,7 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="13" y2="17"></line></svg>
                     Notes
                 </button>
-                <button class="tbtn" onclick="openTopicManagerModal()" title="Name topics ahead of time so they're pickable in the grid's Topic column (used by the Kanban board)">
+                <button class="tbtn" onclick="openTopicManagerModal()" title="Name and order topics ahead of time so they're pickable in the grid's Topic column (used by the Kanban board)">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>
                     Topics
                 </button>
@@ -913,7 +913,7 @@
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
                 <h2 style="margin:0; color:#0f172a; font-size: 18px;">🗂️ Manage Topics</h2>
             </div>
-            <p style="color:#64748b; font-size:12.5px; margin: 0 0 14px;">Topics are the columns across the top of the Kanban board. Renaming here updates every task already set to that topic; removing a topic here only removes it from this list -- it doesn't clear any task already set to it.</p>
+            <p style="color:#64748b; font-size:12.5px; margin: 0 0 14px;">Topics are the tabs across the top of the Kanban board, in the order shown below (use ▲/▼ to reorder). Renaming here updates every task already set to that topic; removing a topic here only removes it from this list -- it doesn't clear any task already set to it.</p>
 
             <div style="display:flex; gap:8px; margin-bottom: 14px;">
                 <input id="newTopicNameInput" type="text" placeholder="e.g. Marketing Site" onkeydown="if(event.key==='Enter') addNewTopicName()"
@@ -1054,7 +1054,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.53.0";
+        const APP_VERSION = "2.53.1";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -3540,18 +3540,20 @@
         }
 
         // ==========================================
-        // KANBAN: TOPIC / LANE REGISTRIES (backlog #32, Slice 1)
+        // KANBAN: TOPIC / LANE REGISTRIES (backlog #32, Slices 1 + "order
+        // topics and lanes" follow-up)
         // ==========================================
         // Topic and Lane are the two new columns the Kanban board reads --
         // COL.TOPIC and COL.LANE, both jexcel `dropdown` cells (a card's
         // Topic/Lane must be one of a closed, curated set, unlike Resource/
         // Labels' free-text-with-suggestions model, so there's no quick-pick
         // popover or multi-value cell parsing here -- the dropdown itself is
-        // the picker). Topic's registry is structurally identical to the
-        // existing Named Resources / Named Labels registries (alphabetized).
-        // Lane is deliberately NOT alphabetized -- its order is the board's
-        // left-to-right column order, so new Lane names are appended at the
-        // end instead of sorted in, and its Manager modal gets ▲/▼ reorder.
+        // the picker). Unlike Named Resources/Labels (always alphabetized),
+        // BOTH Topic and Lane are deliberately order-preserving, not sorted:
+        // Topic's order is the board's left-to-right tab order, Lane's is
+        // its left-to-right column order within a tab. A new name is
+        // appended at the end rather than sorted in, and both Manager
+        // modals get ▲/▼ reorder controls.
         function getProjectTopics() {
             let proj = appDB.projects[appDB.activeId];
             if (!proj.topics) proj.topics = [];
@@ -3564,16 +3566,18 @@
             return proj.lanes;
         }
 
+        // First-seen order, not alphabetical -- see the section comment above.
         function collectTopicNamesFromRows(rows) {
-            const set = new Set();
+            const seen = [];
+            const known = new Set();
             (rows || []).forEach(row => {
                 const name = row && row[COL.TOPIC] != null ? row[COL.TOPIC].toString().trim() : '';
-                if (name) set.add(name);
+                if (name && !known.has(name)) { known.add(name); seen.push(name); }
             });
-            return Array.from(set).sort((a, b) => a.localeCompare(b));
+            return seen;
         }
 
-        // First-seen order, not alphabetical -- see the section comment above.
+        // Same, for Lane.
         function collectLaneNamesFromRows(rows) {
             const seen = [];
             const known = new Set();
@@ -3589,7 +3593,7 @@
             const known = new Set(topics.map(t => t.toLowerCase()));
             const additions = collectTopicNamesFromRows(rows).filter(n => !known.has(n.toLowerCase()));
             if (additions.length > 0) {
-                appDB.projects[appDB.activeId].topics = topics.concat(additions).sort((a, b) => a.localeCompare(b));
+                appDB.projects[appDB.activeId].topics = topics.concat(additions);
             }
         }
 
@@ -3610,7 +3614,7 @@
             const known = new Set((proj.topics || []).map(t => t.toLowerCase()));
             const additions = collectTopicNamesFromRows(proj.data).filter(n => !known.has(n.toLowerCase()));
             if (additions.length > 0) {
-                proj.topics = (proj.topics || []).concat(additions).sort((a, b) => a.localeCompare(b));
+                proj.topics = (proj.topics || []).concat(additions);
             }
         }
 
@@ -3676,9 +3680,26 @@
                 container.appendChild(empty);
                 return;
             }
-            topics.forEach(name => {
+            topics.forEach((name, i) => {
                 const row = document.createElement('div');
                 row.style.cssText = 'display:flex; align-items:center; gap:8px; padding:6px 2px; border-bottom:1px solid #e2e8f0;';
+
+                const reorder = document.createElement('div');
+                reorder.style.cssText = 'display:flex; flex-direction:column; gap:1px;';
+                const upBtn = document.createElement('button');
+                upBtn.textContent = '▲';
+                upBtn.title = 'Move earlier';
+                upBtn.disabled = i === 0;
+                upBtn.style.cssText = `padding:1px 5px; background:#f1f5f9; color:#334155; border:none; border-radius:3px; cursor:pointer; font-size:9px; ${i === 0 ? 'opacity:0.4; cursor:default;' : ''}`;
+                upBtn.addEventListener('click', function() { moveTopicName(name, -1); });
+                const downBtn = document.createElement('button');
+                downBtn.textContent = '▼';
+                downBtn.title = 'Move later';
+                downBtn.disabled = i === topics.length - 1;
+                downBtn.style.cssText = `padding:1px 5px; background:#f1f5f9; color:#334155; border:none; border-radius:3px; cursor:pointer; font-size:9px; ${i === topics.length - 1 ? 'opacity:0.4; cursor:default;' : ''}`;
+                downBtn.addEventListener('click', function() { moveTopicName(name, 1); });
+                reorder.appendChild(upBtn);
+                reorder.appendChild(downBtn);
 
                 const input = document.createElement('input');
                 input.type = 'text';
@@ -3693,6 +3714,7 @@
                 delBtn.style.cssText = 'padding:5px 9px; background:#fee2e2; color:#991b1b; border:none; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;';
                 delBtn.addEventListener('click', function() { deleteTopicName(name); });
 
+                row.appendChild(reorder);
                 row.appendChild(input);
                 row.appendChild(delBtn);
                 container.appendChild(row);
@@ -3705,12 +3727,22 @@
             if (!name) return;
             const topics = getProjectTopics();
             if (!topics.some(t => t.toLowerCase() === name.toLowerCase())) {
-                topics.push(name);
-                topics.sort((a, b) => a.localeCompare(b));
+                topics.push(name); // appended at the end -- Topic order is never alphabetized
                 saveToLocal();
                 refreshTopicLaneDropdownSources();
             }
             input.value = '';
+            renderTopicManagerList();
+        }
+
+        function moveTopicName(name, delta) {
+            const topics = getProjectTopics();
+            const idx = topics.indexOf(name);
+            const newIdx = idx + delta;
+            if (idx < 0 || newIdx < 0 || newIdx >= topics.length) return;
+            [topics[idx], topics[newIdx]] = [topics[newIdx], topics[idx]];
+            saveToLocal();
+            refreshTopicLaneDropdownSources();
             renderTopicManagerList();
         }
 
@@ -3733,8 +3765,7 @@
                 return;
             }
             const idx = topics.indexOf(oldName);
-            if (idx > -1) topics[idx] = newName;
-            topics.sort((a, b) => a.localeCompare(b));
+            if (idx > -1) topics[idx] = newName; // position preserved -- renaming is not reordering
             isSyncing = true;
             renameTopicInGridRows(oldName, newName);
             isSyncing = false;

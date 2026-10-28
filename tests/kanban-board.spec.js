@@ -4,11 +4,15 @@ const { test, expect } = require('./fixtures');
 // Covers backlog #32 Slice 2: the Kanban board view itself and card
 // drag-and-drop, on top of Slice 1's Topic/Lane columns and registries.
 //
-// Topics are tabs (one shown at a time, alphabetized with a trailing
-// "Uncategorized" catch-all always present); Lanes are the board's columns,
-// left to right, within whichever Topic is selected ("Unsorted" first,
-// then the registry's own order). Only leaf tasks become cards -- the same
-// exclusion the Workload dashboard and Critical Path already apply.
+// Topics are tabs (one shown at a time, in the registry's own order, with a
+// trailing "Uncategorized" catch-all always present); Lanes are the board's
+// columns, left to right, within whichever Topic is selected ("Unsorted"
+// first, then the registry's own order). Topic/Lane ordering itself (the
+// ▲/▼ reorder controls, append-not-alphabetize on add/rename) is covered in
+// tests/named-topics.spec.js and tests/named-lanes.spec.js -- this file
+// just confirms the board renders whatever order those registries hold.
+// Only leaf tasks become cards -- the same exclusion the Workload dashboard
+// and Critical Path already apply.
 //
 // Mutation (moveCardToLane) is deliberately isolated from interaction and
 // gets the bulk of coverage here, called directly with no synthetic drag
@@ -95,11 +99,19 @@ test('clicking Grid/Split/Chart exits the Kanban board back to the workspace', a
   expect(workspaceDisplay).toBe('flex');
 });
 
-test('Topic tabs are alphabetized with a trailing "Uncategorized", and default to the first tab', async ({ page }) => {
+test('Topic tabs default to the first registered tab, with a trailing "Uncategorized" always present', async ({ page }) => {
   await openBoard(page);
   expect(await tabNames(page)).toEqual(['Backend', 'Frontend', 'Uncategorized']);
   const active = await page.locator('.kanban-topic-tab.active').textContent();
   expect(active).toBe('Backend');
+});
+
+test('Topic tabs render in the registry\'s own order, not alphabetized', async ({ page }) => {
+  // Reordered to the opposite of alphabetical -- an alphabetized tab order
+  // would still read Backend, Frontend; the registry's own order doesn't.
+  await page.evaluate(() => { appDB.projects[appDB.activeId].topics = ['Frontend', 'Backend']; });
+  await openBoard(page);
+  expect(await tabNames(page)).toEqual(['Frontend', 'Backend', 'Uncategorized']);
 });
 
 test('clicking a Topic tab switches which cards are shown', async ({ page }) => {

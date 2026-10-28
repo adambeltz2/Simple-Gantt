@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.53.1] - 2026-10-28
+
+### 🔧 Changed
+
+#### Topics can now be reordered too, same as Lanes (backlog #32)
+- **User-requested**: "I want the ability to order topics and lanes" -- Lane already had this (▲/▼ reorder in the Lane Manager, shipped in Slice 1), Topic didn't: it was always alphabetized, like Resources/Labels.
+- Topic now matches Lane's behavior exactly: a new topic is appended at the end rather than sorted in, renaming keeps its position instead of re-sorting, and the Topic Manager modal gets the same ▲/▼ reorder controls. The Kanban board's tab order (and the grid's Topic dropdown order) follows the registry's own order immediately, same as Lane already did.
+- **New:** `tests/named-topics.spec.js` and `tests/named-lanes.spec.js` (24 tests total) -- the Manager-modal CRUD and reorder coverage neither Topic nor Lane actually had yet (Slice 1/2's own tests only exercised them as fixtures, never through the modal itself). Covers add/rename/delete, duplicate rejection, append-not-alphabetize on add, position-preserved-on-rename, ▲/▼ reorder with its two boundary no-ops, the dropdown source and Kanban board picking up a reorder immediately, and CSV merge in first-seen (not alphabetical) order. One existing `tests/kanban-board.spec.js` test's claim that tabs are "alphabetized" was corrected and split into two tests (default-tab-order, and a dedicated non-alphabetical-order proof).
+- Full Playwright suite re-verified against real vendored CDN copies: zero regressions, same two pre-existing/environment-only failures as every run this session (the `row-id-backfill` timing flake and the substitute-Chromium `border-left` quirk).
+
 ## [2.53.0] - 2026-10-28
 
 ### ✨ Added

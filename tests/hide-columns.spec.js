@@ -123,7 +123,7 @@ test('hidden columns are never carried into a Dropbox backup\'s meta.json', asyn
 test('the toolbar "Columns" popover lists one checkbox per column, all checked by default', async ({ page }) => {
   await page.click('#columnVisibilityBtn');
   const boxes = page.locator('.columnVisibilityCheckbox');
-  await expect(boxes).toHaveCount(14);
+  await expect(boxes).toHaveCount(16);
   const uncheckedCount = await boxes.evaluateAll((els) => els.filter((el) => !el.checked).length);
   expect(uncheckedCount).toBe(0);
 });
@@ -249,38 +249,38 @@ test('hidden-column state persists per project across a reload', async ({ page }
 
 test('a custom column can be hidden and un-hidden the same as a core column', async ({ page }) => {
   await page.evaluate(() => {
-    sheet.insertColumn(1, 13, false);
-    sheet.setHeader(14, 'JIRA');
+    sheet.insertColumn(1, 15, false);
+    sheet.setHeader(16, 'JIRA');
     syncColumnsToDB();
   });
   await page.waitForTimeout(200);
 
   await page.evaluate(() => {
-    sheet.options.contextMenu(sheet, '14', null, {}).find((i) => i.title.includes('Hide Column')).onclick();
+    sheet.options.contextMenu(sheet, '16', null, {}).find((i) => i.title.includes('Hide Column')).onclick();
   });
   await page.waitForTimeout(200);
 
   const hidden = await page.evaluate(() => appDB.projects[appDB.activeId].hiddenColumns);
   expect(hidden).toEqual(['JIRA']);
-  const display = await page.evaluate(() => sheet.headers[14].style.display);
+  const display = await page.evaluate(() => sheet.headers[16].style.display);
   expect(display).toBe('none');
 });
 
 test('deleting a hidden custom column does not crash, and the toolbar badge recovers to "All Columns"', async ({ page }) => {
   await page.evaluate(() => {
-    sheet.insertColumn(1, 13, false);
-    sheet.setHeader(14, 'JIRA');
+    sheet.insertColumn(1, 15, false);
+    sheet.setHeader(16, 'JIRA');
     syncColumnsToDB();
   });
   await page.waitForTimeout(200);
   await page.evaluate(() => {
-    sheet.options.contextMenu(sheet, '14', null, {}).find((i) => i.title.includes('Hide Column')).onclick();
+    sheet.options.contextMenu(sheet, '16', null, {}).find((i) => i.title.includes('Hide Column')).onclick();
   });
   await page.waitForTimeout(200);
 
   page.once('dialog', (d) => d.accept());
   await page.evaluate(() => {
-    sheet.options.contextMenu(sheet, '14', null, {}).find((i) => i.title.includes('Delete Column')).onclick();
+    sheet.options.contextMenu(sheet, '16', null, {}).find((i) => i.title.includes('Delete Column')).onclick();
   });
   await page.waitForTimeout(200);
 

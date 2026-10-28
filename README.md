@@ -2,7 +2,7 @@
 
 A lightweight, browser-based Gantt chart and task management tool. No server required. Works completely offline or syncs with Dropbox.
 
-![Version](https://img.shields.io/badge/version-2.51.1-blue) ![License](https://img.shields.io/badge/license-MIT-green) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-FFDD00)](https://buymeacoffee.com/adambeltz)
+![Version](https://img.shields.io/badge/version-2.52.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-FFDD00)](https://buymeacoffee.com/adambeltz)
 
 ## Features
 
@@ -26,6 +26,8 @@ A lightweight, browser-based Gantt chart and task management tool. No server req
 - **Task Detail Card** – Right-click any row and choose "Edit Details..." for every field of that one task -- Resource (with your named-resource quick-pick chips), Parent, Def. Alloc, % Done, Start/Duration/End, Depends, Labels, custom columns -- in a single form, instead of tabbing cell-to-cell across the grid. Nothing is written until you click Save, which applies every changed field as one Undo step; Cancel, the ✕, or Esc all discard without asking. Unlike every other modal here, clicking outside the card does nothing -- it can hold several pending edits at once, so an accidental click away never costs you anything
 - **Named Resources** – Define resource names ahead of time via the "Resources" toolbar button, then pick them from a quick-pick ▾ icon on any grid Resource cell instead of typing from scratch. The Resource cell stays free text underneath (comma/semicolon-separated, allocation annotations like `Alice (50%)` included) -- the registry is just a faster way to fill it in. Renaming a registered name updates every task already assigned it; deleting one only affects future suggestions
 - **Named Labels** – Same idea as Named Resources, one-to-one: define labels ahead of time via the "Labels" toolbar button, then pick them from a quick-pick ▾ icon on any grid Labels cell. The Labels cell stays free text underneath -- the registry is purely structural, no color/badge treatment. Renaming a registered label updates every task already carrying it; deleting one only affects future suggestions
+- **Named Topics** – Define the Kanban board's future columns ahead of time via the "Topics" toolbar button. Unlike Resources/Labels, the grid's Topic cell is a closed-set dropdown sourced from this list, not free text. Renaming a topic updates every task already set to it; deleting one only affects what's selectable going forward
+- **Named Lanes** – Define the Kanban board's future rows via the "Lanes" toolbar button, same dropdown model as Named Topics. The one real difference: Lane order is meaningful (it'll be the board's left-to-right column order), so new lanes are added at the end rather than alphabetized, and the Lanes modal has ▲/▼ buttons to reorder them
 - **Undo / Redo** – Toolbar buttons plus Ctrl/Cmd+Z and Ctrl/Cmd+Y (or Ctrl/Cmd+Shift+Z). Reverting a change correctly recalculates anything that cascaded from it too -- a dependent task's Start, a parent's rolled-up % Done -- not just the one cell you touched. Per-project, capped at 50 steps, cleared on reload
 - **Type an explicit End date on a leaf task** – A task with no children now accepts a direct edit to its End date, back-solving Duration from Start + End instead of only deriving End forward from Start + Duration. A task with children still gets its End rolled up from them and stays read-only. CSV import honors an explicit End on a leaf row the same way
 - **Resource Color-Coding** – Each resource gets a deterministic color, shown as a stripe on the left edge of its bars (first-listed resource wins on multi-resource tasks) and listed in the chart legend; complements the Workload dashboard's per-resource view
@@ -112,6 +114,8 @@ No server, no npm, no build step required.
 - **Labels** – Free-text tags, comma or semicolon-separated
 - **Notes** – Click-to-expand Markdown note for the task. Read-only at the cell level; click the flag to view/edit in a modal
 - **Status** – Not Started / In Progress / Complete, calculated only from % Done (0%, between, 100%). Read-only -- always freshly recomputed, never typed directly
+- **Topic** – Groundwork for the upcoming Kanban board (backlog #32): which board column this task will belong to, picked from a dropdown sourced from your named topics (see **Named Topics**, below). Not yet rendered as a board -- for now it's a plain categorization field, same as any other
+- **Lane** – Same groundwork, for the board's rows: picked from a dropdown sourced from your named lanes (see **Named Lanes**, below)
 
 **Example Setup:**
 ```

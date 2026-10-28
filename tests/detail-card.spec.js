@@ -226,7 +226,7 @@ test('a custom column field is editable and saves', async ({ page }) => {
   await page.evaluate(() => { detailCardContext.customCols[0].value = 'TMD-971'; });
   await page.click('#detailCardModal button:has-text("Save")');
   const r = await page.evaluate(() => sheet.getData()[0]);
-  expect(r[14]).toBe('TMD-971');
+  expect(r[16]).toBe('TMD-971');
 });
 
 test('the Notes link opens the Notes modal, confirming first if the card has unsaved edits', async ({ page }) => {

@@ -69,12 +69,12 @@ async function fillDragRow(page, sourceRow, targetRow) {
 
 test('drag-filling a row down lands every visible column correctly, with hidden columns untouched', async ({ page }) => {
   await page.evaluate(() => {
-    sheet.insertColumn(1, 13, false);
-    sheet.setHeader(14, 'JIRA');
+    sheet.insertColumn(1, 15, false);
+    sheet.setHeader(16, 'JIRA');
     syncColumnsToDB();
   });
   await hideSixColumns(page);
-  await page.evaluate(() => sheet.setValueFromCoords(14, 0, 'JIRA-SOURCE', true));
+  await page.evaluate(() => sheet.setValueFromCoords(16, 0, 'JIRA-SOURCE', true));
   await page.waitForTimeout(200);
 
   const before = await page.evaluate(() => ({ row0: sheet.getData()[0], row1: sheet.getData()[1] }));
@@ -86,7 +86,7 @@ test('drag-filling a row down lands every visible column correctly, with hidden 
   expect(after[COL.NAME]).toBe(before.row0[COL.NAME]);
   expect(after[COL.PCT]).toBe(before.row0[COL.PCT]);
   expect(after[COL.PARENT]).toBe(before.row0[COL.PARENT]);
-  expect(after[14]).toBe(before.row0[14]); // JIRA custom column
+  expect(after[16]).toBe(before.row0[16]); // JIRA custom column
 
   // Hidden columns must be completely untouched by the fill.
   expect(after[COL.RESOURCE]).toBe(before.row1[COL.RESOURCE]);
@@ -102,12 +102,12 @@ test('drag-filling a row down lands every visible column correctly, with hidden 
 
 test('drag-filling down across multiple rows keeps every row correctly aligned', async ({ page }) => {
   await page.evaluate(() => {
-    sheet.insertColumn(1, 13, false);
-    sheet.setHeader(14, 'JIRA');
+    sheet.insertColumn(1, 15, false);
+    sheet.setHeader(16, 'JIRA');
     syncColumnsToDB();
   });
   await hideSixColumns(page);
-  await page.evaluate(() => sheet.setValueFromCoords(14, 0, 'JIRA-SOURCE', true));
+  await page.evaluate(() => sheet.setValueFromCoords(16, 0, 'JIRA-SOURCE', true));
   await page.waitForTimeout(200);
 
   const row0 = await page.evaluate(() => sheet.getData()[0]);
@@ -120,7 +120,7 @@ test('drag-filling down across multiple rows keeps every row correctly aligned',
   for (const row of [after.row1, after.row2]) {
     expect(row[COL.NAME]).toBe(row0[COL.NAME]);
     expect(row[COL.PCT]).toBe(row0[COL.PCT]);
-    expect(row[14]).toBe(row0[14]);
+    expect(row[16]).toBe(row0[16]);
     expect(row.join('|')).not.toContain('NaN');
   }
   // Hidden columns stay exactly as they were in each row, not copied from row0.
@@ -131,12 +131,12 @@ test('drag-filling down across multiple rows keeps every row correctly aligned',
 test('ordinary Ctrl+C / Ctrl+V (not drag-fill) was never affected -- still lands correctly with hidden columns', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.evaluate(() => {
-    sheet.insertColumn(1, 13, false);
-    sheet.setHeader(14, 'JIRA');
+    sheet.insertColumn(1, 15, false);
+    sheet.setHeader(16, 'JIRA');
     syncColumnsToDB();
   });
   await hideSixColumns(page);
-  await page.evaluate(() => sheet.setValueFromCoords(14, 0, 'JIRA-SOURCE', true));
+  await page.evaluate(() => sheet.setValueFromCoords(16, 0, 'JIRA-SOURCE', true));
   await page.waitForTimeout(200);
 
   const row0 = await page.evaluate(() => sheet.getData()[0]);
@@ -151,7 +151,7 @@ test('ordinary Ctrl+C / Ctrl+V (not drag-fill) was never affected -- still lands
   const row1 = await page.evaluate(() => sheet.getData()[1]);
   expect(row1[COL.NAME]).toBe(row0[COL.NAME]);
   expect(String(row1[COL.PCT])).toBe(String(row0[COL.PCT])); // Ctrl+V's clipboard round-trip stringifies; a type-only difference isn't a misalignment
-  expect(row1[14]).toBe(row0[14]);
+  expect(row1[16]).toBe(row0[16]);
   expect(row1.join('|')).not.toContain('NaN');
 });
 
@@ -171,19 +171,19 @@ test('the fix is reapplied after a project switch rebuilds the grid', async ({ p
   // scratch on every project switch -- patchFillHandleHiddenColumnBug()
   // must be re-invoked each time, not just once at page load.
   await page.evaluate(() => {
-    sheet.insertColumn(1, 13, false);
-    sheet.setHeader(14, 'JIRA');
+    sheet.insertColumn(1, 15, false);
+    sheet.setHeader(16, 'JIRA');
     syncColumnsToDB();
     createNewProject();
   });
   await page.waitForTimeout(300);
   await page.evaluate(() => {
-    sheet.insertColumn(1, 13, false);
-    sheet.setHeader(14, 'JIRA2');
+    sheet.insertColumn(1, 15, false);
+    sheet.setHeader(16, 'JIRA2');
     syncColumnsToDB();
   });
   await hideSixColumns(page);
-  await page.evaluate(() => sheet.setValueFromCoords(14, 0, 'JIRA-IN-NEW-PROJECT', true));
+  await page.evaluate(() => sheet.setValueFromCoords(16, 0, 'JIRA-IN-NEW-PROJECT', true));
   await page.waitForTimeout(200);
 
   const row0 = await page.evaluate(() => sheet.getData()[0]);
@@ -191,6 +191,6 @@ test('the fix is reapplied after a project switch rebuilds the grid', async ({ p
   const row1 = await page.evaluate(() => sheet.getData()[1]);
 
   expect(row1[COL.NAME]).toBe(row0[COL.NAME]);
-  expect(row1[14]).toBe(row0[14]);
+  expect(row1[16]).toBe(row0[16]);
   expect(row1.join('|')).not.toContain('NaN');
 });

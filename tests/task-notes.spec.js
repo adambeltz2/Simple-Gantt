@@ -201,7 +201,7 @@ test('Notes round-trips through CSV export/import at its fixed core position', a
   const headerLine = csvBuffer.toString('utf8').split('\n')[0].trim();
   expect(headerLine.split(',')).toEqual([
     'Task ID', 'Outline', 'Task Name', 'Resource', 'Def. Alloc',
-    '% Done', 'Start', 'Dur.', 'End', 'Depends', 'Parent', 'Labels', 'Notes', 'Status',
+    '% Done', 'Start', 'Dur.', 'End', 'Depends', 'Parent', 'Labels', 'Notes', 'Status', 'Topic', 'Lane',
   ]);
 
   await page.setInputFiles('#csvFile', { name: 'export.csv', mimeType: 'text/csv', buffer: csvBuffer });
@@ -222,11 +222,11 @@ test('a CSV exported before Notes (or Status) existed imports with blank Notes/S
   const headers = await page.evaluate(() => sheet.options.columns.map((c) => c.title));
   expect(headers[COL.NOTES]).toBe('Notes');
   expect(headers[13]).toBe('Status');
-  expect(headers[14]).toBe('JIRA');
+  expect(headers[16]).toBe('JIRA');
 
   const row = await page.evaluate(() => sheet.getData()[0]);
   expect(row[COL.NOTES]).toBe('');
-  expect(row[14]).toBe('PROJ-9');
+  expect(row[16]).toBe('PROJ-9');
 });
 
 test('the row right-click menu offers "Add Notes" for an empty note, and opens the modal', async ({ page }) => {
@@ -289,5 +289,5 @@ test('a legacy in-memory project with a custom "Notes" column folds it into the 
   expect(before.columns).toEqual([]); // the legacy custom "Notes" column is gone
   expect(before.data[0][COL.NOTES]).toBe('Legacy **note**');
   expect(before.data[1][COL.NOTES]).toBe('');
-  expect(before.data[0].length).toBe(14); // no leftover trailing custom-column slot
+  expect(before.data[0].length).toBe(16); // no leftover trailing custom-column slot
 });

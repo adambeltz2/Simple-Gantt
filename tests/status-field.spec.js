@@ -149,16 +149,16 @@ test('a CSV exported before Status existed (no Status header) imports fine and S
 
   const headers = await page.evaluate(() => sheet.options.columns.map((c) => c.title));
   expect(headers[COL.STATUS]).toBe('Status');
-  expect(headers[14]).toBe('JIRA'); // the custom column stayed correctly aligned
+  expect(headers[16]).toBe('JIRA'); // the custom column stayed correctly aligned
 
   const row0 = await page.evaluate(() => sheet.getData()[0]);
   expect(row0[COL.STATUS]).toBe('Complete'); // recomputed fresh from % Done, not left blank
-  expect(row0[14]).toBe('PROJ-9');
+  expect(row0[16]).toBe('PROJ-9');
 });
 
-test('the Status column cannot be renamed or deleted, but does offer Insert Column Right (it\'s now the last core column)', async ({ page }) => {
+test('the Status column is a middle core column now (Topic/Lane come after it) -- no insert/rename/delete', async ({ page }) => {
   const titles = await page.evaluate((c) => sheet.options.contextMenu(sheet, c, null, {}).map((i) => i.title), COL.STATUS);
-  expect(titles).toContain('➕ Insert Column Right');
+  expect(titles).not.toContain('➕ Insert Column Right');
   expect(titles).not.toContain('✏️ Rename Column');
   expect(titles).not.toContain('🗑️ Delete Column');
 });
@@ -170,13 +170,20 @@ test('the Notes column no longer offers Insert Column Right now that Status come
   expect(titles).not.toContain('🗑️ Delete Column');
 });
 
-test('a genuinely new custom column added after Status is named "Custom 1"', async ({ page }) => {
-  await page.evaluate((c) => {
-    const item = sheet.options.contextMenu(sheet, c, null, {}).find((i) => i.title === '➕ Insert Column Right');
+test('the Lane column cannot be renamed or deleted, but does offer Insert Column Right (it\'s now the last core column, backlog #32)', async ({ page }) => {
+  const titles = await page.evaluate((c) => sheet.options.contextMenu(sheet, c, null, {}).map((i) => i.title), 15); // COL.LANE
+  expect(titles).toContain('➕ Insert Column Right');
+  expect(titles).not.toContain('✏️ Rename Column');
+  expect(titles).not.toContain('🗑️ Delete Column');
+});
+
+test('a genuinely new custom column added after Lane is named "Custom 1"', async ({ page }) => {
+  await page.evaluate(() => {
+    const item = sheet.options.contextMenu(sheet, 15, null, {}).find((i) => i.title === '➕ Insert Column Right'); // COL.LANE
     item.onclick();
-  }, COL.STATUS);
+  });
   await page.waitForTimeout(200);
 
   const headers = await page.evaluate(() => sheet.options.columns.map((c) => c.title));
-  expect(headers[14]).toBe('Custom 1');
+  expect(headers[16]).toBe('Custom 1');
 });

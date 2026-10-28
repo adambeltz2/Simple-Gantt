@@ -171,7 +171,7 @@ test('project notes have no footprint in CSV export headers', async ({ page }) =
   const headers = await page.evaluate(() => sheet.options.columns.map((c) => c.title));
   expect(headers).toEqual([
     'Task ID', 'Outline', 'Task Name', 'Resource', 'Def. Alloc',
-    '% Done', 'Start', 'Dur.', 'End', 'Depends', 'Parent', 'Labels', 'Notes', 'Status',
+    '% Done', 'Start', 'Dur.', 'End', 'Depends', 'Parent', 'Labels', 'Notes', 'Status', 'Topic', 'Lane',
   ]);
 });
 

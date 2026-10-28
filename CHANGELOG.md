@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.52.0] - 2026-10-28
+
+### ✨ Added
+
+#### Kanban board, Slice 1: Topic/Lane columns, their registries, and Detail Card wiring (backlog #32)
+- **User-requested**, following up on the architecture scoped and logged in 2.51.1's backlog (item #32, shipped docs-only): "Ready to build?" This first slice deliberately stops short of the board view and drag-and-drop itself (that's Slice 2) -- it ships the two new data columns, their named registries, and every existing surface that touches the task schema, so Topic/Lane are genuinely usable (via the grid and the Detail Card) before the board exists to visualize them.
+- **Two new core columns**, `Topic` and `Lane`, appended at the end of the schema (same precedent as every prior addition -- Resources #12, Labels #13, Notes #22, Status #27 -- never inserted mid-sequence, since that would shift every later column's index). Custom columns now start at index 16, not 14. Both are jexcel `dropdown` cells sourced from a per-project registry, not free text -- a card's Topic/Lane has to be one of a closed, curated set, unlike Resource/Labels' free-text-with-suggestions model.
+- **Named Topics / Named Lanes**, two new toolbar buttons opening Manager modals copied from the existing Resource/Label Manager pattern (add / rename-propagates-to-every-task / delete). One real deviation: Lane order is meaningful -- it'll be the board's left-to-right column order -- so unlike every other registry here, new lanes are appended at the end rather than alphabetized, and the Lane Manager gets ▲/▼ reorder controls the others don't need.
+- **Detail Card** (v2.50.0) extended with Topic/Lane dropdown fields, following the exact pattern every other field there already uses -- the single biggest reuse win in the whole feature, since the eventual board needs no edit UI of its own at all.
+- **Full schema-ripple applied**, the same mechanical set of call sites every prior core-column addition has touched: `normalizeData()`'s legacy-shape splice-in, `applyImportedCSVData()`'s equivalent (a pre-feature CSV imports with both columns blank), column-menu Insert/Rename/Delete gating (Lane, not Status, is now the boundary -- the last core column that offers "Insert Column Right" but not rename/delete), every seed/reset row literal, CSV export (rides along for free via the live column headers), and `importDiscoveredProject()`'s already-tracked lagging-offset debt item (#18) bumped the same way every prior addition bumped it.
+- **New:** 29 existing tests across 11 spec files needed their hardcoded column-index/CSV-header assumptions updated for the schema shift (the same churn every prior core-column addition has caused) -- no behavior regressions, just stale expectations. Full Playwright suite (518 tests) re-verified against real vendored CDN copies: 517 passed, the one known pre-existing `row-id-backfill` timing flake, zero regressions from this change.
+- **Not yet built** (Slice 2, next): the Kanban board view itself and card drag-and-drop between lanes -- see backlog #32 for the full plan, including the drag-and-drop risk mitigation (a directly-testable `moveCardToLane()` mutation function, separate from the interaction layer).
+
 ## [2.51.1] - 2026-10-27
 
 ### 🐛 Fixed

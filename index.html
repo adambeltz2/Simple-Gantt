@@ -457,6 +457,14 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="13" y2="17"></line></svg>
                     Notes
                 </button>
+                <button class="tbtn" onclick="openTopicManagerModal()" title="Name topics ahead of time so they're pickable in the grid's Topic column (used by the Kanban board)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>
+                    Topics
+                </button>
+                <button class="tbtn" onclick="openLaneManagerModal()" title="Name and order lanes ahead of time so they're pickable in the grid's Lane column (used by the Kanban board)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="18" x2="20" y2="18"></line></svg>
+                    Lanes
+                </button>
                 <div style="position:relative; display:inline-block;">
                     <button id="toolsMenuBtn" type="button" class="tbtn" onclick="toggleToolsMenu(event)" title="Fit columns and force-recalculate dependencies -- utility actions, not everyday ones">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
@@ -854,6 +862,48 @@
         </div>
     </div>
 
+    <div id="topicManagerModal" class="modal" onclick="if(event.target===this) closeTopicManagerModal()">
+        <div class="modal-content" style="max-width: 420px; height: auto; padding: 24px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+                <h2 style="margin:0; color:#0f172a; font-size: 18px;">🗂️ Manage Topics</h2>
+            </div>
+            <p style="color:#64748b; font-size:12.5px; margin: 0 0 14px;">Topics are the columns across the top of the Kanban board. Renaming here updates every task already set to that topic; removing a topic here only removes it from this list -- it doesn't clear any task already set to it.</p>
+
+            <div style="display:flex; gap:8px; margin-bottom: 14px;">
+                <input id="newTopicNameInput" type="text" placeholder="e.g. Marketing Site" onkeydown="if(event.key==='Enter') addNewTopicName()"
+                    style="flex:1; box-sizing:border-box; padding:7px 8px; border:1px solid #cbd5e1; border-radius:4px; font-size:13px;">
+                <button onclick="addNewTopicName()" style="padding: 7px 14px; background: #185FA5; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size:13px;">Add</button>
+            </div>
+
+            <div id="topicManagerListContainer" style="max-height:280px; overflow-y:auto; margin-bottom: 16px;"></div>
+
+            <div style="display:flex; justify-content:flex-end; gap: 10px;">
+                <button onclick="closeTopicManagerModal()" style="padding: 8px 16px; background: #185FA5; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="laneManagerModal" class="modal" onclick="if(event.target===this) closeLaneManagerModal()">
+        <div class="modal-content" style="max-width: 420px; height: auto; padding: 24px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+                <h2 style="margin:0; color:#0f172a; font-size: 18px;">📋 Manage Lanes</h2>
+            </div>
+            <p style="color:#64748b; font-size:12.5px; margin: 0 0 14px;">Lanes are the Kanban board's rows, shared across every topic, in the order shown below (use ▲/▼ to reorder). Renaming here updates every task already set to that lane; removing a lane here only removes it from this list -- it doesn't clear any task already set to it.</p>
+
+            <div style="display:flex; gap:8px; margin-bottom: 14px;">
+                <input id="newLaneNameInput" type="text" placeholder="e.g. In Progress" onkeydown="if(event.key==='Enter') addNewLaneName()"
+                    style="flex:1; box-sizing:border-box; padding:7px 8px; border:1px solid #cbd5e1; border-radius:4px; font-size:13px;">
+                <button onclick="addNewLaneName()" style="padding: 7px 14px; background: #185FA5; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size:13px;">Add</button>
+            </div>
+
+            <div id="laneManagerListContainer" style="max-height:280px; overflow-y:auto; margin-bottom: 16px;"></div>
+
+            <div style="display:flex; justify-content:flex-end; gap: 10px;">
+                <button onclick="closeLaneManagerModal()" style="padding: 8px 16px; background: #185FA5; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Done</button>
+            </div>
+        </div>
+    </div>
+
     <div id="dropboxInfoModal" class="modal" onclick="if(event.target===this) closeDropboxInfoModal()">
         <div class="modal-content" style="max-width: 480px; height: auto; padding: 30px;">
             <h2 style="margin:0 0 15px; color:#0f172a; font-size: 19px;">Dropbox is optional</h2>
@@ -958,7 +1008,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.51.1";
+        const APP_VERSION = "2.52.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -967,17 +1017,17 @@
         const dateStr1 = format(todayObj);
         
         const sampleProjectData = [
-            ['1', '1', 'Website Redesign Phase', '', '', '0', '', '', '', '', '', '', '', ''],
-            ['2', '1.1', 'Discovery & Wireframes', 'Alice 50%, Bob', '100', '100', dateStr1, '3', '', '', '1', 'Planning', '', ''],
-            ['3', '1.2', 'UI Design & Assets', 'Bob (50%), Charlie @ 50%', '100', '50', '', '5', '', '2', '1', 'Design', '', ''],
-            ['4', '1.3', 'Frontend Implementation', 'Charlie', '100', '0', '', '7', '', '3', '1', 'Development', '', ''],
-            ['5', '1.4', 'Launch Milestone', '', '', '0', '', '0', '', '4', '1', 'Milestone', '', '']
+            ['1', '1', 'Website Redesign Phase', '', '', '0', '', '', '', '', '', '', '', '', '', ''],
+            ['2', '1.1', 'Discovery & Wireframes', 'Alice 50%, Bob', '100', '100', dateStr1, '3', '', '', '1', 'Planning', '', '', '', ''],
+            ['3', '1.2', 'UI Design & Assets', 'Bob (50%), Charlie @ 50%', '100', '50', '', '5', '', '2', '1', 'Design', '', '', '', ''],
+            ['4', '1.3', 'Frontend Implementation', 'Charlie', '100', '0', '', '7', '', '3', '1', 'Development', '', '', '', ''],
+            ['5', '1.4', 'Launch Milestone', '', '', '0', '', '0', '', '4', '1', 'Milestone', '', '', '', '']
         ];
 
         let appDB = {
             activeId: 'proj_1',
             settings: { skipWeekends: true, zoom: 'Day' },
-            projects: { 'proj_1': { name: 'Example Project', columns: [], data: sampleProjectData, collapsed: [], flagged: [], hiddenColumns: [], today: [], resources: ['Alice', 'Bob', 'Charlie'], labels: ['Planning', 'Design', 'Development'], projectNotes: '' } }
+            projects: { 'proj_1': { name: 'Example Project', columns: [], data: sampleProjectData, collapsed: [], flagged: [], hiddenColumns: [], today: [], resources: ['Alice', 'Bob', 'Charlie'], labels: ['Planning', 'Design', 'Development'], topics: [], lanes: [], projectNotes: '' } }
         };
 
         try {
@@ -1001,6 +1051,8 @@
                     if (!appDB.projects[pid].today) appDB.projects[pid].today = [];
                     if (!appDB.projects[pid].resources) appDB.projects[pid].resources = [];
                     if (!appDB.projects[pid].labels) appDB.projects[pid].labels = [];
+                    if (!appDB.projects[pid].topics) appDB.projects[pid].topics = [];
+                    if (!appDB.projects[pid].lanes) appDB.projects[pid].lanes = [];
                     appDB.projects[pid].data = normalizeData(appDB.projects[pid].data, appDB.projects[pid].columns.length);
                     migrateLegacyNotesColumn(appDB.projects[pid]);
                 }
@@ -1008,8 +1060,8 @@
         } catch(e) { console.error("Error loading DB", e); }
 
         function normalizeData(data, customColsCount) {
-            let targetLength = 14 + (customColsCount || 0);
-            if (!data || !Array.isArray(data) || data.length === 0) return [['1', '1', '', '', '100', '0', '', '', '', '', '', '', '', '', ...Array(customColsCount || 0).fill('')]];
+            let targetLength = 16 + (customColsCount || 0);
+            if (!data || !Array.isArray(data) || data.length === 0) return [['1', '1', '', '', '100', '0', '', '', '', '', '', '', '', '', '', '', ...Array(customColsCount || 0).fill('')]];
             return data.map(row => {
                 if (row.length === 9) row.splice(7, 0, '');
                 if (row.length === 10) row.splice(1, 0, '');
@@ -1030,6 +1082,11 @@
                 // always recomputed fresh from % Done on the next sync
                 // anyway, this is only about keeping custom columns aligned).
                 if (row.length === 13 + (customColsCount || 0)) row.splice(13, 0, '');
+                // Rows saved before Topic/Lane existed (backlog #32) are
+                // exactly 14 + however many custom columns this project
+                // already had -- insert two blanks there so custom column
+                // data keeps its original position instead of shifting left.
+                if (row.length === 14 + (customColsCount || 0)) row.splice(14, 0, '', '');
                 while (row.length < targetLength) row.push('');
                 return row;
             });
@@ -1046,7 +1103,7 @@
             if (!proj.columns || proj.columns.length === 0) return;
             const idx = proj.columns.findIndex(c => c.trim().toLowerCase() === 'notes');
             if (idx === -1) return;
-            const legacyPos = 14 + idx;
+            const legacyPos = 16 + idx;
             (proj.data || []).forEach(row => {
                 if (row.length > legacyPos) {
                     const legacyVal = row[legacyPos];
@@ -1098,13 +1155,15 @@
             return {
                 name: name,
                 columns: [],
-                data: [['1', '1', '', '', '100', '0', '', '', '', '', '', '', '', '']],
+                data: [['1', '1', '', '', '100', '0', '', '', '', '', '', '', '', '', '', '']],
                 collapsed: [],
                 flagged: [],
                 hiddenColumns: [],
                 today: [],
                 resources: [],
                 labels: [],
+                topics: [],
+                lanes: [],
                 projectNotes: ''
             };
         }
@@ -1691,7 +1750,21 @@
                     headers.splice(13, 0, 'Status');
                     data.forEach(row => row.splice(13, 0, ''));
                 }
-                appDB.projects[appDB.activeId].columns = headers.slice(14);
+                // Same idea, two more columns later: a CSV exported before
+                // Topic/Lane existed (backlog #32) has whatever was its first
+                // custom column sitting at index 14 instead. Unlike Status,
+                // nothing recomputes these -- they stay blank until the task
+                // is assigned a Topic/Lane some other way (Grid, Detail Card,
+                // or eventually the board itself).
+                if (headers[14] !== 'Topic') {
+                    headers.splice(14, 0, 'Topic');
+                    data.forEach(row => row.splice(14, 0, ''));
+                }
+                if (headers[15] !== 'Lane') {
+                    headers.splice(15, 0, 'Lane');
+                    data.forEach(row => row.splice(15, 0, ''));
+                }
+                appDB.projects[appDB.activeId].columns = headers.slice(16);
             }
             const sanitized = sanitizeImportedRows(data, headers);
             // Any Resource name in the imported rows that isn't already in this
@@ -1702,6 +1775,8 @@
             // list grows to cover what was actually imported.
             mergeResourceNamesFromRows(sanitized);
             mergeLabelNamesFromRows(sanitized);
+            mergeTopicNamesFromRows(sanitized);
+            mergeLaneNamesFromRows(sanitized);
             reconcileImportedEndDates(sanitized);
             renderGrid(sanitized);
             syncToGantt(true);
@@ -1917,7 +1992,7 @@
                         let headers = [];
                         if (data.length > 0 && (data[0][0] === 'ID' || data[0][1] === 'Outline')) {
                             headers = data.shift();
-                            columns = headers.slice(13);
+                            columns = headers.slice(15);
                         }
                         data = sanitizeImportedRows(data, headers);
                         const newId = 'proj_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
@@ -2818,7 +2893,7 @@
         // ==========================================
         // CORE GANTT ENGINE & DYNAMIC COLUMNS
         // ==========================================
-        const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10, LABELS: 11, NOTES: 12, STATUS: 13 };
+        const COL = { ID: 0, OUTLINE: 1, NAME: 2, RESOURCE: 3, ALLOC: 4, PCT: 5, START: 6, DUR: 7, END: 8, DEP: 9, PARENT: 10, LABELS: 11, NOTES: 12, STATUS: 13, TOPIC: 14, LANE: 15 };
 
         // Shared by formatCells' Task Name indentation and exportCSV's
         // cosmetic outline prefix (backlog #16) -- both need the same
@@ -3417,6 +3492,325 @@
             triggerSync();
         }
 
+        // ==========================================
+        // KANBAN: TOPIC / LANE REGISTRIES (backlog #32, Slice 1)
+        // ==========================================
+        // Topic and Lane are the two new columns the Kanban board reads --
+        // COL.TOPIC and COL.LANE, both jexcel `dropdown` cells (a card's
+        // Topic/Lane must be one of a closed, curated set, unlike Resource/
+        // Labels' free-text-with-suggestions model, so there's no quick-pick
+        // popover or multi-value cell parsing here -- the dropdown itself is
+        // the picker). Topic's registry is structurally identical to the
+        // existing Named Resources / Named Labels registries (alphabetized).
+        // Lane is deliberately NOT alphabetized -- its order is the board's
+        // left-to-right column order, so new Lane names are appended at the
+        // end instead of sorted in, and its Manager modal gets ▲/▼ reorder.
+        function getProjectTopics() {
+            let proj = appDB.projects[appDB.activeId];
+            if (!proj.topics) proj.topics = [];
+            return proj.topics;
+        }
+
+        function getProjectLanes() {
+            let proj = appDB.projects[appDB.activeId];
+            if (!proj.lanes) proj.lanes = [];
+            return proj.lanes;
+        }
+
+        function collectTopicNamesFromRows(rows) {
+            const set = new Set();
+            (rows || []).forEach(row => {
+                const name = row && row[COL.TOPIC] != null ? row[COL.TOPIC].toString().trim() : '';
+                if (name) set.add(name);
+            });
+            return Array.from(set).sort((a, b) => a.localeCompare(b));
+        }
+
+        // First-seen order, not alphabetical -- see the section comment above.
+        function collectLaneNamesFromRows(rows) {
+            const seen = [];
+            const known = new Set();
+            (rows || []).forEach(row => {
+                const name = row && row[COL.LANE] != null ? row[COL.LANE].toString().trim() : '';
+                if (name && !known.has(name)) { known.add(name); seen.push(name); }
+            });
+            return seen;
+        }
+
+        function mergeTopicNamesFromRows(rows) {
+            const topics = getProjectTopics();
+            const known = new Set(topics.map(t => t.toLowerCase()));
+            const additions = collectTopicNamesFromRows(rows).filter(n => !known.has(n.toLowerCase()));
+            if (additions.length > 0) {
+                appDB.projects[appDB.activeId].topics = topics.concat(additions).sort((a, b) => a.localeCompare(b));
+            }
+        }
+
+        function mergeLaneNamesFromRows(rows) {
+            const lanes = getProjectLanes();
+            const known = new Set(lanes.map(l => l.toLowerCase()));
+            const additions = collectLaneNamesFromRows(rows).filter(n => !known.has(n.toLowerCase()));
+            if (additions.length > 0) {
+                appDB.projects[appDB.activeId].lanes = lanes.concat(additions);
+            }
+        }
+
+        // Same rationale and placement as backfillResourcesRegistry/
+        // backfillLabelsRegistry (startup migration loop) -- see those
+        // functions' own comments for the full story. Additive-only, idempotent.
+        function backfillTopicsRegistry(proj) {
+            if (!proj) return;
+            const known = new Set((proj.topics || []).map(t => t.toLowerCase()));
+            const additions = collectTopicNamesFromRows(proj.data).filter(n => !known.has(n.toLowerCase()));
+            if (additions.length > 0) {
+                proj.topics = (proj.topics || []).concat(additions).sort((a, b) => a.localeCompare(b));
+            }
+        }
+
+        function backfillLanesRegistry(proj) {
+            if (!proj) return;
+            const known = new Set((proj.lanes || []).map(l => l.toLowerCase()));
+            const additions = collectLaneNamesFromRows(proj.data).filter(n => !known.has(n.toLowerCase()));
+            if (additions.length > 0) {
+                proj.lanes = (proj.lanes || []).concat(additions);
+            }
+        }
+        for (let pid in appDB.projects) {
+            backfillTopicsRegistry(appDB.projects[pid]);
+            backfillLanesRegistry(appDB.projects[pid]);
+        }
+
+        // jexcel's dropdown `source` lives on the live column config, not the
+        // cell data -- same pattern already used to keep COL.DEP/COL.PARENT's
+        // source lists current (see syncToGantt). Called after any Manager
+        // add/rename/delete so a newly-typed name is immediately selectable.
+        function refreshTopicLaneDropdownSources() {
+            if (!sheet) return;
+            sheet.options.columns[COL.TOPIC].source = getProjectTopics();
+            sheet.options.columns[COL.LANE].source = getProjectLanes();
+        }
+
+        function renameTopicInGridRows(oldName, newName) {
+            if (!sheet) return;
+            sheet.getData().forEach((row, index) => {
+                if ((row[COL.TOPIC] || '') === oldName) {
+                    sheet.setValueFromCoords(COL.TOPIC, index, newName, true);
+                }
+            });
+        }
+
+        function renameLaneInGridRows(oldName, newName) {
+            if (!sheet) return;
+            sheet.getData().forEach((row, index) => {
+                if ((row[COL.LANE] || '') === oldName) {
+                    sheet.setValueFromCoords(COL.LANE, index, newName, true);
+                }
+            });
+        }
+
+        function openTopicManagerModal() {
+            renderTopicManagerList();
+            document.getElementById('topicManagerModal').classList.add('active');
+        }
+
+        function closeTopicManagerModal() {
+            document.getElementById('topicManagerModal').classList.remove('active');
+        }
+
+        function renderTopicManagerList() {
+            const container = document.getElementById('topicManagerListContainer');
+            if (!container) return;
+            const topics = getProjectTopics();
+            container.innerHTML = '';
+            if (topics.length === 0) {
+                const empty = document.createElement('div');
+                empty.style.cssText = 'color:#94a3b8; font-size:12.5px; padding:8px 2px;';
+                empty.textContent = 'No topics yet -- add one above.';
+                container.appendChild(empty);
+                return;
+            }
+            topics.forEach(name => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex; align-items:center; gap:8px; padding:6px 2px; border-bottom:1px solid #e2e8f0;';
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = name;
+                input.dataset.original = name;
+                input.style.cssText = 'flex:1; box-sizing:border-box; padding:6px 7px; border:1px solid #cbd5e1; border-radius:4px; font-size:13px;';
+                input.addEventListener('change', function() { onTopicRenameCommit(this); });
+
+                const delBtn = document.createElement('button');
+                delBtn.textContent = '×';
+                delBtn.title = 'Remove from list (tasks already set to this topic keep it as-is)';
+                delBtn.style.cssText = 'padding:5px 9px; background:#fee2e2; color:#991b1b; border:none; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;';
+                delBtn.addEventListener('click', function() { deleteTopicName(name); });
+
+                row.appendChild(input);
+                row.appendChild(delBtn);
+                container.appendChild(row);
+            });
+        }
+
+        function addNewTopicName() {
+            const input = document.getElementById('newTopicNameInput');
+            const name = (input.value || '').trim();
+            if (!name) return;
+            const topics = getProjectTopics();
+            if (!topics.some(t => t.toLowerCase() === name.toLowerCase())) {
+                topics.push(name);
+                topics.sort((a, b) => a.localeCompare(b));
+                saveToLocal();
+                refreshTopicLaneDropdownSources();
+            }
+            input.value = '';
+            renderTopicManagerList();
+        }
+
+        function deleteTopicName(name) {
+            if (!confirm(`Remove "${name}" from the topic list? Tasks already set to this topic keep that value -- this only affects what's selectable going forward.`)) return;
+            appDB.projects[appDB.activeId].topics = getProjectTopics().filter(t => t !== name);
+            saveToLocal();
+            refreshTopicLaneDropdownSources();
+            renderTopicManagerList();
+        }
+
+        function onTopicRenameCommit(inputEl) {
+            const oldName = inputEl.dataset.original;
+            const newName = (inputEl.value || '').trim();
+            if (!newName || newName === oldName) { inputEl.value = oldName; return; }
+            const topics = getProjectTopics();
+            if (topics.some(t => t !== oldName && t.toLowerCase() === newName.toLowerCase())) {
+                alert(`"${newName}" is already in the list.`);
+                inputEl.value = oldName;
+                return;
+            }
+            const idx = topics.indexOf(oldName);
+            if (idx > -1) topics[idx] = newName;
+            topics.sort((a, b) => a.localeCompare(b));
+            isSyncing = true;
+            renameTopicInGridRows(oldName, newName);
+            isSyncing = false;
+            refreshTopicLaneDropdownSources();
+            renderTopicManagerList();
+            syncToGantt(true);
+        }
+
+        function openLaneManagerModal() {
+            renderLaneManagerList();
+            document.getElementById('laneManagerModal').classList.add('active');
+        }
+
+        function closeLaneManagerModal() {
+            document.getElementById('laneManagerModal').classList.remove('active');
+        }
+
+        function renderLaneManagerList() {
+            const container = document.getElementById('laneManagerListContainer');
+            if (!container) return;
+            const lanes = getProjectLanes();
+            container.innerHTML = '';
+            if (lanes.length === 0) {
+                const empty = document.createElement('div');
+                empty.style.cssText = 'color:#94a3b8; font-size:12.5px; padding:8px 2px;';
+                empty.textContent = 'No lanes yet -- add one above.';
+                container.appendChild(empty);
+                return;
+            }
+            lanes.forEach((name, i) => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex; align-items:center; gap:8px; padding:6px 2px; border-bottom:1px solid #e2e8f0;';
+
+                const reorder = document.createElement('div');
+                reorder.style.cssText = 'display:flex; flex-direction:column; gap:1px;';
+                const upBtn = document.createElement('button');
+                upBtn.textContent = '▲';
+                upBtn.title = 'Move earlier';
+                upBtn.disabled = i === 0;
+                upBtn.style.cssText = `padding:1px 5px; background:#f1f5f9; color:#334155; border:none; border-radius:3px; cursor:pointer; font-size:9px; ${i === 0 ? 'opacity:0.4; cursor:default;' : ''}`;
+                upBtn.addEventListener('click', function() { moveLaneName(name, -1); });
+                const downBtn = document.createElement('button');
+                downBtn.textContent = '▼';
+                downBtn.title = 'Move later';
+                downBtn.disabled = i === lanes.length - 1;
+                downBtn.style.cssText = `padding:1px 5px; background:#f1f5f9; color:#334155; border:none; border-radius:3px; cursor:pointer; font-size:9px; ${i === lanes.length - 1 ? 'opacity:0.4; cursor:default;' : ''}`;
+                downBtn.addEventListener('click', function() { moveLaneName(name, 1); });
+                reorder.appendChild(upBtn);
+                reorder.appendChild(downBtn);
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = name;
+                input.dataset.original = name;
+                input.style.cssText = 'flex:1; box-sizing:border-box; padding:6px 7px; border:1px solid #cbd5e1; border-radius:4px; font-size:13px;';
+                input.addEventListener('change', function() { onLaneRenameCommit(this); });
+
+                const delBtn = document.createElement('button');
+                delBtn.textContent = '×';
+                delBtn.title = 'Remove from list (tasks already set to this lane keep it as-is)';
+                delBtn.style.cssText = 'padding:5px 9px; background:#fee2e2; color:#991b1b; border:none; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;';
+                delBtn.addEventListener('click', function() { deleteLaneName(name); });
+
+                row.appendChild(reorder);
+                row.appendChild(input);
+                row.appendChild(delBtn);
+                container.appendChild(row);
+            });
+        }
+
+        function addNewLaneName() {
+            const input = document.getElementById('newLaneNameInput');
+            const name = (input.value || '').trim();
+            if (!name) return;
+            const lanes = getProjectLanes();
+            if (!lanes.some(l => l.toLowerCase() === name.toLowerCase())) {
+                lanes.push(name); // appended at the end -- Lane order is never alphabetized
+                saveToLocal();
+                refreshTopicLaneDropdownSources();
+            }
+            input.value = '';
+            renderLaneManagerList();
+        }
+
+        function deleteLaneName(name) {
+            if (!confirm(`Remove "${name}" from the lane list? Tasks already set to this lane keep that value -- this only affects what's selectable going forward.`)) return;
+            appDB.projects[appDB.activeId].lanes = getProjectLanes().filter(l => l !== name);
+            saveToLocal();
+            refreshTopicLaneDropdownSources();
+            renderLaneManagerList();
+        }
+
+        function onLaneRenameCommit(inputEl) {
+            const oldName = inputEl.dataset.original;
+            const newName = (inputEl.value || '').trim();
+            if (!newName || newName === oldName) { inputEl.value = oldName; return; }
+            const lanes = getProjectLanes();
+            if (lanes.some(l => l !== oldName && l.toLowerCase() === newName.toLowerCase())) {
+                alert(`"${newName}" is already in the list.`);
+                inputEl.value = oldName;
+                return;
+            }
+            const idx = lanes.indexOf(oldName);
+            if (idx > -1) lanes[idx] = newName; // position preserved -- renaming is not reordering
+            isSyncing = true;
+            renameLaneInGridRows(oldName, newName);
+            isSyncing = false;
+            refreshTopicLaneDropdownSources();
+            renderLaneManagerList();
+            syncToGantt(true);
+        }
+
+        function moveLaneName(name, delta) {
+            const lanes = getProjectLanes();
+            const idx = lanes.indexOf(name);
+            const newIdx = idx + delta;
+            if (idx < 0 || newIdx < 0 || newIdx >= lanes.length) return;
+            [lanes[idx], lanes[newIdx]] = [lanes[newIdx], lanes[idx]];
+            saveToLocal();
+            refreshTopicLaneDropdownSources();
+            renderLaneManagerList();
+        }
+
         function shouldSkipWeekends() { return document.getElementById('skipWeekends').checked; }
 
         // End is inclusive: it's the last day of work, matching what "End"
@@ -3926,7 +4320,7 @@
         function syncColumnsToDB() {
             if(!sheet) return;
             let headers = sheet.options.columns.map(c => c.title);
-            appDB.projects[appDB.activeId].columns = headers.slice(14);
+            appDB.projects[appDB.activeId].columns = headers.slice(16);
             saveToLocal();
             // Inserting/deleting a column shifts every later column's index in
             // place (jexcel handles this internally without a renderGrid()
@@ -5130,7 +5524,17 @@
                 // (computeStatus()) -- Not Started / In Progress / Complete.
                 // Always read-only: there's nothing to type here, only % Done
                 // to edit, same relationship Outline has to Parent.
-                { type: 'text', title: 'Status', width: 95, align: 'center', readOnly: true }
+                { type: 'text', title: 'Status', width: 95, align: 'center', readOnly: true },
+                // Kanban board (backlog #32), slice 1 -- schema + registries
+                // only, no board view yet. A dropdown, not free text like
+                // Resource/Labels: a card's Topic/Lane must be one of the
+                // curated values in the Topics/Lanes registries (there's no
+                // board column for an arbitrary typed string to land on),
+                // the same closed-set reasoning Parent/Depends already use
+                // against the live task list. Lanes are global across every
+                // Topic for v1 (not per-Topic), per explicit user decision.
+                { type: 'dropdown', title: 'Topic', width: 100, source: [], autocomplete: true, align: 'left' },
+                { type: 'dropdown', title: 'Lane', width: 100, source: [], autocomplete: true, align: 'left' }
             ];
 
             if (activeProj.columns) {
@@ -5147,6 +5551,8 @@
             let initialSourceList = dataToLoad.map(r => ({ id: r[COL.ID], name: `${r[COL.ID]} - ${r[COL.NAME] || ''}` })).filter(r => r.id);
             cols[COL.DEP].source = initialSourceList;
             cols[COL.PARENT].source = initialSourceList;
+            cols[COL.TOPIC].source = getProjectTopics();
+            cols[COL.LANE].source = getProjectLanes();
 
             const sheetOptions = {
                 data: dataToLoad,
@@ -5200,7 +5606,7 @@
                 ondeleterow: function() {
                     let data = sheet.getData();
                     if (!data || data.length === 0) {
-                        let emptyRow = ['1', '1', '', '', '100', '0', '', '', '', '', '', '', '', '', ...Array(appDB.projects[appDB.activeId].columns.length).fill('')];
+                        let emptyRow = ['1', '1', '', '', '100', '0', '', '', '', '', '', '', '', '', '', '', ...Array(appDB.projects[appDB.activeId].columns.length).fill('')];
                         sheet.setData([emptyRow]);
                     }
                     triggerSync();
@@ -5208,18 +5614,18 @@
                 contextMenu: function(obj, x, y, e) {
                     var items = [];
                     if (y === null) {
-                        if (x >= 13) {
+                        if (x >= 15) {
                             items.push({
                                 title: '➕ Insert Column Right',
                                 onclick: function() {
                                     sheet.insertColumn(1, parseInt(x), false);
                                     let newColIdx = parseInt(x) + 1;
-                                    sheet.setHeader(newColIdx, 'Custom ' + (newColIdx - 13));
+                                    sheet.setHeader(newColIdx, 'Custom ' + (newColIdx - 15));
                                     syncColumnsToDB();
                                 }
                             });
                         }
-                        if (x >= 14) {
+                        if (x >= 16) {
                             items.push({
                                 title: '✏️ Rename Column',
                                 onclick: function() {
@@ -5633,7 +6039,7 @@
             if (!row) return;
 
             const customCols = [];
-            for (let c = 14; c < sheet.options.columns.length; c++) {
+            for (let c = 16; c < sheet.options.columns.length; c++) {
                 customCols.push({ col: c, title: sheet.options.columns[c].title, value: row[c] || '' });
             }
 
@@ -5657,6 +6063,8 @@
                     depends: row[COL.DEP] || '',
                     parent: row[COL.PARENT] || '',
                     labels: row[COL.LABELS] || '',
+                    topic: row[COL.TOPIC] || '',
+                    lane: row[COL.LANE] || '',
                 },
                 customCols,
                 endTouched: false,
@@ -5688,6 +6096,8 @@
                 (p.depends || '') !== (o[COL.DEP] || '') ||
                 (p.parent || '') !== (o[COL.PARENT] || '') ||
                 p.labels !== (o[COL.LABELS] || '') ||
+                p.topic !== (o[COL.TOPIC] || '') ||
+                p.lane !== (o[COL.LANE] || '') ||
                 ctx.customCols.some(cc => cc.value !== (o[cc.col] || ''));
         }
 
@@ -5842,6 +6252,25 @@
             return wrap;
         }
 
+        // Shared by Topic/Lane -- both are closed-set dropdown cells in the
+        // grid (jexcel `dropdown` type), so the Detail Card gives them the
+        // same kind of control rather than free text, with an explicit
+        // "(none)" option matching the board's Uncategorized/Unsorted
+        // fallback for a card with nothing set yet.
+        function buildRegistrySelectField(ctx, col, pendingKey, registryFn, emptyHint) {
+            const ro = sheet.isReadOnly([col, ctx.rowIndex]);
+            const options = registryFn();
+            if (ro) return dcReadOnly(ctx.pending[pendingKey]);
+            if (options.length === 0) return dcReadOnly(emptyHint);
+            const select = document.createElement('select');
+            select.style.cssText = 'border:1px solid #d8dfe8; border-radius:6px; padding:7px 9px; font-size:12.5px; color:#1e293b; width:100%; box-sizing:border-box;';
+            select.innerHTML = '<option value="">(none)</option>' +
+                options.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+            select.value = ctx.pending[pendingKey] || '';
+            select.addEventListener('change', () => { ctx.pending[pendingKey] = select.value; });
+            return select;
+        }
+
         function buildNotesLinkField(ctx) {
             const wrap = document.createElement('div');
             wrap.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:10px; border:1px solid #d8dfe8; border-radius:6px; padding:8px 10px; font-size:12px; color:#64748b;';
@@ -5909,6 +6338,11 @@
             body.appendChild(dcFieldWrap('Depends', buildDependsField(ctx)));
             body.appendChild(dcFieldWrap('Labels', buildLabelsField(ctx)));
 
+            body.appendChild(dcRow(
+                dcFieldWrap('Topic', buildRegistrySelectField(ctx, COL.TOPIC, 'topic', getProjectTopics, 'No topics yet -- add some via "Topics" in the toolbar.')),
+                dcFieldWrap('Lane', buildRegistrySelectField(ctx, COL.LANE, 'lane', getProjectLanes, 'No lanes yet -- add some via "Lanes" in the toolbar.'))
+            ));
+
             customCols.forEach(cc => {
                 const isRO = sheet.isReadOnly([cc.col, rowIndex]);
                 body.appendChild(dcFieldWrap(cc.title, isRO ? dcReadOnly(cc.value) : dcTextInput(cc.value, v => cc.value = v)));
@@ -5954,6 +6388,8 @@
                 [COL.DEP, pending.depends],
                 [COL.PARENT, pending.parent],
                 [COL.LABELS, pending.labels],
+                [COL.TOPIC, pending.topic],
+                [COL.LANE, pending.lane],
             ];
             customCols.forEach(cc => writes.push([cc.col, cc.value]));
 

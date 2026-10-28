@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.53.2] - 2026-10-28
+
+### 🧪 Tests
+
+#### Kanban board: explicit Label filter coverage
+- **User-requested**, following up on a question ("I can filter the board by labels right?"): confirmed the Label filter already narrows the Kanban board's cards via the same shared `kanbanHiddenRowIndices` pipeline the Resource/Search/Parent/%Done/date-range filters use -- no code change needed, since Label was already one of the inputs to that same set. Added the dedicated test that was missing to lock it in rather than leaving it implicit.
+- **New:** one test in `tests/kanban-board.spec.js` -- checking a Label narrows the board the same way it narrows the grid, and switching the checked label swaps which card is visible.
+
 ## [2.53.1] - 2026-10-28
 
 ### 🔧 Changed

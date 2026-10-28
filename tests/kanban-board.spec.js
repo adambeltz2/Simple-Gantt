@@ -212,6 +212,32 @@ test('Structured Filters (Resource) hide a card the same way they hide a grid ro
   expect(texts).not.toContain('Build UI'); // only assigned to Alice, filter narrowed to Bob
 });
 
+test('the Label filter hides a card the same way it hides a grid row', async ({ page }) => {
+  await page.evaluate((COL) => {
+    appDB.projects[appDB.activeId].labels = ['Urgent', 'Design'];
+    sheet.setValueFromCoords(COL.LABELS, 2, 'Urgent', true); // "Build UI" tagged Urgent
+  }, COL);
+  await page.waitForTimeout(200);
+
+  await openBoard(page);
+  await page.click('.kanban-topic-tab:has-text("Frontend")');
+  await page.waitForTimeout(100);
+  expect((await cardTexts(page)).join(' ')).toContain('Build UI');
+
+  await page.click('#labelFilterBtn');
+  await page.locator('.labelFilterCheckbox[value="Design"]').check();
+  await page.waitForTimeout(200);
+
+  const texts = (await cardTexts(page)).join(' ');
+  expect(texts).not.toContain('Build UI'); // tagged Urgent, filter narrowed to Design
+
+  await page.locator('.labelFilterCheckbox[value="Design"]').uncheck();
+  await page.locator('.labelFilterCheckbox[value="Urgent"]').check();
+  await page.waitForTimeout(200);
+
+  expect((await cardTexts(page)).join(' ')).toContain('Build UI'); // back once Urgent is the checked filter
+});
+
 test('collapsing a parent in the Grid does not hide its leaf child\'s Kanban card', async ({ page }) => {
   await page.evaluate(() => toggleCollapse('1'));
   await page.waitForTimeout(200);

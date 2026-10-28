@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.53.0] - 2026-10-28
+
+### ✨ Added
+
+#### Kanban board, Slice 2: the board view itself and card drag-and-drop (backlog #32)
+- **User-requested**: "Start Slice 2: the Kanban board view and drag-and-drop," following up on Slice 1 (2.52.0 -- the Topic/Lane columns, registries, and Detail Card wiring that made this slice possible without touching the data model again).
+- **A fourth workspace mode**, alongside Grid/Split/Chart: a new "Kanban" toolbar button shows a full-width board, hiding the Grid/Chart split entirely rather than squeezing a multi-lane board into a percentage of it (a board needs real horizontal room the way the chart doesn't). Clicking Grid/Split/Chart exits back to the workspace.
+- **Topics are tabs** (one shown at a time, alphabetized with a trailing "Uncategorized" catch-all always present); **Lanes are the board's columns**, left to right ("Unsorted" first, then the registry's own order). A task's Topic/Lane resolves to the fallback tab/column if it's blank *or* orphaned (named, then later deleted from the registry) -- neither case silently drops a card off the board.
+- **Only leaf tasks become cards** -- the same exclusion the Workload dashboard and Critical Path already apply, since a parent's own fields are always a rollup, never something set directly.
+- **A card shows**: Resource, % Done, a "🔗 Blocked by N" badge (computed live from Depends -- a referenced task still counts as blocking as long as its % Done is under 100, no new dependency model needed), and an Overdue/Due today badge (`computeLateStatus()`, the same logic already driving the grid's End column coloring).
+- **Drag-and-drop**, built as two independently-testable layers per the risk mitigation planned during Slice 1's scoping: the mutation (`moveCardToLane()`) is a plain, directly-callable function going through the exact same single-cell write pipeline (`setValueFromCoords` → the grid's own `onchange` → `triggerSync()`) any other grid edit already uses, so Undo/Redo need no Kanban-specific handling and one drag is one Undo step; the interaction layer is native HTML5 drag-and-drop, kept separate so it never needs to carry the bulk of test coverage.
+- **Clicking a card** opens the existing Task Detail Card (v2.50.0), extended in Slice 1 with Topic/Lane fields -- Kanban needed no edit UI of its own at all.
+- **Honors Grid Search/Structured Filters/the Label filter** the same filtered-visibility pipeline the grid itself uses, so a card list never drifts out of sync with what's filtered elsewhere -- with one deliberate exception: a manual row Collapse does *not* hide a card, since collapse is a Grid-only tree-view convenience with no equivalent concept on a flat board of leaf-only cards.
+- **New:** `tests/kanban-board.spec.js` (22 tests) -- toolbar mode switching, Topic tab/Lane column rendering and ordering, leaf-only card filtering, Uncategorized/Unsorted fallback (including the orphaned-Topic case), card badges, Detail Card integration, filter/collapse interaction, `moveCardToLane()`'s mutation behavior (including its two no-op cases and the Undo step), and two real HTML5 drag-and-drop smoke tests. Full Playwright suite (541 tests) re-verified against real vendored CDN copies: 539 passed, zero regressions -- the other 2 are both pre-existing and environment-specific, not caused by this change: the one known `row-id-backfill` timing flake, and a `border-left` CSS-serialization quirk specific to the substitute Chromium build this sandbox had to fall back to (no network access to the exact pinned browser version), reproduced identically against the pre-Slice-2 code.
+- **Still not built** (deferred to v2+, per backlog #32): drag-to-reorder within a lane, per-Topic lane lists, dragging a card between Topics, and a dedicated mobile layout pass (the board currently just scrolls horizontally on narrow viewports, which works but isn't a considered design).
+
 ## [2.52.0] - 2026-10-28
 
 ### ✨ Added

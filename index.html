@@ -99,6 +99,38 @@
         #cloudStatus.synced { color: #639922; }
         
         .workspace { display: flex; flex: 1; min-height: 0; overflow: hidden; position: relative; }
+
+        /* KANBAN BOARD (backlog #32) -- Topics are tabs (one visible at a
+           time), Lanes are columns, left to right, within the selected
+           Topic. A sibling of .workspace, not inside it, since it replaces
+           the grid/chart split entirely rather than sharing it. */
+        .kanban-panel { display: flex; flex: 1; min-height: 0; overflow: hidden; flex-direction: column; background: #f1f5f9; }
+        .kanban-topic-tabs { display: flex; gap: 4px; padding: 10px 16px 0; background: #ffffff; border-bottom: 1px solid #e2e8f0; overflow-x: auto; flex-shrink: 0; }
+        .kanban-topic-tab { padding: 8px 14px; border: none; background: transparent; color: #64748b; font-size: 13px; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
+        .kanban-topic-tab:hover { color: #1e293b; }
+        .kanban-topic-tab.active { color: #185FA5; border-bottom-color: #185FA5; }
+        .kanban-board { flex: 1; overflow-x: auto; overflow-y: hidden; display: flex; gap: 14px; padding: 16px; align-items: flex-start; }
+        .kanban-lane { flex: 0 0 272px; width: 272px; display: flex; flex-direction: column; background: #e9edf3; border-radius: 8px; max-height: 100%; }
+        .kanban-lane.drag-over { background: #dbeafe; box-shadow: inset 0 0 0 2px #3b82f6; }
+        .kanban-lane-header { padding: 10px 12px; font-size: 12.5px; font-weight: 700; color: #334155; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+        .kanban-lane-count { font-size: 11px; font-weight: 600; color: #94a3b8; background: #ffffff; border-radius: 10px; padding: 1px 7px; }
+        .kanban-cards { flex: 1; overflow-y: auto; padding: 0 10px 10px; display: flex; flex-direction: column; gap: 8px; min-height: 40px; }
+        .kanban-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 11px; cursor: pointer; box-shadow: 0 1px 2px rgba(15,23,42,0.06); }
+        .kanban-card:hover { border-color: #93c5fd; }
+        .kanban-card.dragging { opacity: 0.4; }
+        .kanban-card-name { font-size: 13px; font-weight: 600; color: #0f172a; margin-bottom: 6px; line-height: 1.3; }
+        .kanban-card-meta { display: flex; flex-wrap: wrap; gap: 5px; font-size: 11px; }
+        .kanban-badge { padding: 2px 7px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
+        .kanban-badge-resource { background: #f1f5f9; color: #475569; }
+        .kanban-badge-blocked { background: #fee2e2; color: #991b1b; }
+        .kanban-badge-overdue { background: #fecaca; color: #991b1b; }
+        .kanban-badge-due-today { background: #fef08a; color: #854d0e; }
+        .kanban-badge-pct { background: #dbeafe; color: #1e40af; }
+        .kanban-empty-lane { color: #94a3b8; font-size: 12px; text-align: center; padding: 16px 8px; }
+        .kanban-empty-board { color: #64748b; font-size: 14px; text-align: center; padding: 60px 20px; }
+        @media (max-width: 860px) {
+            .kanban-lane { flex: 0 0 85vw; width: 85vw; }
+        }
         .grid-panel { width: 55%; overflow: auto; background: #f8fafc; padding: 20px; box-sizing: border-box; }
         .resizer { width: 8px; background: #cbd5e1; cursor: col-resize; flex-shrink: 0; z-index: 10; transition: background 0.2s;}
         .resizer:hover, .resizer.resizing { background: #3b82f6; }
@@ -426,6 +458,10 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="2" y="4" width="2" height="16" rx="1" opacity="0.35"></rect><rect x="6" y="4" width="16" height="16" rx="1.5"></rect></svg>
                     Chart
                 </button>
+                <button id="btnKanbanView" class="tbtn" onclick="showKanbanBoard()" title="Kanban board -- Topics as tabs, Lanes as columns (backlog #32)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="2" y="4" width="6" height="16" rx="1.5"></rect><rect x="9" y="4" width="6" height="10" rx="1.5"></rect><rect x="16" y="4" width="6" height="13" rx="1.5"></rect></svg>
+                    Kanban
+                </button>
             </div>
             <div class="toolbar-group">
                 <button id="btnUndo" class="tbtn" onclick="undo()" title="Undo the last change (Ctrl+Z)">
@@ -630,7 +666,17 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- KANBAN BOARD (backlog #32, Slice 2) -- a fourth, full-width workspace
+         mode alongside Grid/Split/Chart, not a percentage of the same split
+         pane (a multi-lane board needs real horizontal room the way the
+         chart doesn't). Topics are tabs (one shown at a time); Lanes are the
+         board's columns, left to right, within whichever Topic is selected. -->
+    <div id="kanbanPanel" class="kanban-panel" style="display:none;">
+        <div id="kanbanTopicTabs" class="kanban-topic-tabs"></div>
+        <div id="kanbanBoard" class="kanban-board"></div>
+    </div>
+
     <footer>
         <span class="version-tag" id="versionTag" title="Simple Gantt version"></span>
         <a href="https://github.com/adambeltz2/Simple-Gantt" target="_blank" class="gh">
@@ -1008,7 +1054,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.52.0";
+        const APP_VERSION = "2.53.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -2617,6 +2663,7 @@
         document.addEventListener('touchcancel', endResize);
 
         function snapPanes(gridPercent) {
+            exitKanbanBoard();
             gridPanel.style.width = gridPercent + '%';
             localStorage.setItem('simple_gantt_pane_width', gridPercent + '%');
             updateMobilePaneVisibility(gridPercent);
@@ -3811,6 +3858,241 @@
             renderLaneManagerList();
         }
 
+        // ==========================================
+        // KANBAN BOARD (backlog #32, Slice 2)
+        // ==========================================
+        // A fourth, full-width workspace mode alongside Grid/Split/Chart (see
+        // snapPanes()/showKanbanBoard()/exitKanbanBoard() below) -- not a
+        // percentage of the same split pane, since a multi-lane board needs
+        // real horizontal room the way the chart doesn't. Topics are tabs
+        // (one shown at a time); Lanes are the board's columns, left to
+        // right, within whichever Topic is selected. Only leaf tasks (no
+        // children) become cards -- the same exclusion the Workload
+        // dashboard and Critical Path already apply, since a parent's own
+        // fields are always a rollup, never something set directly.
+        //
+        // Mutation is deliberately isolated from interaction: moveCardToLane()
+        // is a plain, directly-callable function (setValueFromCoords -> the
+        // grid's own onchange -> triggerSync(), the exact same pipeline any
+        // other single-cell grid edit already goes through, so one drag is
+        // one Undo step) with no dependency on drag events at all -- it gets
+        // the bulk of test coverage, called directly; true HTML5
+        // drag-and-drop gets a couple of smoke tests on top of that, the
+        // same split this app's fill-handle bug fix settled on after
+        // learning the lesson that pixel-level drag simulation is the wrong
+        // thing to lean on for coverage.
+        let kanbanActive = false;
+        let kanbanSelectedTopic = null;
+        let kanbanDraggedTaskId = null;
+
+        function showKanbanBoard() {
+            kanbanActive = true;
+            document.querySelector('.workspace').style.display = 'none';
+            document.getElementById('kanbanPanel').style.display = 'flex';
+            renderKanbanBoard();
+        }
+
+        function exitKanbanBoard() {
+            if (!kanbanActive) return;
+            kanbanActive = false;
+            document.getElementById('kanbanPanel').style.display = 'none';
+            document.querySelector('.workspace').style.display = 'flex';
+        }
+
+        function renderKanbanBoardIfVisible() {
+            if (kanbanActive) renderKanbanBoard();
+        }
+
+        // Topics are alphabetized (same as the registry itself) with a
+        // trailing "Uncategorized" catch-all always present -- even on a
+        // project with zero named topics yet, so there's always at least
+        // one tab and leaf tasks are never silently absent from the board.
+        function getKanbanTopicTabs() {
+            return getProjectTopics().concat(['Uncategorized']);
+        }
+
+        // "Unsorted" sits first, not last -- it's where every task lands
+        // before anyone has touched Lane, so it's the board's natural
+        // default landing column rather than an afterthought at the end.
+        function getKanbanLaneColumns() {
+            return ['Unsorted'].concat(getProjectLanes());
+        }
+
+        // Resolves a row's Topic to a real tab: its own value if that's
+        // still a registered topic, otherwise "Uncategorized" -- covers a
+        // never-set Topic and an orphaned one (named, then later deleted
+        // from the registry; per deleteTopicName()'s own contract the task
+        // keeps the old text, it just stops being selectable going forward)
+        // the same way, so neither case silently drops a card off the board.
+        function effectiveKanbanTopic(row) {
+            const val = (row[COL.TOPIC] || '').toString().trim();
+            return val && getProjectTopics().includes(val) ? val : 'Uncategorized';
+        }
+
+        function effectiveKanbanLane(row) {
+            const val = (row[COL.LANE] || '').toString().trim();
+            return val && getProjectLanes().includes(val) ? val : 'Unsorted';
+        }
+
+        // Leaf tasks only, filtered by whatever Search/Structured Filters/
+        // Label filter are currently active (see applyRowVisibility()'s own
+        // kanbanHiddenRowIndices -- deliberately not the grid's full hidden
+        // set, since collapse has no equivalent concept on a flat board of
+        // leaf-only cards), narrowed to the selected Topic tab.
+        function getKanbanCards() {
+            if (!sheet) return [];
+            const data = sheet.getData();
+            const byId = {};
+            data.forEach(row => { const id = (row[COL.ID] || '').toString().trim(); if (id) byId[id] = row; });
+
+            const cards = [];
+            data.forEach((row, index) => {
+                const id = (row[COL.ID] || '').toString().trim();
+                if (!id) return;
+                if (kanbanHiddenRowIndices.has(index)) return;
+                const isParent = data.some(r => (r[COL.PARENT] || '').toString().trim() === id);
+                if (isParent) return;
+                if (effectiveKanbanTopic(row) !== kanbanSelectedTopic) return;
+
+                // "Blocked by" badge -- reuses the exact same Depends/%Done
+                // fields already driving the chart's own scheduling, rather
+                // than a new dependency model: a referenced task counts as
+                // still blocking this one as long as its % Done is under 100.
+                const depIds = (row[COL.DEP] || '').toString().split(';').map(d => d.trim()).filter(Boolean);
+                const blockedCount = depIds.filter(depId => byId[depId] && (parseInt(byId[depId][COL.PCT]) || 0) < 100).length;
+                const pct = parseInt(row[COL.PCT]) || 0;
+
+                cards.push({
+                    index, id,
+                    name: row[COL.NAME] || '(untitled task)',
+                    resource: row[COL.RESOURCE] || '',
+                    pct,
+                    end: row[COL.END] || '',
+                    lane: effectiveKanbanLane(row),
+                    blockedCount,
+                    lateStatus: computeLateStatus(row[COL.END], pct),
+                });
+            });
+            return cards;
+        }
+
+        function renderKanbanBoard() {
+            if (!sheet) return;
+            const tabs = getKanbanTopicTabs();
+            if (!kanbanSelectedTopic || !tabs.includes(kanbanSelectedTopic)) kanbanSelectedTopic = tabs[0];
+
+            const tabsEl = document.getElementById('kanbanTopicTabs');
+            tabsEl.innerHTML = '';
+            tabs.forEach(topic => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'kanban-topic-tab' + (topic === kanbanSelectedTopic ? ' active' : '');
+                btn.textContent = topic;
+                btn.addEventListener('click', () => { kanbanSelectedTopic = topic; renderKanbanBoard(); });
+                tabsEl.appendChild(btn);
+            });
+
+            const cards = getKanbanCards();
+            const lanes = getKanbanLaneColumns();
+            const boardEl = document.getElementById('kanbanBoard');
+            boardEl.innerHTML = '';
+
+            lanes.forEach(laneName => {
+                const laneCards = cards.filter(c => c.lane === laneName);
+                const laneEl = document.createElement('div');
+                laneEl.className = 'kanban-lane';
+                laneEl.dataset.lane = laneName;
+
+                const header = document.createElement('div');
+                header.className = 'kanban-lane-header';
+                const title = document.createElement('span');
+                title.textContent = laneName;
+                const count = document.createElement('span');
+                count.className = 'kanban-lane-count';
+                count.textContent = laneCards.length;
+                header.appendChild(title);
+                header.appendChild(count);
+                laneEl.appendChild(header);
+
+                const cardsEl = document.createElement('div');
+                cardsEl.className = 'kanban-cards';
+                if (laneCards.length === 0) {
+                    const empty = document.createElement('div');
+                    empty.className = 'kanban-empty-lane';
+                    empty.textContent = 'No cards';
+                    cardsEl.appendChild(empty);
+                } else {
+                    laneCards.forEach(card => cardsEl.appendChild(renderKanbanCard(card)));
+                }
+                laneEl.appendChild(cardsEl);
+
+                laneEl.addEventListener('dragover', e => { e.preventDefault(); laneEl.classList.add('drag-over'); });
+                laneEl.addEventListener('dragleave', () => laneEl.classList.remove('drag-over'));
+                laneEl.addEventListener('drop', e => {
+                    e.preventDefault();
+                    laneEl.classList.remove('drag-over');
+                    const taskId = (e.dataTransfer && e.dataTransfer.getData('text/plain')) || kanbanDraggedTaskId;
+                    if (taskId) moveCardToLane(taskId, laneName);
+                });
+
+                boardEl.appendChild(laneEl);
+            });
+        }
+
+        function renderKanbanCard(card) {
+            const el = document.createElement('div');
+            el.className = 'kanban-card';
+            el.draggable = true;
+            el.dataset.taskId = card.id;
+
+            el.addEventListener('dragstart', e => {
+                kanbanDraggedTaskId = card.id;
+                if (e.dataTransfer) e.dataTransfer.setData('text/plain', card.id);
+                el.classList.add('dragging');
+            });
+            el.addEventListener('dragend', () => { el.classList.remove('dragging'); kanbanDraggedTaskId = null; });
+            el.addEventListener('click', () => openDetailCardModal(card.index));
+
+            const name = document.createElement('div');
+            name.className = 'kanban-card-name';
+            name.textContent = card.name;
+            el.appendChild(name);
+
+            const meta = document.createElement('div');
+            meta.className = 'kanban-card-meta';
+            if (card.resource) meta.appendChild(kanbanBadge(card.resource, 'kanban-badge-resource'));
+            if (card.blockedCount > 0) meta.appendChild(kanbanBadge(`🔗 Blocked by ${card.blockedCount}`, 'kanban-badge-blocked'));
+            if (card.lateStatus === 'red') meta.appendChild(kanbanBadge(`Overdue ${card.end}`, 'kanban-badge-overdue'));
+            else if (card.lateStatus === 'yellow') meta.appendChild(kanbanBadge('Due today', 'kanban-badge-due-today'));
+            meta.appendChild(kanbanBadge(`${card.pct}%`, 'kanban-badge-pct'));
+            el.appendChild(meta);
+
+            return el;
+        }
+
+        function kanbanBadge(text, className) {
+            const span = document.createElement('span');
+            span.className = 'kanban-badge ' + className;
+            span.textContent = text;
+            return span;
+        }
+
+        // The mutation layer, deliberately independent of drag events (see
+        // the section comment above) -- goes through the exact same
+        // single-cell write pipeline any other grid edit does
+        // (setValueFromCoords -> onGridCellChange -> triggerSync()), so
+        // Undo/Redo and the existing saveToLocal machinery need no
+        // Kanban-specific handling at all.
+        function moveCardToLane(taskId, newLane) {
+            if (!sheet) return;
+            const data = sheet.getData();
+            const rowIndex = data.findIndex(r => (r[COL.ID] || '').toString().trim() === (taskId || '').toString().trim());
+            if (rowIndex === -1) return;
+            const actualLane = (newLane === 'Unsorted') ? '' : newLane;
+            if ((data[rowIndex][COL.LANE] || '') === actualLane) return; // no-op drop onto the lane it's already in -- don't spend an Undo step on nothing
+            sheet.setValueFromCoords(COL.LANE, rowIndex, actualLane, true);
+        }
+
         function shouldSkipWeekends() { return document.getElementById('skipWeekends').checked; }
 
         // End is inclusive: it's the last day of work, matching what "End"
@@ -4427,6 +4709,11 @@
         // ID/Depends/Parent number surfaces the rows that reference it.
         let gridSearchQuery = '';
 
+        // Populated by applyRowVisibility() on every sync -- see its own
+        // comment for why Kanban (backlog #32) uses this set instead of the
+        // grid's full hidden-row set (collapse is excluded here).
+        let kanbanHiddenRowIndices = new Set();
+
         function onGridSearchInput(value) {
             gridSearchQuery = (value || '').trim().toLowerCase();
             document.getElementById('gridSearchClear').style.display = gridSearchQuery ? '' : 'none';
@@ -4889,6 +5176,14 @@
                 keepForEnd = collectMatchesWithAncestors(row => dateInRange(row[COL.END], endFilterFrom, endFilterTo));
             }
 
+            // Kanban (backlog #32) reads this same set of data filters --
+            // Search/Label/Resource/Parent/%Done/date-range -- so its card
+            // list never drifts out of sync with what's filtered in the
+            // grid. Deliberately excludes collapse: that's a Grid-only tree-
+            // view convenience with no equivalent concept on a flat board of
+            // leaf-only cards, so collapsing a branch elsewhere never hides
+            // a Kanban card that would otherwise be shown.
+            kanbanHiddenRowIndices = new Set();
             data.forEach((row, index) => {
                 const id = (row[COL.ID] != null) ? row[COL.ID].toString().trim() : '';
                 let hiddenByCollapse = false;
@@ -4906,8 +5201,11 @@
                 const hiddenByPct = keepForPct !== null && !keepForPct.has(index);
                 const hiddenByStart = keepForStart !== null && !keepForStart.has(index);
                 const hiddenByEnd = keepForEnd !== null && !keepForEnd.has(index);
+                if (hiddenBySearch || hiddenByLabel || hiddenByResource || hiddenByParent || hiddenByPct || hiddenByStart || hiddenByEnd) kanbanHiddenRowIndices.add(index);
                 if (hiddenByCollapse || hiddenBySearch || hiddenByLabel || hiddenByResource || hiddenByParent || hiddenByPct || hiddenByStart || hiddenByEnd) sheet.hideRow(index); else sheet.showRow(index);
             });
+
+            renderKanbanBoardIfVisible();
         }
 
         // ==========================================

@@ -4,11 +4,15 @@ const { test, expect } = require('./fixtures');
 // Covers backlog #32 Slice 2: the Kanban board view itself and card
 // drag-and-drop, on top of Slice 1's Topic/Lane columns and registries.
 //
-// Topics are tabs (one shown at a time, alphabetized with a trailing
-// "Uncategorized" catch-all always present); Lanes are the board's columns,
-// left to right, within whichever Topic is selected ("Unsorted" first,
-// then the registry's own order). Only leaf tasks become cards -- the same
-// exclusion the Workload dashboard and Critical Path already apply.
+// Topics are tabs (one shown at a time, in the registry's own order, with a
+// trailing "Uncategorized" catch-all always present); Lanes are the board's
+// columns, left to right, within whichever Topic is selected ("Unsorted"
+// first, then the registry's own order). Topic/Lane ordering itself (the
+// ▲/▼ reorder controls, append-not-alphabetize on add/rename) is covered in
+// tests/named-topics.spec.js and tests/named-lanes.spec.js -- this file
+// just confirms the board renders whatever order those registries hold.
+// Only leaf tasks become cards -- the same exclusion the Workload dashboard
+// and Critical Path already apply.
 //
 // Mutation (moveCardToLane) is deliberately isolated from interaction and
 // gets the bulk of coverage here, called directly with no synthetic drag
@@ -95,11 +99,19 @@ test('clicking Grid/Split/Chart exits the Kanban board back to the workspace', a
   expect(workspaceDisplay).toBe('flex');
 });
 
-test('Topic tabs are alphabetized with a trailing "Uncategorized", and default to the first tab', async ({ page }) => {
+test('Topic tabs default to the first registered tab, with a trailing "Uncategorized" always present', async ({ page }) => {
   await openBoard(page);
   expect(await tabNames(page)).toEqual(['Backend', 'Frontend', 'Uncategorized']);
   const active = await page.locator('.kanban-topic-tab.active').textContent();
   expect(active).toBe('Backend');
+});
+
+test('Topic tabs render in the registry\'s own order, not alphabetized', async ({ page }) => {
+  // Reordered to the opposite of alphabetical -- an alphabetized tab order
+  // would still read Backend, Frontend; the registry's own order doesn't.
+  await page.evaluate(() => { appDB.projects[appDB.activeId].topics = ['Frontend', 'Backend']; });
+  await openBoard(page);
+  expect(await tabNames(page)).toEqual(['Frontend', 'Backend', 'Uncategorized']);
 });
 
 test('clicking a Topic tab switches which cards are shown', async ({ page }) => {
@@ -198,6 +210,32 @@ test('Structured Filters (Resource) hide a card the same way they hide a grid ro
 
   const texts = (await cardTexts(page)).join(' ');
   expect(texts).not.toContain('Build UI'); // only assigned to Alice, filter narrowed to Bob
+});
+
+test('the Label filter hides a card the same way it hides a grid row', async ({ page }) => {
+  await page.evaluate((COL) => {
+    appDB.projects[appDB.activeId].labels = ['Urgent', 'Design'];
+    sheet.setValueFromCoords(COL.LABELS, 2, 'Urgent', true); // "Build UI" tagged Urgent
+  }, COL);
+  await page.waitForTimeout(200);
+
+  await openBoard(page);
+  await page.click('.kanban-topic-tab:has-text("Frontend")');
+  await page.waitForTimeout(100);
+  expect((await cardTexts(page)).join(' ')).toContain('Build UI');
+
+  await page.click('#labelFilterBtn');
+  await page.locator('.labelFilterCheckbox[value="Design"]').check();
+  await page.waitForTimeout(200);
+
+  const texts = (await cardTexts(page)).join(' ');
+  expect(texts).not.toContain('Build UI'); // tagged Urgent, filter narrowed to Design
+
+  await page.locator('.labelFilterCheckbox[value="Design"]').uncheck();
+  await page.locator('.labelFilterCheckbox[value="Urgent"]').check();
+  await page.waitForTimeout(200);
+
+  expect((await cardTexts(page)).join(' ')).toContain('Build UI'); // back once Urgent is the checked filter
 });
 
 test('collapsing a parent in the Grid does not hide its leaf child\'s Kanban card', async ({ page }) => {

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.56.0] - 2026-10-29
+
+### ✨ Added
+
+#### Plan My Day: open the real Detail Card right from the drawer
+- **User-requested**, from a screenshot of the drawer: "On plan my day I want to be able to open the detail card so I can adjust information as well."
+- Every Recommended and Today's Plan row now also carries a 📋 icon (same icon as the grid's right-click "Edit Details..." menu item), alongside the existing 📝/+ notes indicator. Clicking it opens that task's real Detail Card -- the exact modal the grid and Kanban board already use, with Save going through the same `setValueFromCoords`/`syncToGantt(true)` pipeline as any other edit (one Undo step), and Cancel discarding the edit and leaving the drawer open.
+- A save from here re-renders the drawer automatically (same pipeline that already keeps it live after any other edit), so a renamed task or changed due date shows up in the Recommended/Today's Plan list immediately -- no separate refresh logic needed.
+- **New:** 2 tests in `tests/plan-my-day.spec.js` -- the icon opens the Detail Card from both Recommended and Today's Plan and a save there is reflected back in the drawer; Cancel discards the edit and leaves the drawer open.
+- Full Playwright suite re-verified against real vendored CDN copies, zero regressions.
+
 ## [2.55.0] - 2026-10-29
 
 ### 🔧 Changed

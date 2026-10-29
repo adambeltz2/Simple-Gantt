@@ -1092,7 +1092,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.55.0";
+        const APP_VERSION = "2.56.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -5494,6 +5494,18 @@
             openNotesModal(rowIndex, COL.NOTES);
         }
 
+        function openDetailCardFromPlanMyDay(taskId) {
+            const rowIndex = findRowIndexById(taskId);
+            if (rowIndex === -1) return;
+            openDetailCardModal(rowIndex);
+        }
+
+        function planMyDayDetailIcon(taskId) {
+            return `<span title="Open task details" onclick="openDetailCardFromPlanMyDay('${escapeHtml(taskId)}')"
+                style="display:flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; flex:none; cursor:pointer; font-size:11px;
+                background:#e2e8f0; color:#475569;">📋</span>`;
+        }
+
         function planMyDayNotesIcon(rowIndex, taskId) {
             const noteVal = sheet.getData()[rowIndex][COL.NOTES];
             const hasContent = noteVal != null && String(noteVal).trim() !== '';
@@ -5544,6 +5556,7 @@
                             <div style="font-size:13px; font-weight:600; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(t.name)}</div>
                             <div style="font-size:11.5px; font-weight:600; color:${labelColor}; margin-top:2px;">${formatDueLabel(t.daysLeft)}${t.resource ? ' · ' + escapeHtml(t.resource) : ''}</div>
                         </div>
+                        ${planMyDayDetailIcon(t.id)}
                         ${planMyDayNotesIcon(rowIndex, t.id)}
                         <span title="Add to today's plan" onclick="toggleTodayPin('${escapeHtml(t.id)}')"
                             style="width:22px; height:22px; border-radius:50%; background:#64748b; color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; flex:none; cursor:pointer;">+</span>
@@ -5569,6 +5582,7 @@
                             <div style="font-size:13px; font-weight:600; color:${complete ? '#94a3b8' : '#1e293b'}; ${complete ? 'text-decoration:line-through;' : ''} white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(row[COL.NAME] || '(untitled task)')}</div>
                             <div style="font-size:11.5px; color:#94a3b8;">${complete ? 'Marked complete' : formatDueLabel(daysLeft)}</div>
                         </div>
+                        ${planMyDayDetailIcon(id)}
                         ${planMyDayNotesIcon(rowIndex, id)}
                         <span title="Remove from today's plan" onclick="toggleTodayPin('${escapeHtml(id)}')" style="color:#cbd5e1; font-size:13px; cursor:pointer; flex:none;">✕</span>
                     </div>`;

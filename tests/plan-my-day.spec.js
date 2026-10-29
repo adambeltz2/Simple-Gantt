@@ -256,6 +256,69 @@ test('the 📝/+ notes icon opens the task\'s real Notes modal, and editing ther
   expect(stored).toBe('Waiting on design review.');
 });
 
+test('the 📋 detail-card icon opens the real Detail Card, and editing there updates the drawer after save -- both in Recommended and Today\'s Plan', async ({ page }) => {
+  const overdue = await dateOffset(page, -3);
+  await loadTasks(page, [row('1', 'Needs a rename', { end: overdue })]);
+  await page.click('#planMyDayBtn');
+  await page.waitForTimeout(200);
+
+  // Recommended row first -- not yet pinned.
+  let html = await page.evaluate(() => document.getElementById('planMyDayRecommended').innerHTML);
+  expect(html).toContain('title="Open task details"');
+  await page.locator('#planMyDayRecommended span[title="Open task details"]').click();
+  await expect(page.locator('#detailCardModal')).toHaveClass(/active/);
+  await expect(page.locator('#detailCardTaskName')).toHaveText('Needs a rename');
+
+  await page.locator('#detailCardBody input[type="text"]').first().fill('Renamed via Plan My Day');
+  await page.click('#detailCardModal button:has-text("Save")');
+  await page.waitForTimeout(200);
+  await expect(page.locator('#detailCardModal')).not.toHaveClass(/active/);
+
+  html = await page.evaluate(() => document.getElementById('planMyDayRecommended').innerHTML);
+  expect(html).toContain('Renamed via Plan My Day');
+
+  // Pin it, then open the same icon from Today's Plan.
+  await page.evaluate(() => toggleTodayPin('1'));
+  await page.waitForTimeout(200);
+  let todayHtml = await page.evaluate(() => document.getElementById('planMyDayTodayList').innerHTML);
+  expect(todayHtml).toContain('title="Open task details"');
+
+  await page.locator('#planMyDayTodayList span[title="Open task details"]').click();
+  await expect(page.locator('#detailCardModal')).toHaveClass(/active/);
+  await expect(page.locator('#detailCardTaskName')).toHaveText('Renamed via Plan My Day');
+
+  await page.locator('#detailCardBody input[type="text"]').first().fill('Renamed again');
+  await page.click('#detailCardModal button:has-text("Save")');
+  await page.waitForTimeout(200);
+
+  todayHtml = await page.evaluate(() => document.getElementById('planMyDayTodayList').innerHTML);
+  expect(todayHtml).toContain('Renamed again');
+
+  const stored = await page.evaluate(() => sheet.getData()[0][COL.NAME]);
+  expect(stored).toBe('Renamed again');
+});
+
+test('Cancel on a detail card opened from Plan My Day discards the edit and leaves the drawer open', async ({ page }) => {
+  const overdue = await dateOffset(page, -1);
+  await loadTasks(page, [row('1', 'Untouched name', { end: overdue })]);
+  await page.evaluate(() => toggleTodayPin('1'));
+  await page.click('#planMyDayBtn');
+  await page.waitForTimeout(200);
+
+  await page.locator('#planMyDayTodayList span[title="Open task details"]').click();
+  await expect(page.locator('#detailCardModal')).toHaveClass(/active/);
+
+  await page.locator('#detailCardBody input[type="text"]').first().fill('Should not stick');
+  await page.click('#detailCardModal button:has-text("Cancel")');
+  await page.waitForTimeout(200);
+
+  await expect(page.locator('#detailCardModal')).not.toHaveClass(/active/);
+  await expect(page.locator('#planMyDayDrawer')).toBeVisible();
+
+  const stored = await page.evaluate(() => sheet.getData()[0][COL.NAME]);
+  expect(stored).toBe('Untouched name');
+});
+
 test('the today list is per-project -- switching projects shows a different pinned set', async ({ page }) => {
   await loadTasks(page, [row('1', 'Project A task')]);
   await page.evaluate(() => toggleTodayPin('1'));

@@ -117,7 +117,7 @@ test('hidden columns are never carried into a Dropbox backup\'s meta.json', asyn
 
   const meta = JSON.parse(metaContents);
   expect(meta.hiddenColumns).toBeUndefined();
-  expect(Object.keys(meta).sort()).toEqual(['name', 'projectNotes', 'updatedAt']);
+  expect(Object.keys(meta).sort()).toEqual(['labels', 'lanes', 'name', 'projectNotes', 'resources', 'topics', 'updatedAt']);
 });
 
 test('the toolbar "Columns" popover lists one checkbox per column, all checked by default', async ({ page }) => {

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.54.0] - 2026-10-29
+
+### ✨ Added
+
+#### Dropbox backup now carries all four named registries, Lane's order included
+- **User-requested**, closing the debt item logged in the previous release ("fix the Dropbox registry/Lane-order gap"): a Dropbox backup's `meta.json` previously held only `{name, updatedAt, projectNotes}` -- none of the Resources/Labels/Topics/Lanes registries were stored directly. A restore instead reconstructed each one by scanning the restored CSV's own rows for distinct values still in use, merged additively against whatever the target project already had.
+- `backupToDropbox()` now also writes the live `resources`/`labels`/`topics`/`lanes` arrays into `meta.json`. `restoreBackup()` applies them as an authoritative **replace** (not a merge) via the new `applyRestoredRegistries()`, same tier as the existing `projectNotes` handling -- a restore is "make this look like the snapshot," not "import new names into what's here." Two concrete things this fixes: a name defined via a Manager modal but not yet assigned to any task now survives a restore (true for all four registries); and **Lane's arranged order** specifically -- the one registry where order is the actual point -- now comes back exactly as arranged via the Lane Manager's ▲/▼ controls, not reconstructed from first-seen-CSV-row order.
+- A backup from before this fix simply lacks the new fields, and every reader treats each one as optional -- restoring an old backup still falls back to the original CSV-driven merge, unchanged, never wiped to empty.
+- `discoverDropboxProjects()`/`importDiscoveredProject()` (the cross-device bulk-import path) get the same fix, and incidentally close a separate pre-existing gap along the way: that path never set `topics`/`lanes` on a newly-discovered project at all (only `resources`/`labels` were ever collected), so Topic/Lane were silently empty on any project imported from another device. Now populated the same way, with the same meta.json-first, CSV-scan-fallback behavior.
+- **New:** `tests/dropbox-registries.spec.js` (9 tests) -- backup includes all four registries in their live order; restore replaces them exactly, including a defined-but-unused name; Lane's order survives a restore even when it differs from the CSV's own row order (the core motivating case); a pre-fix backup without the new fields falls back to the CSV-driven merge rather than wiping to empty, both when meta.json lacks the fields and when it fails to load entirely; a restored registry is immediately reflected in the grid's dropdown source; and the cross-device discovery/import path carries the registries through too.
+- Full Playwright suite re-verified against real vendored CDN copies, zero regressions.
+
 ## [2.53.2] - 2026-10-28
 
 ### 🧪 Tests

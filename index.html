@@ -1054,7 +1054,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.53.2";
+        const APP_VERSION = "2.54.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -1726,7 +1726,26 @@
             const folder = getDropboxFolder(projectId);
             const filepath = `${folder}/${timestampForFilename()}.csv`;
             const metaPath = `${folder}/meta.json`;
-            const metaContents = JSON.stringify({ name: appDB.projects[projectId].name, updatedAt: new Date().toISOString(), projectNotes: getProjectNotes() });
+            // Named registries ride along here, not just in the CSV's own
+            // cell values -- backlog debt item logged after a user question
+            // about Dropbox's data structure: a restore used to only
+            // reconstruct each registry from whatever values happened to
+            // still be in use on at least one row, which silently dropped
+            // a defined-but-unused name and, for Lane specifically, lost
+            // its ▲/▼-arranged order (the one registry where order is the
+            // actual point). Storing the live arrays here makes a restore
+            // an authoritative snapshot instead of a lossy reconstruction;
+            // see restoreBackup()'s own comment for how an older backup
+            // lacking these fields still falls back gracefully.
+            const metaContents = JSON.stringify({
+                name: appDB.projects[projectId].name,
+                updatedAt: new Date().toISOString(),
+                projectNotes: getProjectNotes(),
+                resources: getProjectResources(),
+                labels: getProjectLabels(),
+                topics: getProjectTopics(),
+                lanes: getProjectLanes(),
+            });
 
             Promise.all([
                 dropboxAdapter.uploadFile(filepath, csvString, { overwrite: false }),
@@ -1912,9 +1931,17 @@
             // overwrites the one meta.json every time), so a restore's own
             // projectNotes -- if that backup predates v2.40.0, meta.projectNotes
             // is simply absent and today's notes are left untouched rather than
-            // blanked -- is only an approximation of "notes at that moment,"
-            // same limitation the CSV-only backup format already had for
-            // resources/labels/collapse state.
+            // blanked -- is only an approximation of "notes at that moment."
+            // Same idea for the four named registries (added later still,
+            // same debt item as the comment on backupToDropbox's
+            // metaContents): a backup from before that fix has no
+            // meta.resources/labels/topics/lanes arrays at all, so
+            // applyImportedCSVData()'s own CSV-driven merge (reconstructing
+            // each registry from whichever values are actually still in use
+            // on a row) is exactly what runs, unchanged -- lossy in the same
+            // way it always was for an old backup, but never worse. A
+            // backup that does carry the arrays gets the full, order-
+            // preserving, authoritative restore described there instead.
             const folder = path.substring(0, path.lastIndexOf('/'));
 
             Promise.all([
@@ -1927,6 +1954,7 @@
                     if (meta && meta.projectNotes != null) {
                         setProjectNotes(meta.projectNotes);
                     }
+                    applyRestoredRegistries(meta);
                     saveToLocal();
                     closeVersionsModal();
                     showStatus("✓ Restored from Dropbox", "#10b981");
@@ -1939,13 +1967,42 @@
             });
         }
 
+        // Replaces (not merges) the active project's four named registries
+        // with whatever a backup's meta.json actually held, when it holds
+        // them -- a restore is "make this look like the snapshot," not
+        // "import new names into what's already here," so meta.json wins
+        // outright rather than being unioned with the CSV-driven merge
+        // applyImportedCSVData() already ran. Each field is applied only if
+        // present and an array, so a pre-registries-in-meta backup (or one
+        // missing just one field for any reason) leaves that particular
+        // registry exactly as the CSV-driven merge left it -- never wiped
+        // to empty by a field meta.json simply doesn't have.
+        function applyRestoredRegistries(meta) {
+            if (!meta) return;
+            const proj = appDB.projects[appDB.activeId];
+            let changed = false;
+            if (Array.isArray(meta.resources)) { proj.resources = meta.resources; changed = true; }
+            if (Array.isArray(meta.labels)) { proj.labels = meta.labels; changed = true; }
+            if (Array.isArray(meta.topics)) { proj.topics = meta.topics; changed = true; }
+            if (Array.isArray(meta.lanes)) { proj.lanes = meta.lanes; changed = true; }
+            if (!changed) return;
+            refreshTopicLaneDropdownSources();
+            refreshLabelFilterOptions();
+            refreshResourceFilterOptions();
+            renderKanbanBoardIfVisible();
+        }
+
         let _discoveredProjects = [];
 
-        // Resolves the full parsed meta.json ({name, updatedAt, projectNotes}),
-        // or null if it can't be read (missing, corrupt, or a pre-v2.40.0
-        // backup predating the projectNotes field entirely) -- callers that
-        // only care about the name (discoverDropboxProjects) just read
-        // meta.name off the result; restoreBackup also reads meta.projectNotes.
+        // Resolves the full parsed meta.json ({name, updatedAt, projectNotes,
+        // resources, labels, topics, lanes}), or null if it can't be read
+        // (missing, corrupt, or a pre-v2.40.0 backup predating even
+        // projectNotes). The four registry arrays are themselves a later
+        // addition still -- an older backup simply won't have them, and
+        // every reader here already treats each field as optional. Callers
+        // that only care about the name (discoverDropboxProjects) just read
+        // meta.name off the result; restoreBackup also reads projectNotes
+        // and the four registries (via applyRestoredRegistries()).
         function readMetaJson(folderPathLower) {
             return dropboxAdapter.downloadFile(`${folderPathLower}/meta.json`)
                 .then(text => {
@@ -1973,7 +2030,11 @@
                     readMetaJson(f.path_lower).then(meta => ({
                         id: f.name, pathLower: f.path_lower,
                         name: (meta && meta.name) || '(unnamed project)',
-                        projectNotes: (meta && meta.projectNotes) || ''
+                        projectNotes: (meta && meta.projectNotes) || '',
+                        resources: (meta && Array.isArray(meta.resources)) ? meta.resources : null,
+                        labels: (meta && Array.isArray(meta.labels)) ? meta.labels : null,
+                        topics: (meta && Array.isArray(meta.topics)) ? meta.topics : null,
+                        lanes: (meta && Array.isArray(meta.lanes)) ? meta.lanes : null,
                     }))
                 )).then(discovered => {
                     _discoveredProjects = discovered;
@@ -2042,6 +2103,12 @@
                         }
                         data = sanitizeImportedRows(data, headers);
                         const newId = 'proj_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+                        // Prefer meta.json's own registry arrays (order-preserving,
+                        // includes defined-but-unused names) when this discovered
+                        // backup has them; fall back to reconstructing from the
+                        // CSV's actual cell values, same as every pre-registries-
+                        // in-meta backup already had to (see applyRestoredRegistries()
+                        // for the equivalent same-project restore path).
                         appDB.projects[newId] = {
                             name: discovered.name,
                             columns: columns,
@@ -2051,8 +2118,10 @@
                             flagged: [],
                             hiddenColumns: [],
                             today: [],
-                            resources: collectResourceNamesFromRows(data),
-                            labels: collectLabelNamesFromRows(data),
+                            resources: discovered.resources || collectResourceNamesFromRows(data),
+                            labels: discovered.labels || collectLabelNamesFromRows(data),
+                            topics: discovered.topics || collectTopicNamesFromRows(data),
+                            lanes: discovered.lanes || collectLaneNamesFromRows(data),
                             projectNotes: discovered.projectNotes || ''
                         };
                         resolve();

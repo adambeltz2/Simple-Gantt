@@ -56,10 +56,17 @@
 
         #projectSelector { background: #1e293b; color: #e2e8f0; border: 0.5px solid #334155; border-radius: 6px; padding: 6px 10px; font-size: 13px; outline: none; }
 
-        .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 0; }
-        .toolbar-group { display: flex; align-items: center; gap: 6px; padding: 0 14px; border-right: 1px solid #334155; }
+        .toolbar { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 0; }
+        .toolbar-group { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 4px 14px; border-right: 1px solid #334155; }
         .toolbar-group:first-child { padding-left: 0; }
         .toolbar-group:last-child { border-right: none; }
+
+        /* backlog #32's header-redesign follow-up ("Option B -- Zoned
+           Sections"): each .toolbar-group gets a tiny uppercase caption
+           naming its zone (Navigate/Find/View/Edit/Manage/Data/Cloud),
+           sitting above the actual button row. */
+        .tbgroup-label { font-size: 9px; font-weight: 700; letter-spacing: 0.07em; color: #64748b; text-transform: uppercase; }
+        .tbgroup-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
         /* Wraps a cluster of less-frequently-used toolbar controls that
            collapse behind the mobile "More" toggle (see toggleMobileToolbar()).
@@ -331,6 +338,8 @@
         </div>
         <div class="toolbar">
             <div class="toolbar-group">
+                <div class="tbgroup-label">Navigate</div>
+                <div class="tbgroup-row">
                 <span class="tb-mobile-collapsible">
                 <button class="tbtn" onclick="jumpToProjectStart()">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
@@ -358,8 +367,11 @@
                     Collapse All
                 </button>
                 </span>
+                </div>
             </div>
             <div class="toolbar-group">
+                <div class="tbgroup-label">Find</div>
+                <div class="tbgroup-row">
                 <div style="position:relative; display:flex; align-items:center;">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute; left:8px; pointer-events:none;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                     <input id="gridSearchInput" type="text" placeholder="Search any column..." oninput="onGridSearchInput(this.value)"
@@ -430,8 +442,11 @@
                     Clear filters
                 </button>
                 </span>
+                </div>
             </div>
             <div class="toolbar-group">
+                <div class="tbgroup-label">View</div>
+                <div class="tbgroup-row">
                 <span class="tb-mobile-collapsible">
                 <div style="position:relative; display:inline-block;">
                     <button id="columnVisibilityBtn" type="button" class="tbtn" onclick="toggleColumnVisibilityDropdown(event)"
@@ -462,8 +477,11 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="2" y="4" width="6" height="16" rx="1.5"></rect><rect x="9" y="4" width="6" height="10" rx="1.5"></rect><rect x="16" y="4" width="6" height="13" rx="1.5"></rect></svg>
                     Kanban
                 </button>
+                </div>
             </div>
             <div class="toolbar-group">
+                <div class="tbgroup-label">Edit</div>
+                <div class="tbgroup-row">
                 <button id="btnUndo" class="tbtn" onclick="undo()" title="Undo the last change (Ctrl+Z)">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path></svg>
                     Undo
@@ -481,6 +499,13 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="7" rx="1"></rect><rect x="14" y="4" width="7" height="7" rx="1"></rect><rect x="3" y="15" width="7" height="7" rx="1"></rect><rect x="14" y="15" width="7" height="7" rx="1"></rect><path d="M12 7.5h2M12 18.5h2M7.5 12v2M18.5 12v2"></path></svg>
                     Bulk Edit
                 </button>
+                </span>
+                </div>
+            </div>
+            <div class="toolbar-group">
+                <div class="tbgroup-label">Manage</div>
+                <div class="tbgroup-row">
+                <span class="tb-mobile-collapsible">
                 <button class="tbtn" onclick="openResourceManagerModal()" title="Name resources ahead of time so they're a quick-pick option (the ▾ icon) on the grid's Resource column">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                     Resources
@@ -501,6 +526,13 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="18" x2="20" y2="18"></line></svg>
                     Lanes
                 </button>
+                </span>
+                </div>
+            </div>
+            <div class="toolbar-group">
+                <div class="tbgroup-label">Data</div>
+                <div class="tbgroup-row">
+                <span class="tb-mobile-collapsible">
                 <div style="position:relative; display:inline-block;">
                     <button id="toolsMenuBtn" type="button" class="tbtn" onclick="toggleToolsMenu(event)" title="Fit columns and force-recalculate dependencies -- utility actions, not everyday ones">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
@@ -549,8 +581,11 @@
                     </div>
                 </div>
                 </span>
+                </div>
             </div>
             <div class="toolbar-group">
+                <div class="tbgroup-label">Cloud</div>
+                <div class="tbgroup-row">
                 <span class="tb-mobile-collapsible">
                 <button id="btnDbxSave" class="tbtn tbtn-cloud" onclick="backupToDropbox(false)">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 17l4-4 4 4"></path><line x1="12" y1="13" x2="12" y2="21"></line><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"></path></svg>
@@ -565,12 +600,15 @@
                     Disconnect
                 </button>
                 </span>
+                </div>
             </div>
             <div class="toolbar-group" id="toolbarMoreGroup">
+                <div class="tbgroup-row">
                 <button id="toolbarMoreToggle" class="tbtn" onclick="toggleMobileToolbar()" aria-expanded="false" title="Show more toolbar options">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="19" cy="12" r="1.6"></circle></svg>
                     <span id="toolbarMoreToggleText">More</span>
                 </button>
+                </div>
             </div>
         </div>
     </header>
@@ -1054,7 +1092,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.54.0";
+        const APP_VERSION = "2.55.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 

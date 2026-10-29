@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.55.0] - 2026-10-29
+
+### 🔧 Changed
+
+#### Toolbar reorganized into labeled zones (backlog #33, "Option B")
+- **User-requested**, after reviewing 3 header/toolbar mockups built to a screenshot of the live toolbar ("How would you organize the header to be more friendly? Show me a few mockup solutions.") -- the user picked Option B ("Zoned Sections"): *"I like B but lets remember C if/when we go for a mobile version."*
+- Every `.toolbar-group` now shows a small uppercase zone-label caption above its row of buttons: **Navigate**, **Find**, **View**, **Edit**, **Manage**, **Data**, **Cloud**. The previously overloaded fourth group -- Undo/Redo/Add row/Bulk Edit/Resources/Labels/Notes/Topics/Lanes/Tools ▾/Export ▾ all mixed together with no visual separation beyond the group's own divider -- is now split into three groups (Edit/Manage/Data) matching the new zone boundaries.
+- Purely a desktop visual reorganization of existing DOM via two new CSS classes (`.tbgroup-label`, `.tbgroup-row`): every button keeps its exact `id`/`onclick`, and every control's always-visible-vs.-hidden-behind-"More" membership on the existing mobile breakpoint (backlog #15, v2.32.0) is unchanged.
+- Option C ("Minimal + Overflow") -- a single consolidated "More" panel replacing the mobile collapse pattern entirely -- logged as backlog #33's deferred follow-up for a future dedicated mobile redesign, not implemented now.
+- Full Playwright suite re-verified against real vendored CDN copies, zero regressions.
+
 ## [2.54.0] - 2026-10-29
 
 ### ✨ Added

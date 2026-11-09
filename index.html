@@ -138,6 +138,46 @@
         @media (max-width: 860px) {
             .kanban-lane { flex: 0 0 85vw; width: 85vw; }
         }
+
+        /* CALENDAR VIEW (backlog #34) -- a fifth, full-width workspace mode
+           alongside Grid/Split/Chart/Kanban, same precedent as Kanban's own
+           .kanban-panel (display:none swapped against .workspace, not a
+           percentage of the same split pane). A week row (.calendar-week)
+           is position:relative so task bars -- which can span several day
+           columns -- are absolutely positioned children of the row itself,
+           not nested inside any one day cell. Mobile gets no dedicated
+           design pass (same deferral Kanban itself took): .calendar-body's
+           overflow:auto plus .calendar-grid-wrap's min-width is the same
+           "just scrolls horizontally on narrow viewports" fallback. */
+        .calendar-panel { display: flex; flex: 1; min-height: 0; overflow: hidden; flex-direction: column; background: #f1f5f9; }
+        .calendar-toolbar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #ffffff; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; flex-wrap: wrap; }
+        .calendar-nav-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid #e2e8f0; background: #fff; color: #334155; display: flex; align-items: center; justify-content: center; cursor: pointer; flex: none; }
+        .calendar-nav-btn:hover { background: #f1f5f9; }
+        .calendar-month-label { font-size: 15px; font-weight: 700; color: #0f172a; min-width: 150px; text-align: center; }
+        .calendar-today-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; color: #334155; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+        .calendar-legend { margin-left: auto; display: flex; gap: 14px; font-size: 11.5px; color: #64748b; flex-wrap: wrap; align-items: center; }
+        .calendar-legend-item { display: flex; align-items: center; gap: 5px; }
+        .calendar-legend-dot { width: 8px; height: 8px; border-radius: 999px; flex: none; }
+        .calendar-body { flex: 1; overflow: auto; padding: 16px; }
+        .calendar-grid-wrap { min-width: 760px; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; background: #fff; }
+        .calendar-head { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+        .calendar-head div { padding: 8px 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: #64748b; text-transform: uppercase; text-align: center; }
+        .calendar-week { position: relative; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-bottom: 1px solid #eef1f5; }
+        .calendar-week:last-child { border-bottom: none; }
+        .calendar-cell { min-height: 118px; border-right: 1px solid #eef1f5; box-sizing: border-box; padding: 4px; display: flex; flex-direction: column; align-items: flex-end; }
+        .calendar-cell:last-child { border-right: none; }
+        .calendar-cell.is-muted { background: #fbfcfd; }
+        .calendar-cell.is-muted .calendar-daynum { color: #cbd5e1; }
+        .calendar-daynum { width: 22px; height: 22px; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #475569; }
+        .calendar-cell.is-today .calendar-daynum { background: #fef08a; color: #854d0e; }
+        .calendar-bar { position: absolute; height: 20px; border-radius: 5px; font-size: 10.5px; font-weight: 600; display: flex; align-items: center; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; box-shadow: 0 1px 2px rgba(15,23,42,0.08); box-sizing: border-box; }
+        .calendar-more { position: absolute; font-size: 10px; color: #64748b; font-weight: 600; padding: 1px 4px; box-sizing: border-box; }
+        .calendar-unscheduled { border-top: 1px solid #e2e8f0; background: #ffffff; padding: 10px 16px; flex-shrink: 0; max-height: 140px; overflow-y: auto; }
+        .calendar-unscheduled-title { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+        .calendar-unscheduled-item { display: inline-flex; align-items: center; gap: 6px; background: #f1f5f9; border-radius: 6px; padding: 5px 9px; font-size: 12px; color: #334155; margin: 0 6px 6px 0; cursor: pointer; }
+        .calendar-unscheduled-item:hover { background: #e2e8f0; }
+        .calendar-empty-note { color: #94a3b8; font-size: 12.5px; }
+
         .grid-panel { width: 55%; overflow: auto; background: #f8fafc; padding: 20px; box-sizing: border-box; }
         .resizer { width: 8px; background: #cbd5e1; cursor: col-resize; flex-shrink: 0; z-index: 10; transition: background 0.2s;}
         .resizer:hover, .resizer.resizing { background: #3b82f6; }
@@ -477,6 +517,10 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="2" y="4" width="6" height="16" rx="1.5"></rect><rect x="9" y="4" width="6" height="10" rx="1.5"></rect><rect x="16" y="4" width="6" height="13" rx="1.5"></rect></svg>
                     Kanban
                 </button>
+                <button id="btnCalendarView" class="tbtn" onclick="showCalendarView()" title="Calendar view -- leaf tasks as Start-to-End bars across a month grid (backlog #34)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    Calendar
+                </button>
                 </div>
             </div>
             <div class="toolbar-group">
@@ -713,6 +757,41 @@
     <div id="kanbanPanel" class="kanban-panel" style="display:none;">
         <div id="kanbanTopicTabs" class="kanban-topic-tabs"></div>
         <div id="kanbanBoard" class="kanban-board"></div>
+    </div>
+
+    <!-- CALENDAR VIEW (backlog #34) -- a fifth, full-width workspace mode
+         alongside Grid/Split/Chart/Kanban. Leaf tasks only (same exclusion
+         as Kanban/Workload/Critical Path) draw as Start-to-End bars across
+         a month grid; a task missing either date can't be placed on a
+         grid at all, so it lists in the Unscheduled tray below instead of
+         disappearing silently. View-only for v1 -- a bar/tray item opens
+         the same Detail Card the Grid/Kanban board already use. -->
+    <div id="calendarPanel" class="calendar-panel" style="display:none;">
+        <div class="calendar-toolbar">
+            <button class="calendar-nav-btn" onclick="calendarPrevMonth()" title="Previous month" aria-label="Previous month">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            <div id="calendarMonthLabel" class="calendar-month-label"></div>
+            <button class="calendar-nav-btn" onclick="calendarNextMonth()" title="Next month" aria-label="Next month">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+            <button class="calendar-today-btn" onclick="calendarGoToday()">Today</button>
+            <div class="calendar-legend">
+                <span class="calendar-legend-item"><span class="calendar-legend-dot" style="background:#dc2626;"></span>Overdue</span>
+                <span class="calendar-legend-item"><span class="calendar-legend-dot" style="background:#ca8a04;"></span>Due today</span>
+                <span class="calendar-legend-item"><span class="calendar-legend-dot" style="background:#2563eb;"></span>In progress</span>
+                <span class="calendar-legend-item"><span class="calendar-legend-dot" style="background:#16a34a;"></span>Complete</span>
+            </div>
+        </div>
+        <div class="calendar-body">
+            <div class="calendar-grid-wrap">
+                <div class="calendar-head">
+                    <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                </div>
+                <div id="calendarGrid"></div>
+            </div>
+        </div>
+        <div id="calendarUnscheduled" class="calendar-unscheduled"></div>
     </div>
 
     <footer>
@@ -1092,7 +1171,7 @@
             if (isSuccess) setTimeout(() => { status.style.opacity = 0; }, 3000);
         }
 
-        const APP_VERSION = "2.56.0";
+        const APP_VERSION = "2.57.0";
         document.getElementById('versionTag').innerText = `v${APP_VERSION}`;
 
         const DB_KEY = "simple_gantt_portfolio_v26"; 
@@ -2771,6 +2850,7 @@
 
         function snapPanes(gridPercent) {
             exitKanbanBoard();
+            exitCalendarView();
             gridPanel.style.width = gridPercent + '%';
             localStorage.setItem('simple_gantt_pane_width', gridPercent + '%');
             updateMobilePaneVisibility(gridPercent);
@@ -4024,6 +4104,7 @@
         let kanbanDraggedTaskId = null;
 
         function showKanbanBoard() {
+            exitCalendarView();
             kanbanActive = true;
             document.querySelector('.workspace').style.display = 'none';
             document.getElementById('kanbanPanel').style.display = 'flex';
@@ -4229,6 +4310,253 @@
             const actualLane = (newLane === 'Unsorted') ? '' : newLane;
             if ((data[rowIndex][COL.LANE] || '') === actualLane) return; // no-op drop onto the lane it's already in -- don't spend an Undo step on nothing
             sheet.setValueFromCoords(COL.LANE, rowIndex, actualLane, true);
+        }
+
+        // ==========================================
+        // CALENDAR VIEW (backlog #34)
+        // ==========================================
+        // A fifth, full-width workspace mode alongside Grid/Split/Chart/
+        // Kanban -- same precedent as Kanban's own showKanbanBoard()/
+        // exitKanbanBoard() (display:none swapped against .workspace, not
+        // a percentage of the same split pane). Leaf tasks only (same
+        // exclusion Kanban/Workload/Critical Path already apply) draw as
+        // Start-to-End bars on a month grid; a task missing either date
+        // can't be placed on a grid at all, so it's listed in a small
+        // Unscheduled tray instead of silently vanishing -- the same
+        // instinct behind Kanban's "Uncategorized"/"Unsorted" fallbacks.
+        // View-only for v1: a bar or tray item opens the same Detail Card
+        // every other view already uses to edit dates, matching how
+        // Kanban itself shipped its view before drag-and-drop as a
+        // separate follow-up slice.
+        let calendarActive = false;
+        let calendarViewDate = (function () { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d; })();
+
+        // Month-grid layout caps each week row at this many stacked bars
+        // before the rest of that day's tasks collapse into a "+N more"
+        // label -- same overflow pattern already used by Kanban-adjacent
+        // UI (Plan My Day's Recommended cap) rather than letting one busy
+        // week stretch the whole month's row heights out of alignment.
+        const CALENDAR_MAX_STACK = 3;
+
+        function showCalendarView() {
+            exitKanbanBoard();
+            calendarActive = true;
+            document.querySelector('.workspace').style.display = 'none';
+            document.getElementById('calendarPanel').style.display = 'flex';
+            renderCalendarView();
+        }
+
+        function exitCalendarView() {
+            if (!calendarActive) return;
+            calendarActive = false;
+            document.getElementById('calendarPanel').style.display = 'none';
+            document.querySelector('.workspace').style.display = 'flex';
+        }
+
+        function renderCalendarIfVisible() {
+            if (calendarActive) renderCalendarView();
+        }
+
+        function calendarPrevMonth() { calendarViewDate.setMonth(calendarViewDate.getMonth() - 1); renderCalendarView(); }
+        function calendarNextMonth() { calendarViewDate.setMonth(calendarViewDate.getMonth() + 1); renderCalendarView(); }
+        function calendarGoToday() {
+            calendarViewDate = (function () { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d; })();
+            renderCalendarView();
+        }
+
+        // Priority mirrors Kanban's own card badges: an overdue/due-today
+        // read (computeLateStatus) always wins over the plain % Done
+        // status, since "this is late" matters more than "this hasn't
+        // started yet" -- same exact hex values already driving the Status
+        // column and the grid's End-date highlighting, nothing new to
+        // invent.
+        function calendarBarColor(endStr, pct) {
+            const late = computeLateStatus(endStr, pct);
+            if (late === 'red') return { bg: '#fecaca', fg: '#991b1b' };
+            if (late === 'yellow') return { bg: '#fef08a', fg: '#854d0e' };
+            const status = computeStatus(pct);
+            if (status === 'Complete') return { bg: '#dcfce7', fg: '#166534' };
+            if (status === 'In Progress') return { bg: '#dbeafe', fg: '#1e40af' };
+            return { bg: '#f1f5f9', fg: '#475569' };
+        }
+
+        // Leaf tasks only, filtered by whatever Search/Structured Filters/
+        // Label filter are currently active -- reuses kanbanHiddenRowIndices
+        // exactly as Kanban's own getKanbanCards() does, since it already
+        // tracks the same shared filter set and has nothing Kanban-specific
+        // about what it excludes. A task with a malformed or reversed
+        // (End before Start) date pair is treated the same as a missing
+        // one -- it can't draw a span either -- so it lands in the
+        // Unscheduled tray rather than being silently dropped.
+        function getCalendarTasks() {
+            if (!sheet) return { scheduled: [], unscheduled: [] };
+            const data = sheet.getData();
+            const scheduled = [];
+            const unscheduled = [];
+            data.forEach((row, index) => {
+                const id = (row[COL.ID] || '').toString().trim();
+                if (!id) return;
+                if (kanbanHiddenRowIndices.has(index)) return;
+                const isParent = data.some(r => (r[COL.PARENT] || '').toString().trim() === id);
+                if (isParent) return;
+
+                const startStr = row[COL.START] || '';
+                const endStr = row[COL.END] || '';
+                const start = startStr ? parseLocalDate(startStr) : null;
+                const end = endStr ? parseLocalDate(endStr) : null;
+                const validRange = start && end && !isNaN(start.getTime()) && !isNaN(end.getTime()) && end.getTime() >= start.getTime();
+
+                const pct = parseInt(row[COL.PCT]) || 0;
+                const task = {
+                    index, id,
+                    name: row[COL.NAME] || '(untitled task)',
+                    resource: row[COL.RESOURCE] || '',
+                    color: calendarBarColor(endStr, pct),
+                };
+
+                if (validRange) {
+                    task.start = start; task.end = end;
+                    scheduled.push(task);
+                } else {
+                    unscheduled.push(task);
+                }
+            });
+            return { scheduled, unscheduled };
+        }
+
+        function renderCalendarView() {
+            if (!sheet) return;
+            const year = calendarViewDate.getFullYear();
+            const month = calendarViewDate.getMonth();
+
+            document.getElementById('calendarMonthLabel').textContent =
+                calendarViewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+            const firstOfMonth = new Date(year, month, 1);
+            const startWeekday = firstOfMonth.getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const numWeeks = Math.ceil((startWeekday + daysInMonth) / 7);
+            const gridStart = new Date(year, month, 1 - startWeekday);
+
+            const { scheduled, unscheduled } = getCalendarTasks();
+
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const todayKey = format(today);
+
+            const gridEl = document.getElementById('calendarGrid');
+            gridEl.innerHTML = '';
+
+            for (let w = 0; w < numWeeks; w++) {
+                const weekStart = new Date(gridStart); weekStart.setDate(gridStart.getDate() + w * 7);
+                const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6);
+
+                const weekEl = document.createElement('div');
+                weekEl.className = 'calendar-week';
+
+                for (let c = 0; c < 7; c++) {
+                    const d = new Date(weekStart); d.setDate(weekStart.getDate() + c);
+                    const cell = document.createElement('div');
+                    cell.className = 'calendar-cell' + (d.getMonth() !== month ? ' is-muted' : '') + (format(d) === todayKey ? ' is-today' : '');
+                    const num = document.createElement('div');
+                    num.className = 'calendar-daynum';
+                    num.textContent = d.getDate();
+                    cell.appendChild(num);
+                    weekEl.appendChild(cell);
+                }
+
+                // Every scheduled task overlapping this week contributes one
+                // segment, clipped to the week's own 7-day range (a task
+                // spanning several weeks gets one segment per week it
+                // touches -- each week lays itself out independently, so a
+                // long task's row position can shift between weeks; a fully
+                // persistent row across the whole span is a v2 refinement,
+                // not attempted here). Segments are assigned to stacking
+                // slots with the standard greedy interval-layout approach:
+                // sorted earliest-start-first (longest first as a tie-
+                // break), each takes the first slot whose last-placed
+                // segment already ended before this one starts. Slots at or
+                // past CALENDAR_MAX_STACK aren't drawn as bars -- their days
+                // count toward that day's "+N more" instead.
+                const segments = [];
+                scheduled.forEach(task => {
+                    if (task.end < weekStart || task.start > weekEnd) return;
+                    const segStart = task.start < weekStart ? weekStart : task.start;
+                    const segEnd = task.end > weekEnd ? weekEnd : task.end;
+                    const startCol = Math.round((segStart - weekStart) / 86400000);
+                    const endCol = Math.round((segEnd - weekStart) / 86400000);
+                    segments.push({ task, startCol, endCol });
+                });
+                segments.sort((a, b) => a.startCol - b.startCol || (b.endCol - b.startCol) - (a.endCol - a.startCol));
+
+                const slotEndCol = [];
+                const overflowByCol = new Array(7).fill(0);
+
+                segments.forEach(seg => {
+                    let slot = slotEndCol.findIndex(end => end < seg.startCol);
+                    if (slot === -1) slot = slotEndCol.length;
+                    slotEndCol[slot] = seg.endCol;
+
+                    if (slot < CALENDAR_MAX_STACK) {
+                        const bar = document.createElement('div');
+                        bar.className = 'calendar-bar';
+                        bar.style.top = (24 + slot * 23) + 'px';
+                        bar.style.left = `calc((100% / 7) * ${seg.startCol} + 3px)`;
+                        bar.style.width = `calc((100% / 7) * ${seg.endCol - seg.startCol + 1} - 6px)`;
+                        bar.style.background = seg.task.color.bg;
+                        bar.style.color = seg.task.color.fg;
+                        const label = seg.task.name + (seg.task.resource ? ' · ' + seg.task.resource : '');
+                        bar.textContent = label;
+                        bar.title = `${label} (${format(seg.task.start)} – ${format(seg.task.end)})`;
+                        bar.addEventListener('click', () => openDetailCardModal(seg.task.index));
+                        weekEl.appendChild(bar);
+                    } else {
+                        for (let c = seg.startCol; c <= seg.endCol; c++) overflowByCol[c]++;
+                    }
+                });
+
+                overflowByCol.forEach((count, c) => {
+                    if (count === 0) return;
+                    const more = document.createElement('div');
+                    more.className = 'calendar-more';
+                    more.style.top = (24 + CALENDAR_MAX_STACK * 23) + 'px';
+                    more.style.left = `calc((100% / 7) * ${c} + 3px)`;
+                    more.style.width = `calc((100% / 7) - 6px)`;
+                    more.textContent = `+${count} more`;
+                    weekEl.appendChild(more);
+                });
+
+                gridEl.appendChild(weekEl);
+            }
+
+            renderCalendarUnscheduled(unscheduled);
+        }
+
+        function renderCalendarUnscheduled(tasks) {
+            const wrap = document.getElementById('calendarUnscheduled');
+            wrap.innerHTML = '';
+
+            const title = document.createElement('div');
+            title.className = 'calendar-unscheduled-title';
+            title.textContent = tasks.length === 0
+                ? 'Unscheduled'
+                : `Unscheduled (${tasks.length}) – missing a Start or End date`;
+            wrap.appendChild(title);
+
+            if (tasks.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'calendar-empty-note';
+                empty.textContent = 'Nothing missing a Start or End date.';
+                wrap.appendChild(empty);
+                return;
+            }
+
+            tasks.forEach(t => {
+                const chip = document.createElement('span');
+                chip.className = 'calendar-unscheduled-item';
+                chip.textContent = t.name + (t.resource ? ' · ' + t.resource : '');
+                chip.addEventListener('click', () => openDetailCardModal(t.index));
+                wrap.appendChild(chip);
+            });
         }
 
         function shouldSkipWeekends() { return document.getElementById('skipWeekends').checked; }
@@ -5344,6 +5672,7 @@
             });
 
             renderKanbanBoardIfVisible();
+            renderCalendarIfVisible();
         }
 
         // ==========================================

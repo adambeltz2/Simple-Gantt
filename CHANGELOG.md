@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.57.0] - 2026-11-09
+
+### ✨ Added
+
+#### Calendar view (backlog #34)
+- **User-requested:** "Would it be doable to also have a calendar view of tasks?" -- a feasibility check first, answered with a static mockup before any real code, then scoped through six open questions worked through with the user: every leaf task draws as a full Start-to-End bar (not just a due-date marker), leaf tasks only, a task missing Start or End lists in an "Unscheduled" tray instead of disappearing, each week caps at 3 stacked bars before collapsing extras into a "+N more" label, view-only for v1 (click opens the existing Detail Card to edit dates), month view only.
+- A fifth, full-width workspace mode alongside Grid/Split/Chart/Kanban (`showCalendarView()`/`exitCalendarView()`, mutually exclusive with Kanban and the Grid/Chart split exactly as Kanban already is with those). Month navigation (‹ Month Year ›, Today) plus a legend explaining the bar colors.
+- Bars reuse the exact Status/late-date color palette already driving the Status column and End-date highlighting (red=overdue, yellow=due today, blue=in progress, green=complete, gray=not started) -- nothing new invented. A bar spanning a week boundary draws as two segments, one per week row, via a standard greedy interval-stacking layout computed independently per week.
+- Reuses `kanbanHiddenRowIndices` directly for its filter-visibility set, so Search/Label/Resource/Parent/%Done/date-range filters narrow the calendar the same way they already narrow the Grid and Kanban board.
+- **New:** `tests/calendar-view.spec.js` (15 tests) -- view toggling and mutual exclusivity with Kanban/Grid/Split/Chart, month navigation and Today, leaf-only task filtering, the Unscheduled tray (including its empty state), Detail Card opening from a bar and from the tray, the status color palette, multi-day tasks rendering as one bar rather than one chip per day, filter pass-through, and the 3-bar stack cap with "+N more" overflow.
+- Still open / deferred to v2+: drag-to-reschedule on the calendar itself, a week/day view, a fully persistent row position for a multi-week task across every week it touches, and a popover/drill-in for a day's "+N more" overflow.
+- Full Playwright suite re-verified against real vendored CDN copies, zero regressions.
+
 ## [2.56.0] - 2026-10-29
 
 ### ✨ Added
